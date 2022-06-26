@@ -1,0 +1,40 @@
+name: validate-python-headers
+author: frgfm
+description: Validate the copyright & license references in the headers of your Python files
+branding:
+  icon: check-square
+  color: blue
+
+inputs:
+  license:
+    # https://spdx.org/licenses/
+    description: 'License of your project'
+    required: true
+  owner:
+    description: 'The copyright owner'
+    required: true
+  starting-year:
+    description: 'The starting year of your project'
+    required: true
+  folders:
+    description: 'Folders to inspect'
+    required: false
+    default: '.'
+  ignores:
+    description: 'Files to ignore'
+    required: false
+    default: ''
+
+outputs:
+  issues: # id of output
+    description: 'The list of files with header issues'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.license }}
+    - ${{ inputs.owner }}
+    - ${{ inputs.starting-year }}
+    - ${{ inputs.folders }}
+    - ${{ inputs.ignores }}
