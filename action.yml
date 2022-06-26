@@ -23,7 +23,7 @@ inputs:
   ignores:
     description: 'Files to ignore'
     required: false
-    default: ''
+    default: '__init__.py'
 
 outputs:
   issues: # id of output

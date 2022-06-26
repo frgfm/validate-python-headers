@@ -1,3 +1,9 @@
+# Copyright (C) 2022, François-Guillaume Fernandez.
+
+# This program is licensed under the Apache License version 2.
+# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0.txt> for full license details.
+
+
 import json
 from datetime import datetime
 from pathlib import Path
@@ -8,15 +14,15 @@ blank_line = "\n"
 
 def main(args):
 
-    # Parse args
     # Possible years
     current_year = datetime.now().year
+    assert args.year <= current_year, f"Invalid first copyright year: {args.year}"
 
     with open("supported-licenses.json", "rb") as f:
         LICENSES = json.load(f)
     license_info = LICENSES[args.license]
 
-    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(args.starting_year, current_year)]
+    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(args.year, current_year)]
     copyright_notices = [[f"# Copyright (C) {year_str}, {args.owner}.\n"] for year_str in year_options]
     license_notice = [
         f"# This program is licensed under the {license_info['name']}.\n",
@@ -55,6 +61,7 @@ def main(args):
 
     if len(invalid_files) > 0:
         invalid_str = "\n- " + "\n- ".join(map(str, invalid_files))
+        invalid_str += "\n\nYour header should look like:\n\n" + "".join(HEADERS[-1])
         raise AssertionError(f"Invalid header in the following files:{invalid_str}")
 
 
@@ -67,7 +74,7 @@ def parse_args():
 
     parser.add_argument("license", type=str, help="identifier of the license being used")
     parser.add_argument("owner", type=str, help="owner of the copyright")
-    parser.add_argument("starting-year", type=int, help="first copyright year of the project")
+    parser.add_argument("year", type=int, help="first copyright year of the project")
     parser.add_argument("--folders", type=str, default=".", help="folders to inspect")
     parser.add_argument("--ignores", type=str, default="", help="files to ignore")
     args = parser.parse_args()
