@@ -63,7 +63,7 @@ jobs:
         run: |
           pip install mypy
           mypy --version
-          mypy torchcam/
+          mypy
 
   black:
     runs-on: ${{ matrix.os }}
