@@ -1,0 +1,20 @@
+[tool.mypy]
+files = "*.py"
+show_error_codes = true
+pretty = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+implicit_reexport = false
+
+[tool.isort]
+profile = "black"
+line_length = 120
+src_paths = ["."]
+skip_glob = "**/__init__.py"
+known_third_party = []
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
