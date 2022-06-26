@@ -26,15 +26,15 @@ The files to ignore, separated by a comma. Default `""`.
 
 ## Outputs
 
-## `time`
-
-The time we greeted you.
+The list of files with header issues.
 
 ## Example usage
 
+```
 uses: frgfm/validate-python-headers@main
 with:
   license: 'Apache-2.0'
   owner: 'François-Guillaume Fernandez'
   starting-year: 2022
   ignores: 'version.py,__init__.py'
+```
