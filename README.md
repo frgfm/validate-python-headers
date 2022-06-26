@@ -22,7 +22,7 @@ The folders to inspect, separated by a comma. Default `"."`.
 
 ## `ignores`
 
-The files to ignore, separated by a comma. Default `""`.
+The files to ignore, separated by a comma. Default `"__init__.py"`.
 
 ## Outputs
 
