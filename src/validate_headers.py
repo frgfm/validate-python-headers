@@ -43,7 +43,9 @@ def main(args):
 
     # For every python file in the repository
     for folder in FOLDERS:
-        for source_path in Path(__file__).parent.parent.joinpath(folder).rglob("**/*.py"):
+        folder_path = Path(folder)
+        assert folder_path.is_dir(), f"Invalid folder path: {folder}"
+        for source_path in folder_path.rglob("**/*.py"):
             if source_path.name not in IGNORED_FILES:
                 # Parse header
                 header_length = max(len(option) for option in HEADERS)
