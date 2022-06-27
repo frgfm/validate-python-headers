@@ -22,4 +22,4 @@ jobs:
       - name: Build docker
         run: docker build . -t header-validator:py3.8.13-alpine
       - name: Run action
-        run: docker run header-validator:py3.8.13-alpine Apache-2.0 'François-Guillaume Fernandez' 2022 src/ __init__.py
+        run: docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:py3.8.13-alpine Apache-2.0 'François-Guillaume Fernandez' 2022 src/ __init__.py
