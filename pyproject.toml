@@ -1,5 +1,5 @@
 [tool.mypy]
-files = "*.py"
+files = "src/*.py"
 show_error_codes = true
 pretty = true
 warn_unused_ignores = true
@@ -11,7 +11,7 @@ implicit_reexport = false
 [tool.isort]
 profile = "black"
 line_length = 120
-src_paths = ["."]
+src_paths = ["src"]
 skip_glob = "**/__init__.py"
 known_third_party = []
 
