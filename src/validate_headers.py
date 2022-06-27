@@ -7,48 +7,76 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, List
 
-shebang = ["#!usr/bin/python\n"]
-blank_line = "\n"
-LICENSE_PATH = Path(__file__).parent.absolute().joinpath("supported-licenses.json")
+SHEBANG = ["#!usr/bin/python\n"]
+BLANK_LINE = "\n"
+# https://raw.githubusercontent.com/spdx/license-list-data/v3.17/json/licenses.json
+with open(Path(__file__).parent.absolute().joinpath("supported-licenses.json"), "rb") as f:
+    raw_data = json.load(f)
+LICENSES: Dict[str, Dict[str, str]] = {
+    license["licenseId"]: {"name": license["name"], "urls": license["seeAlso"]} for license in raw_data["licenses"]
+}
+
+
+def get_header_options(
+    license_id: str, owner: str, starting_year: int
+) -> List[List[str]]:
+
+    # Year check
+    current_year = datetime.now().year
+    assert starting_year <= current_year, f"Invalid first copyright year: {starting_year}"
+
+    # License check
+    license_info = LICENSES.get(license_id)
+    assert isinstance(license_info, dict), f"Invalid license identifier: {license_id}"
+
+    # Owner check
+    assert len(owner) > 0, "Please specify the copyright owner"
+
+    # License file check
+    assert Path("LICENSE").is_file(), "Unable to locate local copy of license text."
+
+    # Header build
+    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(starting_year, current_year)]
+    copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
+    license_notices = [
+        [
+            f"# This program is licensed under the {license_info['name']}.\n",
+            f"# See LICENSE or go to <{url}> for full license details.\n",
+        ]
+        for url in license_info["urls"]
+    ]
+
+    return [
+        SHEBANG + [BLANK_LINE] + copyright_notice + [BLANK_LINE] + license_notice
+        for copyright_notice in copyright_notices
+        for license_notice in license_notices
+    ] + [
+        copyright_notice + [BLANK_LINE] + license_notice
+        for copyright_notice in copyright_notices
+        for license_notice in license_notices
+    ]
 
 
 def main(args):
 
-    # Possible years
-    current_year = datetime.now().year
-    assert args.year <= current_year, f"Invalid first copyright year: {args.year}"
+    # Check args & define all header options
+    header_options = get_header_options(args.license, args.owner, args.year, args.ignore_license_file)
 
-    with open(LICENSE_PATH, "rb") as f:
-        LICENSES = json.load(f)
-    license_info = LICENSES[args.license]
-
-    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(args.year, current_year)]
-    copyright_notices = [[f"# Copyright (C) {year_str}, {args.owner}.\n"] for year_str in year_options]
-    license_notice = [
-        f"# This program is licensed under the {license_info['name']}.\n",
-        f"# See LICENSE or go to <{license_info['url']}> for full license details.\n",
-    ]
-
-    # Define all header options
-    HEADERS = [
-        shebang + [blank_line] + copyright_notice + [blank_line] + license_notice
-        for copyright_notice in copyright_notices
-    ] + [copyright_notice + [blank_line] + license_notice for copyright_notice in copyright_notices]
-
-    IGNORED_FILES = args.ignores.split(",")
-    FOLDERS = args.folders.split(",")
+    ignored_files = args.ignores.split(",")
+    folders = args.folders.split(",")
 
     invalid_files = []
 
     # For every python file in the repository
-    for folder in FOLDERS:
+    for folder in folders:
         folder_path = Path(folder)
         assert folder_path.is_dir(), f"Invalid folder path: {folder}"
         for source_path in folder_path.rglob("**/*.py"):
-            if source_path.name not in IGNORED_FILES:
+            if source_path.name not in ignored_files:
                 # Parse header
-                header_length = max(len(option) for option in HEADERS)
+                header_length = max(len(option) for option in header_options)
                 current_header = []
                 with open(source_path) as f:
                     for idx, line in enumerate(f):
@@ -58,13 +86,13 @@ def main(args):
                 # Validate it
                 if not any(
                     "".join(current_header[: min(len(option), len(current_header))]) == "".join(option)
-                    for option in HEADERS
+                    for option in header_options
                 ):
                     invalid_files.append(source_path)
 
     if len(invalid_files) > 0:
         invalid_str = "\n- " + "\n- ".join(map(str, invalid_files))
-        invalid_str += "\n\nYour header should look like:\n\n" + "".join(HEADERS[-1])
+        invalid_str += "\n\nYour header should look like:\n\n" + "".join(header_options[-1])
         raise AssertionError(f"Invalid header in the following files:{invalid_str}")
 
 
