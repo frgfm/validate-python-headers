@@ -11,10 +11,10 @@ inputs:
     description: 'License of your project'
     required: true
   owner:
-    description: 'The copyright owner'
+    description: 'Name of the copyright owner'
     required: true
   starting-year:
-    description: 'The starting year of your project'
+    description: 'Starting year of your project'
     required: true
   folders:
     description: 'Folders to inspect'

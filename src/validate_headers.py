@@ -102,7 +102,7 @@ def parse_args():
     )
 
     parser.add_argument("license", type=str, help="identifier of the license being used")
-    parser.add_argument("owner", type=str, help="owner of the copyright")
+    parser.add_argument("owner", type=str, help="name of the copyright owner")
     parser.add_argument("year", type=int, help="first copyright year of the project")
     parser.add_argument("--folders", type=str, default=".", help="folders to inspect")
     parser.add_argument("--ignores", type=str, default="", help="files to ignore")
