@@ -10,6 +10,7 @@ from pathlib import Path
 
 shebang = ["#!usr/bin/python\n"]
 blank_line = "\n"
+LICENSE_PATH = Path(__file__).parent.absolute().joinpath("supported-licenses.json")
 
 
 def main(args):
@@ -18,7 +19,7 @@ def main(args):
     current_year = datetime.now().year
     assert args.year <= current_year, f"Invalid first copyright year: {args.year}"
 
-    with open("supported-licenses.json", "rb") as f:
+    with open(LICENSE_PATH, "rb") as f:
         LICENSES = json.load(f)
     license_info = LICENSES[args.license]
 
