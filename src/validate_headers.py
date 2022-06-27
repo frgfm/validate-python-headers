@@ -19,9 +19,7 @@ LICENSES: Dict[str, Dict[str, str]] = {
 }
 
 
-def get_header_options(
-    license_id: str, owner: str, starting_year: int
-) -> List[List[str]]:
+def get_header_options(license_id: str, owner: str, starting_year: int) -> List[List[str]]:
 
     # Year check
     current_year = datetime.now().year
@@ -62,7 +60,7 @@ def get_header_options(
 def main(args):
 
     # Check args & define all header options
-    header_options = get_header_options(args.license, args.owner, args.year, args.ignore_license_file)
+    header_options = get_header_options(args.license, args.owner, args.year)
 
     ignored_files = args.ignores.split(",")
     folders = args.folders.split(",")
