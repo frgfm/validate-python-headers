@@ -18,23 +18,23 @@ This action checks the copyright and license notices in the headers of your Pyth
 
 ## Inputs
 
-## `license`
+### `license`
 
 **Required** Identifier of the license for your project (cf. [SPDX identifiers](https://spdx.org/licenses/)).
 
-## `owner`
+### `owner`
 
 **Required** The copyright owner.
 
-## `starting-year`
+### `starting-year`
 
 **Required** The starting year of your project.
 
-## `folders`
+### `folders`
 
 The folders to inspect, separated by a comma. Default `"."`.
 
-## `ignores`
+### `ignores`
 
 The files to ignore, separated by a comma. Default `"__init__.py"`.
 
@@ -52,3 +52,16 @@ with:
   starting-year: 2022
   ignores: 'version.py,__init__.py'
 ```
+
+
+## Contributing
+
+Any sort of contribution is greatly appreciated!
+
+You can find a short guide in [`CONTRIBUTING`](CONTRIBUTING) to help grow this project!
+
+
+
+## License
+
+Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE) for more information.
