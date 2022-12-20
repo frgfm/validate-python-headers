@@ -57,7 +57,8 @@ with:
   license: 'Apache-2.0'
   owner: 'François-Guillaume Fernandez'
   starting-year: 2022
-  ignores: 'version.py,__init__.py'
+  ignore-files: 'version.py,__init__.py'
+  ignore-folders: '.github/'
 ```
 
 
