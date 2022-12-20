@@ -8,10 +8,10 @@ Whatever the way you wish to contribute to the project, please respect the [code
 
 ## Codebase structure
 
-- [src](https://github.com/frgfm/validate-python-headers/blob/main/src) - The actual script used for header verification
-- [action.yml](https://github.com/frgfm/validate-python-headers/blob/main/tests) - The marketplace action configuration file
-- [Dockerfile](https://github.com/frgfm/validate-python-headers/blob/main/Dockerfile) - The dockerfile of the action
-- [entrypoint.sh](https://github.com/frgfm/validate-python-headers/blob/main/entrypoint.sh) - The bash script executed by the Docker container
+- [`./src`](https://github.com/frgfm/validate-python-headers/blob/main/src) - The actual script used for header verification
+- [`action.yml`](https://github.com/frgfm/validate-python-headers/blob/main/tests) - The marketplace action configuration file
+- [`Dockerfile`](https://github.com/frgfm/validate-python-headers/blob/main/Dockerfile) - The dockerfile of the action
+- [`entrypoint.sh`](https://github.com/frgfm/validate-python-headers/blob/main/entrypoint.sh) - The bash script executed by the Docker container
 
 
 ## Continuous Integration

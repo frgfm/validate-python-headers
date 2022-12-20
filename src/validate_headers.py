@@ -62,7 +62,8 @@ def main(args):
     # Check args & define all header options
     header_options = get_header_options(args.license, args.owner, args.year)
 
-    ignored_files = args.ignores.split(",")
+    ignored_files = args.ignore_files.split(",")
+    ignored_folders = [Path(folder) for folder in args.ignore_folders.split(",")]
     folders = args.folders.split(",")
 
     invalid_files = []
@@ -72,21 +73,22 @@ def main(args):
         folder_path = Path(folder)
         assert folder_path.is_dir(), f"Invalid folder path: {folder}"
         for source_path in folder_path.rglob("**/*.py"):
-            if source_path.name not in ignored_files:
-                # Parse header
-                header_length = max(len(option) for option in header_options)
-                current_header = []
-                with open(source_path) as f:
-                    for idx, line in enumerate(f):
-                        current_header.append(line)
-                        if idx == header_length - 1:
-                            break
-                # Validate it
-                if not any(
-                    "".join(current_header[: min(len(option), len(current_header))]) == "".join(option)
-                    for option in header_options
-                ):
-                    invalid_files.append(source_path)
+            if source_path.name in ignored_files or any(folder in source_path.parents for folder in ignored_folders):
+                continue
+            # Parse header
+            header_length = max(len(option) for option in header_options)
+            current_header = []
+            with open(source_path) as f:
+                for idx, line in enumerate(f):
+                    current_header.append(line)
+                    if idx == header_length - 1:
+                        break
+            # Validate it
+            if not any(
+                "".join(current_header[: min(len(option), len(current_header))]) == "".join(option)
+                for option in header_options
+            ):
+                invalid_files.append(source_path)
 
     if len(invalid_files) > 0:
         invalid_str = "\n- " + "\n- ".join(map(str, invalid_files))
@@ -105,7 +107,8 @@ def parse_args():
     parser.add_argument("owner", type=str, help="name of the copyright owner")
     parser.add_argument("year", type=int, help="first copyright year of the project")
     parser.add_argument("--folders", type=str, default=".", help="folders to inspect")
-    parser.add_argument("--ignores", type=str, default="", help="files to ignore")
+    parser.add_argument("--ignore-files", type=str, default="", help="files to ignore")
+    parser.add_argument("--ignore-folders", type=str, default="", help="folders to ignore")
     args = parser.parse_args()
 
     return args
