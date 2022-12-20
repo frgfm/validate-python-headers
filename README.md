@@ -1,11 +1,14 @@
 # Header validator for your Python files
 
 <p align="center">
-  <a href="https://github.com/frgfm/validate-python-headers/actions?query=workflow%3Abuilds">
-    <img alt="CI Status" src="https://img.shields.io/github/workflow/status/frgfm/validate-python-headers/builds?label=CI&logo=github&style=flat-square">
+  <a href="https://github.com/frgfm/validate-python-headers/actions/workflows/builds.yml">
+    <img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/frgfm/validate-python-headers/builds.yml?branch=main&label=CI&logo=github&style=flat-square">
   </a>
   <a href="https://github.com/ambv/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="black">
+  </a>
+  <a href="https://github.com/PyCQA/bandit">
+    <img src="https://img.shields.io/badge/security-bandit-yellow.svg?style=flat-square" alt="bandit">
   </a>
   <a href="https://www.codacy.com/gh/frgfm/validate-python-headers/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=frgfm/validate-python-headers&amp;utm_campaign=Badge_Grade"><img src="https://app.codacy.com/project/badge/Grade/4e50e872d9fd4a378b696bdc0aea9301"/></a>
 <p align="center">
@@ -62,7 +65,7 @@ with:
 
 Any sort of contribution is greatly appreciated!
 
-You can find a short guide in [`CONTRIBUTING`](CONTRIBUTING) to help grow this project!
+You can find a short guide in [`CONTRIBUTING`](CONTRIBUTING.md) to help grow this project!
 
 
 
