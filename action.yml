@@ -20,10 +20,14 @@ inputs:
     description: 'Folders to inspect'
     required: false
     default: '.'
-  ignores:
+  ignore-files:
     description: 'Files to ignore'
     required: false
     default: '__init__.py'
+  ignore-folders:
+    description: 'Folders to ignore'
+    required: false
+    default: '.github/'
 
 outputs:
   issues: # id of output
@@ -37,4 +41,5 @@ runs:
     - ${{ inputs.owner }}
     - ${{ inputs.starting-year }}
     - ${{ inputs.folders }}
-    - ${{ inputs.ignores }}
+    - ${{ inputs.ignore-files }}
+    - ${{ inputs.ignore-folders }}

@@ -34,9 +34,13 @@ This action checks the copyright and license notices in the headers of your Pyth
 
 The folders to inspect, separated by a comma. Default `"."`.
 
-### `ignores`
+### `ignore-files`
 
 The files to ignore, separated by a comma. Default `"__init__.py"`.
+
+### `ignore-folders`
+
+The folders to ignore, separated by a comma. Default `".github/"`.
 
 ## Outputs
 
