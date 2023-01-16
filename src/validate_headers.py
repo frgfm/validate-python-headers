@@ -33,7 +33,7 @@ def get_header_options(
         raise ValueError("Please specify the copyright owner")
 
     # License check
-    license_notice_str = None
+    license_notices = []
     if isinstance(license_id, str):
         license_info = LICENSES.get(license_id)
         if not isinstance(license_info, dict):
@@ -41,28 +41,24 @@ def get_header_options(
         # License file check
         if not Path("LICENSE").is_file():
             raise FileNotFoundError("Unable to locate local copy of license text.")
-    elif isinstance(license_notice, str):
-        if not Path(license_notice).is_file():
-            raise FileNotFoundError("Unable to locate the text of the license notice.")
-        with open(license_notice, "r") as f:
-            license_notice_str = f.readlines()
-    else:
-        raise ValueError("One of the following args needs to be specified: 'license_id', 'license_notice'")
-
-    # Header build
-    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(starting_year, current_year)]
-    copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
-    license_notices = (
-        [
+        license_notices = [
             [
                 f"# This program is licensed under the {license_info['name']}.\n",
                 f"# See LICENSE or go to <{url}> for full license details.\n",
             ]
             for url in license_info["urls"]
         ]
-        if isinstance(license_id, str)
-        else [license_notice_str]
-    )
+    elif isinstance(license_notice, str):
+        if not Path(license_notice).is_file():
+            raise FileNotFoundError("Unable to locate the text of the license notice.")
+        with open(license_notice, "r") as f:
+            license_notices = [f.readlines()]
+    else:
+        raise ValueError("One of the following args needs to be specified: 'license_id', 'license_notice'")
+
+    # Header build
+    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(starting_year, current_year)]
+    copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
 
     return [
         SHEBANG + [BLANK_LINE] + copyright_notice + [BLANK_LINE] + license_notice
