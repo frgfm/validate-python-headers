@@ -20,4 +20,4 @@ build:
 # Run tests for the library
 test:
 	docker build . -t header-validator:py3.8.13-alpine
-	docker run --workdir /github/workspace -v src:/github/workspace/src header-validator:py3.8.13-alpine Apache-2.0 'François-Guillaume Fernandez' 2022 src/ __init__.py .github/
+	docker run --workdir /github/workspace -v src:/github/workspace/src header-validator:py3.8.13-alpine 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
