@@ -31,7 +31,7 @@ This action checks the copyright and license notices in the headers of your Pyth
 
 ### `license`
 
-Identifier of the license for your project (cf. [SPDX identifiers](https://spdx.org/licenses/)).
+Identifier of the license for your project (cf. [SPDX identifiers](https://spdx.org/licenses/)). Default `null`.
 
 ### `folders`
 
@@ -47,7 +47,7 @@ The folders to ignore, separated by a comma. Default `".github/"`.
 
 ### `license-notice`
 
-The path to a license notice text. If license is null, the header will be expected to have this text as a license notice.
+The path to a license notice text. If license is `null`, the header will be expected to have this text as a license notice. Default `null`.
 
 ## Outputs
 
