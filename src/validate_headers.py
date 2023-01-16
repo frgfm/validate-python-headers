@@ -48,7 +48,7 @@ def get_header_options(
             ]
             for url in license_info["urls"]
         ]
-    elif isinstance(license_notice, str) and len(license_id) > 0:
+    elif isinstance(license_notice, str) and len(license_notice) > 0:
         if not Path(license_notice).is_file():
             raise FileNotFoundError("Unable to locate the text of the license notice.")
         with open(license_notice, "r") as f:
