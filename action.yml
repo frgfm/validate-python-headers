@@ -6,16 +6,17 @@ branding:
   color: blue
 
 inputs:
-  license:
-    # https://spdx.org/licenses/
-    description: 'License of your project'
-    required: true
   owner:
     description: 'Name of the copyright owner'
     required: true
   starting-year:
     description: 'Starting year of your project'
     required: true
+  license:
+    # https://spdx.org/licenses/
+    description: 'License of your project'
+    required: false
+    default: null
   folders:
     description: 'Folders to inspect'
     required: false
@@ -28,6 +29,10 @@ inputs:
     description: 'Folders to ignore'
     required: false
     default: '.github/'
+  license-notice:
+    description: 'Custom license notice to be used if license is null'
+    required: false
+    default: null
 
 outputs:
   issues: # id of output
@@ -37,9 +42,10 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - ${{ inputs.license }}
     - ${{ inputs.owner }}
     - ${{ inputs.starting-year }}
+    - ${{ inputs.license }}
     - ${{ inputs.folders }}
     - ${{ inputs.ignore-files }}
     - ${{ inputs.ignore-folders }}
+    - ${{ inputs.license-notice }}

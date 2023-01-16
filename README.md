@@ -21,10 +21,6 @@ This action checks the copyright and license notices in the headers of your Pyth
 
 ## Inputs
 
-### `license`
-
-**Required** Identifier of the license for your project (cf. [SPDX identifiers](https://spdx.org/licenses/)).
-
 ### `owner`
 
 **Required** The copyright owner.
@@ -32,6 +28,10 @@ This action checks the copyright and license notices in the headers of your Pyth
 ### `starting-year`
 
 **Required** The starting year of your project.
+
+### `license`
+
+Identifier of the license for your project (cf. [SPDX identifiers](https://spdx.org/licenses/)). Default `null`.
 
 ### `folders`
 
@@ -45,16 +45,34 @@ The files to ignore, separated by a comma. Default `"__init__.py"`.
 
 The folders to ignore, separated by a comma. Default `".github/"`.
 
+### `license-notice`
+
+The path to a license notice text. If license is `null`, the header will be expected to have this text as a license notice. Default `null`.
+
 ## Outputs
 
 The list of files with header issues.
 
-## Example usage
+## Example usages
+
+Using an Open-source license:
 
 ```
 uses: frgfm/validate-python-headers@main
 with:
   license: 'Apache-2.0'
+  owner: 'François-Guillaume Fernandez'
+  starting-year: 2022
+  ignore-files: 'version.py,__init__.py'
+  ignore-folders: '.github/'
+```
+
+On closed source code:
+
+```
+uses: frgfm/validate-python-headers@main
+with:
+  license-notice: '.github/license-notice.txt'
   owner: 'François-Guillaume Fernandez'
   starting-year: 2022
   ignore-files: 'version.py,__init__.py'
