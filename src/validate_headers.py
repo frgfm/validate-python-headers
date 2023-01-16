@@ -34,7 +34,7 @@ def get_header_options(
 
     # License check
     license_notices = []
-    if isinstance(license_id, str):
+    if isinstance(license_id, str) and len(license_id) > 0:
         license_info = LICENSES.get(license_id)
         if not isinstance(license_info, dict):
             raise KeyError(f"Invalid license identifier: {license_id}")
@@ -48,7 +48,7 @@ def get_header_options(
             ]
             for url in license_info["urls"]
         ]
-    elif isinstance(license_notice, str):
+    elif isinstance(license_notice, str) and len(license_id) > 0:
         if not Path(license_notice).is_file():
             raise FileNotFoundError("Unable to locate the text of the license notice.")
         with open(license_notice, "r") as f:
