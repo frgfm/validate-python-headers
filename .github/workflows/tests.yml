@@ -14,14 +14,12 @@ jobs:
       matrix:
         os: [ubuntu-latest]
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache python modules
-        uses: satackey/action-docker-layer-caching@v0.0.11
+      - uses: actions/checkout@v4
+      - uses: satackey/action-docker-layer-caching@v0.0.11
         # Ignore the failure of a step and avoid terminating the job.
         continue-on-error: true
-      - name: Build docker
-        run: docker build . -t header-validator:py3.8.13-alpine
+      - run: docker build . -t header-validator:latest
       - name: Run action
         run: |
-          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:py3.8.13-alpine 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
-          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:py3.8.13-alpine 'François-Guillaume Fernandez' 2022 '' src/ __init__.py .github/ .github/license-notice.txt
+          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
+          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 '' src/ __init__.py .github/ .github/license-notice.txt

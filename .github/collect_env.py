@@ -1,4 +1,4 @@
-# Copyright (C) 2022, François-Guillaume Fernandez.
+# Copyright (C) 2022-2024, François-Guillaume Fernandez.
 
 # This program is licensed under the Apache License version 2.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0.txt> for full license details.
@@ -13,26 +13,22 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import locale
 import re
-import subprocess
+import subprocess  # noqa S404
 import sys
-from collections import namedtuple
+from typing import NamedTuple
 
 PY3 = sys.version_info >= (3, 0)
 
 
 # System Environment Information
-SystemEnv = namedtuple(
-    "SystemEnv",
-    [
-        "os",
-        "python_version",
-    ],
-)
+class SystemEnv(NamedTuple):
+    os: str
+    python_version: str
 
 
 def run(command):
     """Returns (return-code, stdout, stderr)"""
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)  # noqa S602
     output, err = p.communicate()
     rc = p.returncode
     if PY3:
@@ -64,14 +60,13 @@ def run_and_parse_first_match(run_lambda, command, regex):
 def get_platform():
     if sys.platform.startswith("linux"):
         return "linux"
-    elif sys.platform.startswith("win32"):
+    if sys.platform.startswith("win32"):
         return "win32"
-    elif sys.platform.startswith("cygwin"):
+    if sys.platform.startswith("cygwin"):
         return "cygwin"
-    elif sys.platform.startswith("darwin"):
+    if sys.platform.startswith("darwin"):
         return "darwin"
-    else:
-        return sys.platform
+    return sys.platform
 
 
 def get_mac_version(run_lambda):
@@ -137,14 +132,14 @@ Python version: {python_version}
 
 def pretty_str(envinfo):
     def replace_nones(dct, replacement="Could not collect"):
-        for key in dct.keys():
+        for key in dct:
             if dct[key] is not None:
                 continue
             dct[key] = replacement
         return dct
 
     def replace_bools(dct, true="Yes", false="No"):
-        for key in dct.keys():
+        for key in dct:
             if dct[key] is True:
                 dct[key] = true
             elif dct[key] is False:
