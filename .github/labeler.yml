@@ -18,6 +18,12 @@
     - CODFE_OF_CONDUCT.md
     - LICENSE
 
+'topic: docker':
+- changed-files:
+  - any-glob-to-any-file:
+    - Dockerfile
+    - entrypoint.sh
+
 'topic: build':
 - changed-files:
   - any-glob-to-any-file:
