@@ -92,6 +92,7 @@ known-third-party = []
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["I001", "F401", "CPY001"]
 ".github/**.py" = ["D", "T201", "ANN"]
+"src/**.py" = ["ANN"]
 "src/tests/**.py" = ["D103", "CPY001", "S101", "T201", "ANN001", "ANN201", "ARG001"]
 
 [tool.ruff.format]
