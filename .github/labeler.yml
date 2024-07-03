@@ -1,0 +1,29 @@
+'module: src':
+- changed-files:
+  - any-glob-to-any-file: src/*
+
+'module: action':
+- changed-files:
+  - any-glob-to-any-file: action.yml
+
+'topic: ci':
+- changed-files:
+  - any-glob-to-any-file: .github/*
+
+'topic: docs':
+- changed-files:
+  - any-glob-to-any-file:
+    - README.md
+    - CONTRIBUTING.md
+    - CODFE_OF_CONDUCT.md
+    - LICENSE
+
+'topic: build':
+- changed-files:
+  - any-glob-to-any-file:
+    - pyproject.toml
+    - poetry.lock
+
+'topic: style':
+- changed-files:
+  - any-glob-to-any-file: .pre-commit-config.yaml
