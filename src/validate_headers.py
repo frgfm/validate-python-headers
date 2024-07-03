@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2023, François-Guillaume Fernandez.
+# Copyright (C) 2022-2024, François-Guillaume Fernandez.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
@@ -12,17 +12,16 @@ from typing import Dict, List, Union
 SHEBANG = ["#!usr/bin/python\n"]
 BLANK_LINE = "\n"
 # https://raw.githubusercontent.com/spdx/license-list-data/v3.17/json/licenses.json
-with open(Path(__file__).parent.absolute().joinpath("supported-licenses.json"), "rb") as f:
+with Path(__file__).parent.absolute().joinpath("supported-licenses.json").open("rb") as f:
     raw_data = json.load(f)
 LICENSES: Dict[str, Dict[str, str]] = {
-    license["licenseId"]: {"name": license["name"], "urls": license["seeAlso"]} for license in raw_data["licenses"]
+    _license["licenseId"]: {"name": _license["name"], "urls": _license["seeAlso"]} for _license in raw_data["licenses"]
 }
 
 
 def get_header_options(
     owner: str, starting_year: int, license_id: Union[str, None], license_notice: Union[str, None]
 ) -> List[List[str]]:
-
     # Year check
     current_year = datetime.now().year
     if starting_year > current_year:
@@ -51,7 +50,7 @@ def get_header_options(
     elif isinstance(license_notice, str) and len(license_notice) > 0:
         if not Path(license_notice).is_file():
             raise FileNotFoundError("Unable to locate the text of the license notice.")
-        with open(license_notice, "r") as f:
+        with Path(license_notice).open("r") as f:
             license_notices = [f.readlines()]
     else:
         raise ValueError("One of the following args needs to be specified: 'license_id', 'license_notice'")
@@ -61,18 +60,17 @@ def get_header_options(
     copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
 
     return [
-        SHEBANG + [BLANK_LINE] + copyright_notice + [BLANK_LINE] + license_notice
+        [*SHEBANG, BLANK_LINE, *copyright_notice, BLANK_LINE, *license_notice]
         for copyright_notice in copyright_notices
         for license_notice in license_notices
     ] + [
-        copyright_notice + [BLANK_LINE] + license_notice
+        [*copyright_notice, BLANK_LINE, *license_notice]
         for copyright_notice in copyright_notices
         for license_notice in license_notices
     ]
 
 
-def main(args):
-
+def main(args) -> None:
     # Check args & define all header options
     header_options = get_header_options(args.owner, args.year, args.license, args.license_notice)
 
@@ -93,7 +91,7 @@ def main(args):
             # Parse header
             header_length = max(len(option) for option in header_options)
             current_header = []
-            with open(source_path) as f:
+            with source_path.open() as f:
                 for idx, line in enumerate(f):
                     current_header.append(line)
                     if idx == header_length - 1:
@@ -125,9 +123,8 @@ def parse_args():
     parser.add_argument("--ignore-files", type=str, default="", help="files to ignore")
     parser.add_argument("--ignore-folders", type=str, default="", help="folders to ignore")
     parser.add_argument("--license-notice", type=str, default=None, help="path to custom license notice")
-    args = parser.parse_args()
 
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
