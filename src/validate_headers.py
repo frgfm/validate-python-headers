@@ -72,7 +72,7 @@ def get_header_options(
             for copyright_notice in copyright_notices[:-1]
             for license_notice in license_notices
         ]
-        + [[*copyright_notices[-1], BLANK_LINE, license_notice[0]]]
+        + [[*copyright_notices[-1], BLANK_LINE, *license_notices[0]]]
     )
 
 
