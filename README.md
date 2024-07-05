@@ -51,7 +51,14 @@ The path to a license notice text. If license is `null`, the header will be expe
 
 ## Outputs
 
-The list of files with header issues.
+The list of files with header issues and the suggested format (cf. example below):
+```
+Your header should look like:
+
+# Copyright (C) <FILE_CREATION_YEAR>, Pyronear.
+
+# This program is licensed under the Apache License 2.0.
+```
 
 ## Example usages
 
