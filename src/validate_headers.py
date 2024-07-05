@@ -57,17 +57,23 @@ def get_header_options(
 
     # Header build
     year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(starting_year, current_year)]
+    #  last element is the example for the error message
+    year_options.append(f"{current_year}" if starting_year == current_year else f"<FILE_CREATION_YEAR>-{current_year}")
     copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
 
-    return [
-        [*SHEBANG, BLANK_LINE, *copyright_notice, BLANK_LINE, *license_notice]
-        for copyright_notice in copyright_notices
-        for license_notice in license_notices
-    ] + [
-        [*copyright_notice, BLANK_LINE, *license_notice]
-        for copyright_notice in copyright_notices
-        for license_notice in license_notices
-    ]
+    return (
+        [
+            [*SHEBANG, BLANK_LINE, *copyright_notice, BLANK_LINE, *license_notice]
+            for copyright_notice in copyright_notices[:-1]
+            for license_notice in license_notices
+        ]
+        + [
+            [*copyright_notice, BLANK_LINE, *license_notice]
+            for copyright_notice in copyright_notices[:-1]
+            for license_notice in license_notices
+        ]
+        + [[*copyright_notices[-1], BLANK_LINE, *license_notices[0]]]
+    )
 
 
 def main(args) -> None:
@@ -89,7 +95,7 @@ def main(args) -> None:
             if source_path.name in ignored_files or any(folder in source_path.parents for folder in ignored_folders):
                 continue
             # Parse header
-            header_length = max(len(option) for option in header_options)
+            header_length = max(len(option) for option in header_options[:-1])
             current_header = []
             with source_path.open() as f:
                 for idx, line in enumerate(f):
@@ -99,7 +105,7 @@ def main(args) -> None:
             # Validate it
             if not any(
                 "".join(current_header[: min(len(option), len(current_header))]) == "".join(option)
-                for option in header_options
+                for option in header_options[:-1]
             ):
                 invalid_files.append(source_path)
 
