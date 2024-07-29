@@ -56,12 +56,15 @@ select = [
     "T20",  # flake8-print
     "PYI",  # flake8-pyi
     "PT",  # flake8-pytest-style
+    "Q",  # flake8-quotes
     "RET",  # flake8-return
+    "SLF",  # flake8-self
     "SIM",  # flake8-simplify
     "ARG",  # flake8-unused-arguments
     "PTH",  # flake8-use-pathlib
     "PERF",  # perflint
     "NPY",  # numpy
+    "FAST",  # fastapi
     "FURB",  # refurb
     "RUF",  # ruff specific
 ]
@@ -79,6 +82,7 @@ ignore = [
     "ANN003",  # missing type annotations on **kwargs
     "COM812",  # trailing comma missing
     "ISC001",  # implicit string concatenation (handled by format)
+    "G004",  # logging-fstring-interpolation
 ]
 exclude = [".git"]
 
