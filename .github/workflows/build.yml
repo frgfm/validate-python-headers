@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: main
 
+env:
+  PYTHON_VERSION: "3.11"
+  UV_VERSION: "0.5.7"
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -15,4 +19,7 @@ jobs:
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: ${{ env.UV_VERSION }}
       - run: make build
