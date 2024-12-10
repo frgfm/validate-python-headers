@@ -41,9 +41,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - name: Run mypy
         run: |
-          uv export --no-hashes --locked -o server/requirements.txt --project server
-          uv pip install --system -r server/requirements.txt
-          uv pip install --system -e client/.[quality]
+          make install-quality
           mypy --version
           make typing-check
 
