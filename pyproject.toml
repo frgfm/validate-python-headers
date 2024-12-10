@@ -1,32 +1,36 @@
-[build-system]
-requires = ["poetry>=1.0"]
-build-backend = "poetry.masonry.api"
-
-[tool.poetry]
+[project]
 name = "validate-python-headers"
 version = "0.5.0.dev0"
 description = "Python header validator"
-license = "Apache-2.0"
-authors = ["François-Guillaume Fernandez <fg-feedback@protonmail.com>"]
-maintainers = ["François-Guillaume Fernandez <fg-feedback@protonmail.com>"]
+requires-python = ">=3.11,<4.0"
+license = { text = "Apache-2.0" }
+authors = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
+maintainers = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 readme = "README.md"
-repository = "https://github.com/frgfm/validate-python-headers"
+repository = { url = "https://github.com/frgfm/validate-python-headers" }
 keywords = ["github action", "python", "header", "copyright", "license"]
+dependencies = [
+    "fastapi>=0.109.1,<1.0.0",
+    "sqlmodel>=0.0.22,<0.1.0",
+    "pydantic>=2.0.0,<3.0.0",
+    "pydantic-settings>=2.0.0,<3.0.0",
+    "requests>=2.32.0,<3.0.0",
+    "uvicorn>=0.23.0,<1.0.0",
+    "asyncpg>=0.29.0,<1.0.0",
+    # Optional
+    "sentry-sdk[fastapi]>=2.14.0,<3.0.0"
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-
-[tool.poetry.group.quality]
-optional = true
-
-[tool.poetry.group.quality.dependencies]
-ruff = "==0.5.6"
-mypy = "==1.10.0"
-pre-commit = "^3.8.0"
+[tool.uv]
+dev-dependencies = [
+    "ruff==0.8.2",
+    "mypy==1.13.0",
+    "pre-commit>=3.8.0,<5.0.0"
+]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py311"
 preview = true
 
 [tool.ruff.lint]
@@ -76,8 +80,6 @@ ignore = [
     "F403",  # star imports
     "E731",  # lambda assignment
     "C416",  # list comprehension to list()
-    "ANN101",  # missing type annotations on self
-    "ANN102",  # missing type annotations on cls
     "ANN002",  # missing type annotations on *args
     "ANN003",  # missing type annotations on **kwargs
     "COM812",  # trailing comma missing
@@ -104,7 +106,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.11"
 files = "src/*.py"
 show_error_codes = true
 pretty = true
