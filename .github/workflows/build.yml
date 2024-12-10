@@ -1,4 +1,4 @@
-name: builds
+name: build
 
 on:
   push:
@@ -15,4 +15,4 @@ jobs:
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build . -t header-validator:latest
+      - run: make build
