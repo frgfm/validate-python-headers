@@ -6,13 +6,13 @@ on:
   pull_request:
     branches: main
 
+env:
+  PYTHON_VERSION: "3.11"
+  UV_VERSION: "0.5.7"
+
 jobs:
   run-action:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build . -t header-validator:latest
@@ -20,3 +20,33 @@ jobs:
         run: |
           docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
           docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 '' src/ __init__.py .github/ .github/license-notice.txt
+  deps-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: x64
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Run dependency sync checker
+        run: |
+          uv pip install --system PyYAML
+          make deps-check
+
+  headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check the headers
+        uses: frgfm/validate-python-headers@main
+        with:
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: 'src'
+          ignore-files: 'version.py,__init__.py'

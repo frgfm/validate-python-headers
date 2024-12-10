@@ -1,0 +1,32 @@
+name: push
+on:
+  push:
+    branches: main
+
+env:
+  UV_VERSION: "0.5.7"
+  BACKEND_IMAGE: validate-python-headers
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Build docker image
+        run: make build
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push to GitHub container registry
+        run: |
+          docker tag openapm/backend:latest ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE }}:latest

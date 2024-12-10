@@ -1,23 +1,60 @@
+DOCKERFILE_PATH = ./Dockerfile
+PYPROJECT_FILE = ./pyproject.toml
+LOCK_FILE = ./uv.lock
+REQ_FILE = ./requirements.txt
+DOCKER_NAMESPACE ?= frgfm
+DOCKER_REPO ?= validate-python-headers
+DOCKER_TAG ?= latest
+
+########################################################
+# Code checks
+########################################################
+
+
+install-quality: ${PYPROJECT_FILE}
+	uv export --no-hashes --locked --only-dev -o ${REQ_FILE}
+	uv pip install --system -r ${REQ_FILE}
+	pre-commit install
+
+lint-check: ${PYPROJECT_FILE}
+	ruff format --check . --config ${PYPROJECT_FILE}
+	ruff check . --config ${PYPROJECT_FILE}
+
+lint-format: ${PYPROJECT_FILE}
+	ruff format . --config ${PYPROJECT_FILE}
+	ruff check --fix . --config ${PYPROJECT_FILE}
+
+precommit: ${PYPROJECT_FILE} .pre-commit-config.yaml
+	pre-commit run --all-files
+
+typing-check: ${PYPROJECT_FILE}
+	mypy --config-file ${PYPROJECT_FILE}
+
+deps-check: .github/verify_deps_sync.py
+	python .github/verify_deps_sync.py
+
 # this target runs checks on all files
-quality:
-	ruff format --check .
-	ruff check .
-	mypy
+quality: lint-check typing-check deps-check
 
-# this target runs checks on all files and potentially modifies some of them
-style:
-	ruff format .
-	ruff check --fix .
+style: lint-format precommit
 
-# Pin the dependencies
-lock:
-	poetry lock --no-update
+########################################################
+# Build
+########################################################
 
-# Build the docker image
-build:
-	docker build . -t header-validator:latest
+lock: ${PYPROJECT_FILE}
+	uv lock
+
+req: ${PYPROJECT_FILE} ${LOCK_FILE}
+	uv export --no-hashes --locked --no-dev -q -o ${REQ_FILE}
+
+# Build the docker
+build: req ${DOCKERFILE_PATH}
+	docker build --platform linux/amd64 . -t ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG}
+
+push: build
+	docker push ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG}
 
 # Run tests for the library
-test:
-	docker build . -t header-validator:latest
-	docker run --workdir /github/workspace -v src:/github/workspace/src header-validator:latest 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
+test: build
+	docker run --workdir /github/workspace -v src:/github/workspace/src ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG} 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
