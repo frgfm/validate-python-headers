@@ -27,6 +27,4 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push to GitHub container registry
-        run: |
-          docker tag openapm/backend:latest ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE }}:latest
+        run: make push
