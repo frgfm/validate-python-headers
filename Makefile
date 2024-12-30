@@ -2,7 +2,7 @@ DOCKERFILE_PATH = ./Dockerfile
 PYPROJECT_FILE = ./pyproject.toml
 LOCK_FILE = ./uv.lock
 REQ_FILE = ./requirements.txt
-DOCKER_NAMESPACE ?= frgfm
+DOCKER_NAMESPACE ?= ghcr.io/frgfm
 DOCKER_REPO ?= validate-python-headers
 DOCKER_TAG ?= latest
 
