@@ -1,7 +1,7 @@
 FROM python:3.11-alpine
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 COPY entrypoint.sh /entrypoint.sh
 COPY src/validate_headers.py /validate_headers.py

@@ -1,8 +1,8 @@
 # Header validator for your Python files
 
 <p align="center">
-  <a href="https://github.com/frgfm/validate-python-headers/actions/workflows/builds.yml">
-    <img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/frgfm/validate-python-headers/builds.yml?branch=main&label=CI&logo=github&style=flat-square">
+  <a href="https://github.com/frgfm/validate-python-headers/actions/workflows/build.yml">
+    <img alt="CI Status" src="https://img.shields.io/github/actions/workflow/status/frgfm/validate-python-headers/build.yml?branch=main&label=CI&logo=github&style=flat-square">
   </a>
   <a href="https://github.com/astral-sh/ruff">
     <img src="https://img.shields.io/badge/Linter-Ruff-FCC21B?style=flat-square&logo=ruff&logoColor=white" alt="ruff">
