@@ -17,9 +17,3 @@ updates:
       - dependency-name: "ruff"
       - dependency-name: "mypy"
       - dependency-name: "pre-commit"
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-name: "ghcr.io/astral-sh/uv"

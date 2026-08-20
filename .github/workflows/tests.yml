@@ -15,11 +15,118 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: docker build . -t header-validator:latest
-      - name: Run action
+      - name: Run unit tests
+        run: python -m unittest discover -s src/tests -v
+      - name: Check repository headers
+        uses: ./
+        with:
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: 'src,.github'
+          # collect_env.py retains its upstream-specific Apache notice.
+          ignore-files: 'version.py,__init__.py,collect_env.py'
+          ignore-folders: ''
+      - name: Prepare integration fixtures
+        shell: bash
         run: |
-          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
-          docker run --workdir /github/workspace -v "/home/runner/work/validate-python-headers/validate-python-headers":"/github/workspace" header-validator:latest 'François-Guillaume Fernandez' 2022 '' src/ __init__.py .github/ .github/license-notice.txt
+          python - <<'PY'
+          from pathlib import Path
+
+          notice = (
+              "# This program is licensed under the Apache License 2.0.\n"
+              "# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.\n"
+          )
+
+          def write(path, owner):
+              path = Path(path)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(f"# Copyright (C) 2024, {owner}.\n\n{notice}\nvalue = 1\n", encoding="utf-8")
+
+          write(".action-test/success/stale.py", "François-Guillaume Fernandez")
+          write(".action-test/mixed/safe.py", "François-Guillaume Fernandez")
+          write(".action-test/mixed/bad.py", "Another Owner")
+          PY
+      - name: Fix a stale header
+        id: fix
+        uses: ./
+        with:
+          mode: fix
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: '.action-test/success'
+          ignore-files: ''
+          ignore-folders: ''
+      - name: Save first fix
+        shell: bash
+        env:
+          ISSUES: ${{ steps.fix.outputs.issues }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          assert os.environ["ISSUES"] == "[]"
+          source = Path(".action-test/success/stale.py")
+          Path(os.environ["RUNNER_TEMP"], "fixed.py").write_bytes(source.read_bytes())
+          PY
+      - name: Run fix a second time
+        uses: ./
+        with:
+          mode: fix
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: '.action-test/success'
+          ignore-files: ''
+          ignore-folders: ''
+      - name: Verify idempotence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime
+          from pathlib import Path
+
+          source = Path(".action-test/success/stale.py")
+          assert source.read_bytes() == Path(os.environ["RUNNER_TEMP"], "fixed.py").read_bytes()
+          assert f"Copyright (C) 2024-{datetime.now().year}" in source.read_text(encoding="utf-8")
+          PY
+      - name: Fix safe files and fail on ambiguity
+        id: mixed
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: fix
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: '.action-test/mixed'
+          ignore-files: ''
+          ignore-folders: ''
+      - name: Verify fail-closed repair
+        shell: bash
+        env:
+          ISSUES: ${{ steps.mixed.outputs.issues }}
+          OUTCOME: ${{ steps.mixed.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime
+          from pathlib import Path
+
+          assert os.environ["OUTCOME"] == "failure"
+          assert json.loads(os.environ["ISSUES"]) == [".action-test/mixed/bad.py"]
+          assert f"Copyright (C) 2024-{datetime.now().year}" in Path(
+              ".action-test/mixed/safe.py"
+          ).read_text(encoding="utf-8")
+          assert "Another Owner" in Path(".action-test/mixed/bad.py").read_text(encoding="utf-8")
+          PY
+      - name: Verify tracked files are unchanged
+        run: git diff --exit-code
+
   deps-sync:
     runs-on: ubuntu-latest
     steps:
@@ -43,10 +150,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Check the headers
-        uses: frgfm/validate-python-headers@main
+        uses: ./
         with:
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
           starting-year: 2022
-          folders: 'src'
-          ignore-files: 'version.py,__init__.py'
+          folders: 'src,.github'
+          # collect_env.py retains its upstream-specific Apache notice.
+          ignore-files: 'version.py,__init__.py,collect_env.py'
+          ignore-folders: ''

@@ -9,16 +9,16 @@ Whatever the way you wish to contribute to the project, please respect the [code
 ## Codebase structure
 
 - [`./src`](https://github.com/frgfm/validate-python-headers/blob/main/src) - The actual script used for header verification
-- [`action.yml`](https://github.com/frgfm/validate-python-headers/blob/main/tests) - The marketplace action configuration file
-- [`Dockerfile`](https://github.com/frgfm/validate-python-headers/blob/main/Dockerfile) - The dockerfile of the action
-- [`entrypoint.sh`](https://github.com/frgfm/validate-python-headers/blob/main/entrypoint.sh) - The bash script executed by the Docker container
+- [`./src/tests`](https://github.com/frgfm/validate-python-headers/blob/main/src/tests) - Standard-library unit tests
+- [`action.yml`](https://github.com/frgfm/validate-python-headers/blob/main/action.yml) - The composite action configuration
+- [`.github/workflows`](https://github.com/frgfm/validate-python-headers/tree/main/.github/workflows) - CI and annual header refresh workflows
 
 
 ## Continuous Integration
 
 This project uses the following integrations to ensure proper codebase maintenance:
 
-- [Github Worklow](https://help.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow) - run jobs for package build and coverage
+- [GitHub Actions](https://help.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow) - run unit, integration, and quality checks
 - [Codacy](https://www.codacy.com/) - analyzes commits for code quality
 
 As a contributor, you will only have to ensure coverage of your code by adding appropriate unit testing of your code.
@@ -57,9 +57,9 @@ git remote add upstream https://github.com/frgfm/validate-python-headers.git
 git checkout -b a-short-description
 ```
 
-4 - You only have to set your development environment now, using the following command:
+4 - Install the quality tools with Python 3.11 and the repository-pinned dependencies:
 ```shell
-make build
+make install-quality
 ```
 
 ### Developing your feature
