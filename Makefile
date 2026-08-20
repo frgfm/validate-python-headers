@@ -16,8 +16,8 @@ lint-check: ${PYPROJECT_FILE}
 	ruff check . --config ${PYPROJECT_FILE}
 
 lint-format: ${PYPROJECT_FILE}
-	ruff format . --config ${PYPROJECT_FILE}
 	ruff check --fix . --config ${PYPROJECT_FILE}
+	ruff format . --config ${PYPROJECT_FILE}
 
 prek: ${PYPROJECT_FILE} .pre-commit-config.yaml
 	prek run --all-files
