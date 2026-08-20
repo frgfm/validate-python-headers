@@ -26,7 +26,7 @@ typing-check: ${PYPROJECT_FILE}
 	ty check src
 
 deps-check: .github/verify_deps_sync.py
-	python .github/verify_deps_sync.py
+	uv run --script .github/verify_deps_sync.py
 
 # this target runs checks on all files
 quality: lint-check typing-check deps-check

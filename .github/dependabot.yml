@@ -17,4 +17,3 @@ updates:
       - dependency-name: "ruff"
       - dependency-name: "ty"
       - dependency-name: "prek"
-      - dependency-name: "pyyaml"

@@ -16,7 +16,6 @@ dev-dependencies = [
     "ruff==0.16.3",
     "ty==0.0.73",
     "prek==0.4.14",
-    "pyyaml==6.0.2",
 ]
 
 [tool.ruff]
