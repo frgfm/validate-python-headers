@@ -22,13 +22,19 @@ repos:
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.8.4'
+  - repo: local
     hooks:
-      - id: ruff
-        args:
-          - --fix
-      - id: ruff-format
+      - id: lint-format
+        name: lint and format
+        entry: make lint-format
+        pass_filenames: false
+        require_serial: true
+        language: system
+      - id: typing-check
+        name: check typing
+        entry: make typing-check
+        pass_filenames: false
+        language: system
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: '0.5.13'
     hooks:

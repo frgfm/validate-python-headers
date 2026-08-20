@@ -13,7 +13,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import locale
 import re
-import subprocess  # noqa S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 import sys
 from typing import NamedTuple
 
@@ -28,7 +28,9 @@ class SystemEnv(NamedTuple):
 
 def run(command):
     """Returns (return-code, stdout, stderr)"""
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)  # noqa S602
+    p = subprocess.Popen(  # ruff: ignore[subprocess-popen-with-shell-equals-true]
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+    )
     output, err = p.communicate()
     rc = p.returncode
     if PY3:

@@ -13,9 +13,9 @@ dependencies = []
 
 [tool.uv]
 dev-dependencies = [
-    "ruff==0.8.4",
-    "mypy==1.14.0",
-    "pre-commit>=3.8.0,<5.0.0"
+    "ruff==0.16.3",
+    "ty==0.0.73",
+    "prek==0.4.14",
 ]
 
 [tool.ruff]
@@ -63,6 +63,7 @@ select = [
     "RUF",  # ruff specific
 ]
 ignore = [
+    "RUF201",  # keep concise rule-code selectors
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "B904",  # raise from
@@ -94,15 +95,3 @@ known-third-party = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-
-[tool.mypy]
-python_version = "3.11"
-files = "src/*.py"
-show_error_codes = true
-pretty = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-no_implicit_optional = true
-check_untyped_defs = true
-implicit_reexport = false
-explicit_package_bases = true

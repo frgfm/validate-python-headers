@@ -3,38 +3,30 @@
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
-import tomllib
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "pyyaml>=6.0",
+# ]
+# ///
+
 from pathlib import Path
 
 import yaml
 
-PRECOMMIT_PATH = ".pre-commit-config.yaml"
-PYPROJECT_PATH = "./pyproject.toml"
+PREK_CONFIG_PATH = ".pre-commit-config.yaml"
 
 
 def main():
     # Retrieve & parse all deps files
-    deps_dict = {"uv": [], "ruff": [], "mypy": []}
-    # Parse precommit
-    with Path(PRECOMMIT_PATH).open("r") as f:
-        precommit = yaml.safe_load(f)
+    deps_dict = {"uv": []}
+    # Parse prek's pre-commit-compatible configuration
+    with Path(PREK_CONFIG_PATH).open("r") as f:
+        prek_config = yaml.safe_load(f)
 
-    for repo in precommit["repos"]:
+    for repo in prek_config["repos"]:
         if repo["repo"] == "https://github.com/astral-sh/uv-pre-commit":
-            deps_dict["uv"].append({"file": PRECOMMIT_PATH, "version": repo["rev"].lstrip("v")})
-        elif repo["repo"] == "https://github.com/charliermarsh/ruff-pre-commit":
-            deps_dict["ruff"] = [{"file": PRECOMMIT_PATH, "version": repo["rev"].lstrip("v")}]
-
-    # Parse pyproject.toml
-    with Path(PYPROJECT_PATH).open("rb") as f:
-        pyproject = tomllib.load(f)
-
-    dev_deps = pyproject["tool"]["uv"]["dev-dependencies"]
-    for dep in dev_deps:
-        if dep.startswith("ruff=="):
-            deps_dict["ruff"].append({"file": PYPROJECT_PATH, "version": dep.split("==")[1]})
-        elif dep.startswith("mypy=="):
-            deps_dict["mypy"] = [{"file": PYPROJECT_PATH, "version": dep.split("==")[1]}]
+            deps_dict["uv"].append({"file": PREK_CONFIG_PATH, "version": repo["rev"].lstrip("v")})
 
     # Parse github/workflows/...
     for workflow_file in Path(".github/workflows").glob("*.yml"):

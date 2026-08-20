@@ -15,5 +15,5 @@ updates:
       interval: "daily"
     allow:
       - dependency-name: "ruff"
-      - dependency-name: "mypy"
-      - dependency-name: "pre-commit"
+      - dependency-name: "ty"
+      - dependency-name: "prek"
