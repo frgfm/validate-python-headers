@@ -33,19 +33,36 @@ inputs:
     description: 'Custom license notice to be used if license is null'
     required: false
     default: null
+  mode:
+    description: 'Whether to check or fix existing headers'
+    required: false
+    default: 'check'
 
 outputs:
   issues: # id of output
     description: 'The list of files with header issues'
+    value: ${{ steps.validate.outputs.issues }}
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.owner }}
-    - ${{ inputs.starting-year }}
-    - ${{ inputs.license }}
-    - ${{ inputs.folders }}
-    - ${{ inputs.ignore-files }}
-    - ${{ inputs.ignore-folders }}
-    - ${{ inputs.license-notice }}
+  using: 'composite'
+  steps:
+    - name: Validate Python headers
+      id: validate
+      shell: bash
+      env:
+        INPUT_OWNER: ${{ inputs.owner }}
+        INPUT_STARTING_YEAR: ${{ inputs.starting-year }}
+        INPUT_LICENSE: ${{ inputs.license }}
+        INPUT_FOLDERS: ${{ inputs.folders }}
+        INPUT_IGNORE_FILES: ${{ inputs.ignore-files }}
+        INPUT_IGNORE_FOLDERS: ${{ inputs.ignore-folders }}
+        INPUT_LICENSE_NOTICE: ${{ inputs.license-notice }}
+        INPUT_MODE: ${{ inputs.mode }}
+      run: |
+        python "$GITHUB_ACTION_PATH/src/validate_headers.py" "$INPUT_OWNER" "$INPUT_STARTING_YEAR" \
+          --license "$INPUT_LICENSE" \
+          --folders "$INPUT_FOLDERS" \
+          --ignore-files "$INPUT_IGNORE_FILES" \
+          --ignore-folders "$INPUT_IGNORE_FOLDERS" \
+          --license-notice "$INPUT_LICENSE_NOTICE" \
+          --mode "$INPUT_MODE"

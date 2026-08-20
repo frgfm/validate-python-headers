@@ -1,15 +1,13 @@
-# Copyright (C) 2024, François-Guillaume Fernandez.
+# Copyright (C) 2024-2026, François-Guillaume Fernandez.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
-import re
 import tomllib
 from pathlib import Path
 
 import yaml
 
-DOCKERFILE_PATH = "./Dockerfile"
 PRECOMMIT_PATH = ".pre-commit-config.yaml"
 PYPROJECT_PATH = "./pyproject.toml"
 
@@ -17,14 +15,6 @@ PYPROJECT_PATH = "./pyproject.toml"
 def main():
     # Retrieve & parse all deps files
     deps_dict = {"uv": [], "ruff": [], "mypy": []}
-    # UV: Dockerfile, precommit, .github
-    # Parse Dockerfile
-    with Path(DOCKERFILE_PATH).open("r") as f:
-        dockerfile = f.read()
-    uv_version = re.search(r"ghcr\.io/astral-sh/uv:(\d+\.\d+\.\d+)", dockerfile)
-    if uv_version:
-        deps_dict["uv"] = [{"file": DOCKERFILE_PATH, "version": uv_version.group(1)}]
-
     # Parse precommit
     with Path(PRECOMMIT_PATH).open("r") as f:
         precommit = yaml.safe_load(f)

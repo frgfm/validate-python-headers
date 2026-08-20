@@ -1,0 +1,62 @@
+name: update copyright years
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 1 *"
+      timezone: Europe/Paris
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Paris
+      BRANCH_NAME: automation/update-copyright-years
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Refresh existing copyright years
+        uses: ./
+        with:
+          mode: fix
+          license: 'Apache-2.0'
+          owner: 'François-Guillaume Fernandez'
+          starting-year: 2022
+          folders: 'src,.github'
+          # collect_env.py retains its upstream-specific Apache notice.
+          ignore-files: 'version.py,__init__.py,collect_env.py'
+          ignore-folders: ''
+      - name: Open or update the annual pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- ':(glob)**/*.py'; then
+            echo "Copyright years are already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          expected_sha="$(git ls-remote --heads origin "$BRANCH_NAME" | cut -f1)"
+          git switch -C "$BRANCH_NAME"
+          git add -- ':(glob)**/*.py'
+          git commit -m "chore: update copyright years for $(date +%Y)"
+
+          if test -n "$expected_sha"; then
+            git push --force-with-lease="refs/heads/$BRANCH_NAME:$expected_sha" origin "HEAD:refs/heads/$BRANCH_NAME"
+          else
+            git push --set-upstream origin "$BRANCH_NAME"
+          fi
+
+          pr_number="$(gh pr list --base main --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
+          if test -n "$pr_number"; then
+            gh pr edit "$pr_number" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
+          else
+            gh pr create --base main --head "$BRANCH_NAME" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
+          fi

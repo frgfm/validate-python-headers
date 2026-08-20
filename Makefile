@@ -1,10 +1,5 @@
-DOCKERFILE_PATH = ./Dockerfile
 PYPROJECT_FILE = ./pyproject.toml
-LOCK_FILE = ./uv.lock
 REQ_FILE = ./requirements.txt
-DOCKER_NAMESPACE ?= ghcr.io/frgfm
-DOCKER_REPO ?= validate-python-headers
-DOCKER_TAG ?= latest
 
 ########################################################
 # Code checks
@@ -45,16 +40,6 @@ style: lint-format precommit
 lock: ${PYPROJECT_FILE}
 	uv lock
 
-req: ${PYPROJECT_FILE} ${LOCK_FILE}
-	uv export --no-hashes --locked --no-dev -q -o ${REQ_FILE}
-
-# Build the docker
-build: req ${DOCKERFILE_PATH}
-	docker build --platform linux/amd64 . -t ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG}
-
-push: build
-	docker push ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG}
-
 # Run tests for the library
-test: build
-	docker run --workdir /github/workspace -v src:/github/workspace/src ${DOCKER_NAMESPACE}/${DOCKER_REPO}:${DOCKER_TAG} 'François-Guillaume Fernandez' 2022 Apache-2.0 src/ __init__.py .github/ ''
+test:
+	python -m unittest discover -s src/tests -v
