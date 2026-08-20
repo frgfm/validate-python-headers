@@ -60,6 +60,5 @@ jobs:
         run: |
           make install-quality
           git checkout -b temp
-          prek install
           prek --version
           make prek
