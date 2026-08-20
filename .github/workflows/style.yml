@@ -28,7 +28,7 @@ jobs:
           ruff --version
           make lint-check
 
-  mypy:
+  ty:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -39,13 +39,13 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
-      - name: Run mypy
+      - name: Run ty
         run: |
           make install-quality
-          mypy --version
+          ty --version
           make typing-check
 
-  precommit-hooks:
+  prek-hooks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -56,10 +56,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
-      - name: Run pre-commit hooks
+      - name: Run prek hooks
         run: |
           make install-quality
           git checkout -b temp
-          pre-commit install
-          pre-commit --version
-          make precommit
+          prek install
+          prek --version
+          make prek

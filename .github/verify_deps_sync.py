@@ -8,22 +8,22 @@ from pathlib import Path
 
 import yaml
 
-PRECOMMIT_PATH = ".pre-commit-config.yaml"
+PREK_CONFIG_PATH = ".pre-commit-config.yaml"
 PYPROJECT_PATH = "./pyproject.toml"
 
 
 def main():
     # Retrieve & parse all deps files
-    deps_dict = {"uv": [], "ruff": [], "mypy": []}
-    # Parse precommit
-    with Path(PRECOMMIT_PATH).open("r") as f:
-        precommit = yaml.safe_load(f)
+    deps_dict = {"uv": [], "ruff": [], "ty": []}
+    # Parse prek's pre-commit-compatible configuration
+    with Path(PREK_CONFIG_PATH).open("r") as f:
+        prek_config = yaml.safe_load(f)
 
-    for repo in precommit["repos"]:
+    for repo in prek_config["repos"]:
         if repo["repo"] == "https://github.com/astral-sh/uv-pre-commit":
-            deps_dict["uv"].append({"file": PRECOMMIT_PATH, "version": repo["rev"].lstrip("v")})
-        elif repo["repo"] == "https://github.com/charliermarsh/ruff-pre-commit":
-            deps_dict["ruff"] = [{"file": PRECOMMIT_PATH, "version": repo["rev"].lstrip("v")}]
+            deps_dict["uv"].append({"file": PREK_CONFIG_PATH, "version": repo["rev"].lstrip("v")})
+        elif repo["repo"] == "https://github.com/astral-sh/ruff-pre-commit":
+            deps_dict["ruff"] = [{"file": PREK_CONFIG_PATH, "version": repo["rev"].lstrip("v")}]
 
     # Parse pyproject.toml
     with Path(PYPROJECT_PATH).open("rb") as f:
@@ -33,8 +33,8 @@ def main():
     for dep in dev_deps:
         if dep.startswith("ruff=="):
             deps_dict["ruff"].append({"file": PYPROJECT_PATH, "version": dep.split("==")[1]})
-        elif dep.startswith("mypy=="):
-            deps_dict["mypy"] = [{"file": PYPROJECT_PATH, "version": dep.split("==")[1]}]
+        elif dep.startswith("ty=="):
+            deps_dict["ty"] = [{"file": PYPROJECT_PATH, "version": dep.split("==")[1]}]
 
     # Parse github/workflows/...
     for workflow_file in Path(".github/workflows").glob("*.yml"):

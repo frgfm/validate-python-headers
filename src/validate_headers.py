@@ -23,7 +23,7 @@ COPYRIGHT_RE = re.compile(r"^# Copyright \(C\) (?P<years>(?P<start>\d{4})(?:-(?P
 with Path(__file__).parent.absolute().joinpath("supported-licenses.json").open("rb") as f:
     raw_data = json.load(f)
 LICENSES: Dict[str, Dict[str, str]] = {
-    _license["licenseId"]: {"name": _license["name"], "urls": _license["seeAlso"]} for _license in raw_data["licenses"]
+    license_["licenseId"]: {"name": license_["name"], "urls": license_["seeAlso"]} for license_ in raw_data["licenses"]
 }
 
 
