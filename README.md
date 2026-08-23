@@ -40,24 +40,25 @@ The CLI finds the nearest `pyproject.toml`. Command-line options override it, an
 
 ### 2. Check files before every commit
 
-Add the first-party hook to `.pre-commit-config.yaml`:
+Add the first-party hook to `.pre-commit-config.yaml` (prek is fully compatible with this format):
 
 ```yaml
 repos:
   - repo: https://github.com/frgfm/validate-python-headers
     rev: v0.6.0
     hooks:
-      - id: validate-python-headers
+      - id: vph
 ```
 
 Install the hook and establish a clean baseline:
 
 ```console
-pre-commit install
-pre-commit run validate-python-headers --all-files
+uv tool install prek
+prek install
+prek run vph --all-files
 ```
 
-After that, pre-commit supplies only staged Python files to the CLI. Use a released tag such as `v0.6.0`, or pin the immutable commit SHA recorded for that release. Do not pin `main`.
+After that, prek supplies only staged Python files to `vph`. Use a released tag such as `v0.6.0`, or pin the immutable commit SHA recorded for that release. Do not pin `main`.
 
 ### 3. Check changed files on every pull request
 
@@ -80,18 +81,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.11'
-      - run: python -m pip install pre-commit
+          version: '0.5.13'
       - name: Check changed Python files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: pre-commit run validate-python-headers --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
+        run: uvx --from prek==0.4.14 prek run vph --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
 ```
 
-This uses pre-commit's documented [`--from-ref` and `--to-ref` CI workflow](https://pre-commit.com/#usage-in-continuous-integration), so local and pull-request checks select files the same way. Deleted files are naturally excluded.
+This uses prek's [`--from-ref` and `--to-ref` support](https://prek.j178.dev/reference/cli/#prek-run), so local and pull-request checks select files the same way. Deleted files are naturally excluded.
 
 ## Open an annual copyright update pull request
 
@@ -124,15 +124,14 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.11'
-      - name: Install the released CLI
-        run: >-
-          python -m pip install
-          "validate-python-headers @ git+https://github.com/frgfm/validate-python-headers.git@v0.6.0"
+          version: '0.5.13'
       - name: Refresh recognized copyright years
-        run: validate-python-headers fix
+        run: >-
+          uvx --python 3.11
+          --from git+https://github.com/frgfm/validate-python-headers.git@v0.6.0
+          vph fix
       - name: Open or update the annual pull request
         shell: bash
         env:
@@ -173,24 +172,24 @@ The workflow exits successfully without creating an empty pull request when ever
 Install directly from a released Git tag:
 
 ```console
-python -m pip install "validate-python-headers @ git+https://github.com/frgfm/validate-python-headers.git@v0.6.0"
+uv tool install --python 3.11 git+https://github.com/frgfm/validate-python-headers.git@v0.6.0
 ```
 
 Check or fix the configured project paths:
 
 ```console
-validate-python-headers check
-validate-python-headers fix
+vph check
+vph fix
 ```
 
 Pass files or directories to narrow one invocation:
 
 ```console
-validate-python-headers check src/changed.py tests/
-validate-python-headers fix src/changed.py
+vph check src/changed.py tests/
+vph fix src/changed.py
 ```
 
-For a one-off repository without configuration, pass `--owner`, `--starting-year`, and either `--license` or `--license-notice` after the command. `--config` selects a specific `pyproject.toml`.
+For a one-off repository without configuration, pass `--owner`, `--starting-year`, and either `--license` or `--license-notice` after the command. `--config` selects a specific `pyproject.toml`. The longer `validate-python-headers` executable remains available as a compatibility alias.
 
 | Exit code | Meaning |
 | --- | --- |

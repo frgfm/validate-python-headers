@@ -15,6 +15,7 @@ keywords = ["github action", "python", "header", "copyright", "license"]
 dependencies = []
 
 [project.scripts]
+vph = "validate_headers.cli:main"
 validate-python-headers = "validate_headers.cli:main"
 
 [project.urls]
