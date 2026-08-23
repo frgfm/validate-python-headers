@@ -71,7 +71,7 @@ class ValidateHeadersTestCase(unittest.TestCase):
         else:
             header = []
             if shebang:
-                header.extend(["#!usr/bin/python\n", "\n"])
+                header.extend(["#!/usr/bin/python\n", "\n"])
             header.extend([f"# Copyright (C) {years}, {owner}.\n", "\n", *notice])
             source = "".join(header) + "\n" + body
         raw_source = source.replace("\n", newline).encode()

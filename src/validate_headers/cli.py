@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Union, cast
 
-SHEBANG = ["#!usr/bin/python\n"]
+SHEBANG = ["#!/usr/bin/python\n"]
 BLANK_LINE = "\n"
 CONFIG_SECTION = "[tool.validate-python-headers]"
 CONFIG_KEYS = {"owner", "starting-year", "license", "license-notice", "paths", "ignore-files", "ignore-folders"}
@@ -237,13 +237,7 @@ def _find_pyproject(config_path: Union[str, None]) -> Union[Path, None]:
     return None
 
 
-def load_configuration(config_path: Union[str, None] = None) -> tuple[Dict[str, object], Path]:
-    path = _find_pyproject(config_path)
-    if path is None:
-        return {}, Path.cwd()
-
-    with path.open("rb") as config_file:
-        document = tomllib.load(config_file)
+def _configuration_table(document: Dict[str, object], path: Path) -> Dict[str, object]:
     tool_config = document.get("tool", {})
     if not isinstance(tool_config, dict):
         raise ValueError(f"Invalid [tool]: expected a table in {path}")
@@ -255,7 +249,10 @@ def load_configuration(config_path: Union[str, None] = None) -> tuple[Dict[str, 
     if unknown_keys:
         key = unknown_keys[0]
         raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: unknown key in {path}")
+    return config
 
+
+def _validate_scalar_configuration(config: Dict[str, object], path: Path) -> None:
     for key in ("owner", "license", "license-notice"):
         if key in config and (not isinstance(config[key], str) or not config[key]):
             raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: expected a non-empty string in {path}")
@@ -265,13 +262,29 @@ def load_configuration(config_path: Union[str, None] = None) -> tuple[Dict[str, 
         or config["starting-year"] < 1000
     ):
         raise ValueError(f"Invalid {CONFIG_SECTION}.starting-year: expected a four-digit integer in {path}")
+
+
+def _validate_list_configuration(config: Dict[str, object], path: Path) -> None:
     for key in ("paths", "ignore-files", "ignore-folders"):
-        if key in config and (
-            not isinstance(config[key], list) or any(not isinstance(value, str) or not value for value in config[key])
-        ):
+        if key not in config:
+            continue
+        value = config[key]
+        if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
             raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: expected an array of non-empty strings in {path}")
     if "paths" in config and not config["paths"]:
         raise ValueError(f"Invalid {CONFIG_SECTION}.paths: expected at least one path in {path}")
+
+
+def load_configuration(config_path: Union[str, None] = None) -> tuple[Dict[str, object], Path]:
+    path = _find_pyproject(config_path)
+    if path is None:
+        return {}, Path.cwd()
+
+    with path.open("rb") as config_file:
+        document = tomllib.load(config_file)
+    config = _configuration_table(document, path)
+    _validate_scalar_configuration(config, path)
+    _validate_list_configuration(config, path)
     return config, path.parent
 
 
