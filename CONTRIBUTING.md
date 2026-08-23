@@ -8,7 +8,7 @@ Whatever the way you wish to contribute to the project, please respect the [code
 
 ## Codebase structure
 
-- [`./src`](https://github.com/frgfm/validate-python-headers/blob/main/src) - The actual script used for header verification
+- [`./src/validate_headers`](https://github.com/frgfm/validate-python-headers/tree/main/src/validate_headers) - The CLI package used for header verification
 - [`./src/tests`](https://github.com/frgfm/validate-python-headers/blob/main/src/tests) - Standard-library unit tests
 - [`action.yml`](https://github.com/frgfm/validate-python-headers/blob/main/action.yml) - The composite action configuration
 - [`.github/workflows`](https://github.com/frgfm/validate-python-headers/tree/main/.github/workflows) - CI and annual header refresh workflows

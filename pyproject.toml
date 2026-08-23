@@ -1,15 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "validate-python-headers"
-version = "0.5.0.dev0"
-description = "Python header validator"
+version = "0.6.0.dev0"
+description = "Keep Python files connected to their declared copyright owner and license"
 requires-python = ">=3.11,<4.0"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 maintainers = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 readme = "README.md"
-repository = { url = "https://github.com/frgfm/validate-python-headers" }
 keywords = ["github action", "python", "header", "copyright", "license"]
 dependencies = []
+
+[project.scripts]
+vph = "validate_headers.cli:main"
+validate-python-headers = "validate_headers.cli:main"
+
+[project.urls]
+Repository = "https://github.com/frgfm/validate-python-headers"
+
+[tool.setuptools.package-data]
+validate_headers = ["supported-licenses.json"]
+
+[tool.validate-python-headers]
+owner = "François-Guillaume Fernandez"
+starting-year = 2022
+license = "Apache-2.0"
+paths = ["src", ".github"]
+ignore-files = ["version.py", "__init__.py", "collect_env.py"]
+ignore-folders = []
 
 [tool.uv]
 dev-dependencies = [

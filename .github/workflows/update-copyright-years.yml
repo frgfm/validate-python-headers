@@ -3,7 +3,7 @@ name: update copyright years
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 1 1 *"
+    - cron: "1 0 1 1 *"
       timezone: Europe/Paris
 
 permissions:
@@ -16,21 +16,17 @@ jobs:
     env:
       TZ: Europe/Paris
       BRANCH_NAME: automation/update-copyright-years
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      - name: Refresh existing copyright years
-        uses: ./
+      - uses: astral-sh/setup-uv@v7
         with:
-          mode: fix
-          license: 'Apache-2.0'
-          owner: 'François-Guillaume Fernandez'
-          starting-year: 2022
-          folders: 'src,.github'
-          # collect_env.py retains its upstream-specific Apache notice.
-          ignore-files: 'version.py,__init__.py,collect_env.py'
-          ignore-folders: ''
+          version: '0.5.13'
+      - name: Refresh existing copyright years
+        run: uvx --python 3.11 --from . vph fix
       - name: Open or update the annual pull request
         shell: bash
         env:
@@ -54,9 +50,9 @@ jobs:
             git push --set-upstream origin "$BRANCH_NAME"
           fi
 
-          pr_number="$(gh pr list --base main --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
+          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
           if test -n "$pr_number"; then
             gh pr edit "$pr_number" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
           else
-            gh pr create --base main --head "$BRANCH_NAME" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
+            gh pr create --base "$BASE_BRANCH" --head "$BRANCH_NAME" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
           fi

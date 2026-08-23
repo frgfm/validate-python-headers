@@ -1,0 +1,6 @@
+- id: vph
+  name: vph
+  description: Keep Python files connected to their declared copyright owner and license.
+  entry: vph check
+  language: python
+  types: [python]
