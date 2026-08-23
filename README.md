@@ -8,14 +8,58 @@
   <img alt="License" src="https://img.shields.io/github/license/frgfm/validate-python-headers?style=flat-square">
 </p>
 
-A fast, dependency-free GitHub Action for copyright and license headers in Python repositories.
+## Keep the license with the work
 
-- **Check:** fail a pull request or push when headers are missing or invalid.
-- **Fix:** refresh the years in recognized existing headers, then open a reviewable pull request from a scheduled workflow.
+`validate-python-headers` keeps Python files connected to the copyright owner and license your project declares—from local development through pull requests and distribution. It catches missing or stale notices when code changes and opens a reviewable annual pull request for year updates.
 
-No Docker startup, package install, generated bundle, or external service. The maintained path uses the Python already available on `ubuntu-latest`.
+- **Keep attribution visible:** check every changed Python file before it leaves a developer's machine.
+- **Keep license terms close to the code:** help contributors and downstream users see which declared terms apply.
+- **Automate maintenance:** refresh recognized copyright years once a year without pushing directly to the default branch.
 
-## Check every pull request and commit
+The tool enforces the policy you configure. It does not determine ownership, choose the legally appropriate license, prove compliance, or replace legal advice.
+
+## Quick start
+
+### 1. Configure once
+
+Add the policy to `pyproject.toml`:
+
+```toml
+[tool.validate-python-headers]
+owner = "YOUR NAME OR ORGANIZATION"
+starting-year = 2022
+license = "Apache-2.0"
+paths = ["src", "tests"]
+ignore-files = ["__init__.py"]
+ignore-folders = [".github"]
+```
+
+Use `license-notice = ".github/license-notice.txt"` instead of `license` when the repository has a custom notice. Configure exactly one of them.
+
+The CLI finds the nearest `pyproject.toml`. Command-line options override it, and explicit file or directory arguments override `paths`.
+
+### 2. Check files before every commit
+
+Add the first-party hook to `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/frgfm/validate-python-headers
+    rev: v0.6.0
+    hooks:
+      - id: validate-python-headers
+```
+
+Install the hook and establish a clean baseline:
+
+```console
+pre-commit install
+pre-commit run validate-python-headers --all-files
+```
+
+After that, pre-commit supplies only staged Python files to the CLI. Use a released tag such as `v0.6.0`, or pin the immutable commit SHA recorded for that release. Do not pin `main`.
+
+### 3. Check changed files on every pull request
 
 Add `.github/workflows/headers.yml`:
 
@@ -24,8 +68,6 @@ name: headers
 
 on:
   pull_request:
-  push:
-    branches: main
 
 permissions:
   contents: read
@@ -34,44 +76,155 @@ jobs:
   headers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: frgfm/validate-python-headers@v0.6.0
+      - uses: actions/checkout@v7
         with:
-          owner: 'YOUR NAME OR ORGANIZATION'
-          starting-year: 2022
-          license: 'Apache-2.0'
-          folders: 'src,tests'
-          ignore-files: '__init__.py'
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pre-commit
+      - name: Check changed Python files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pre-commit run validate-python-headers --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
 ```
 
-`check` is the default mode and never changes source files. Any invalid file fails the job and is returned in the `issues` output.
-
-Use a released tag such as `v0.6.0`, or pin the immutable commit SHA recorded for that release. Do not pin `main`.
+This uses pre-commit's documented [`--from-ref` and `--to-ref` CI workflow](https://pre-commit.com/#usage-in-continuous-integration), so local and pull-request checks select files the same way. Deleted files are naturally excluded.
 
 ## Open an annual copyright update pull request
 
-Copy the repository's tested [annual workflow](.github/workflows/update-copyright-years.yml) into your repository. It already:
+The pull-request check stays focused on changed files. The annual job is the deliberate full-project sweep.
 
-- runs every January 1 and can also be dispatched manually;
-- sets both the schedule timezone and `TZ` to avoid the local-midnight/UTC year boundary;
-- runs `mode: fix` and does nothing when no tracked Python file changes;
-- updates one deterministic branch with an exact-SHA force-with-lease;
-- opens or refreshes one pull request instead of pushing to the default branch;
-- grants only `contents: write` and `pull-requests: write`.
-
-Customize the owner, license, starting year, folders, and ignore inputs. Replace its local dogfooding reference:
+Add `.github/workflows/update-copyright-years.yml` and customize the branch name if needed:
 
 ```yaml
-uses: ./
+name: update copyright years
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "1 0 1 1 *"
+      timezone: Europe/Paris
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Paris
+      BRANCH_NAME: automation/update-copyright-years
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install the released CLI
+        run: >-
+          python -m pip install
+          "validate-python-headers @ git+https://github.com/frgfm/validate-python-headers.git@v0.6.0"
+      - name: Refresh recognized copyright years
+        run: validate-python-headers fix
+      - name: Open or update the annual pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- ':(glob)**/*.py'; then
+            echo "Copyright years are already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          expected_sha="$(git ls-remote --heads origin "$BRANCH_NAME" | cut -f1)"
+          git switch -C "$BRANCH_NAME"
+          git add -- ':(glob)**/*.py'
+          git commit -m "chore: update copyright years for $(date +%Y)"
+
+          if test -n "$expected_sha"; then
+            git push --force-with-lease="refs/heads/$BRANCH_NAME:$expected_sha" origin "HEAD:refs/heads/$BRANCH_NAME"
+          else
+            git push --set-upstream origin "$BRANCH_NAME"
+          fi
+
+          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
+          if test -n "$pr_number"; then
+            gh pr edit "$pr_number" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
+          else
+            gh pr create --base "$BASE_BRANCH" --head "$BRANCH_NAME" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
+          fi
 ```
 
-with the released action:
+GitHub supports [IANA timezones for scheduled workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onschedule). Setting both the schedule timezone and `TZ` ensures the CLI observes the new year at local midnight.
+
+The workflow exits successfully without creating an empty pull request when every header is current. A pull request created with `GITHUB_TOKEN` starts its checks in an approval-required state; a maintainer can approve them, or the workflow can use a GitHub App or PAT when automatic execution is required. See GitHub's documentation on [triggering a workflow from a workflow](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow).
+
+## CLI reference
+
+Install directly from a released Git tag:
+
+```console
+python -m pip install "validate-python-headers @ git+https://github.com/frgfm/validate-python-headers.git@v0.6.0"
+```
+
+Check or fix the configured project paths:
+
+```console
+validate-python-headers check
+validate-python-headers fix
+```
+
+Pass files or directories to narrow one invocation:
+
+```console
+validate-python-headers check src/changed.py tests/
+validate-python-headers fix src/changed.py
+```
+
+For a one-off repository without configuration, pass `--owner`, `--starting-year`, and either `--license` or `--license-notice` after the command. `--config` selects a specific `pyproject.toml`.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Every selected file is valid. |
+| `1` | One or more selected files still have invalid headers. |
+| `2` | Configuration, path, license, or I/O error. |
+
+## GitHub Action compatibility
+
+Existing Action workflows remain supported. When the repository has `[tool.validate-python-headers]`, no duplicated policy inputs are required:
 
 ```yaml
-uses: frgfm/validate-python-headers@v0.6.0
+- uses: actions/checkout@v7
+- uses: frgfm/validate-python-headers@v0.6.0
 ```
 
-Pull requests created with the repository `GITHUB_TOKEN` may require a maintainer to trigger or approve checks, depending on repository policy.
+Every existing input remains available as an override:
+
+```yaml
+- uses: frgfm/validate-python-headers@v0.6.0
+  with:
+    owner: 'YOUR NAME OR ORGANIZATION'
+    starting-year: 2022
+    license: 'Apache-2.0'
+    folders: 'src,tests'
+    ignore-files: '__init__.py'
+    mode: check
+```
+
+The `issues` output is a compact JSON array of invalid paths and is `[]` on success:
+
+```json
+["src/missing.py","src/wrong_owner.py"]
+```
 
 ## Conservative fix behavior
 
@@ -84,51 +237,34 @@ Pull requests created with the repository `GITHUB_TOKEN` may require a maintaine
 
 It preserves the original start year. A stale single year becomes `START-CURRENT` and a stale range receives the current end year. Already-current notices remain byte-for-byte unchanged.
 
-The action deliberately does not invent or normalize headers. Missing headers, malformed or reversed years, future years, owner mismatches, and unknown license text remain unchanged, appear in `issues`, and fail the job after all safe repairs have been attempted.
+The CLI deliberately does not invent or normalize headers. Missing headers, malformed or reversed years, future years, owner mismatches, and unknown license text remain unchanged and fail the command after all safe repairs have been attempted.
 
 Safe repairs preserve the shebang, encoding/BOM, newline style, file permissions, license notice, and every non-copyright byte.
 
-## Inputs
+## Troubleshooting
 
-| Input | Required | Default | Description |
-| --- | --- | --- | --- |
-| `owner` | yes | — | Exact copyright owner. |
-| `starting-year` | yes | — | Earliest accepted start year for project files. |
-| `license` | no | `null` | SPDX license identifier. |
-| `folders` | no | `.` | Comma-separated folders to scan. |
-| `ignore-files` | no | `__init__.py` | Comma-separated filenames to ignore. |
-| `ignore-folders` | no | `.github/` | Comma-separated folders to ignore; pass an empty string to ignore none. |
-| `license-notice` | no | `null` | Path to a custom notice, used when `license` is unset. |
-| `mode` | no | `check` | `check` or `fix`. |
+### The first all-files check fails
 
-Specify either `license` or `license-notice`. For a custom notice:
+Review the reported paths and the example header printed once at the end. `fix` can refresh recognized stale years, but missing or ambiguous headers require a human decision.
 
-```yaml
-- uses: frgfm/validate-python-headers@v0.6.0
-  with:
-    owner: 'YOUR NAME OR ORGANIZATION'
-    starting-year: 2022
-    license-notice: '.github/license-notice.txt'
-```
+### Configuration fails before files are checked
 
-## Output
+The error names the exact `[tool.validate-python-headers]` key and expected type. Confirm that `owner` and `starting-year` exist, exactly one license source is configured, and every path is relative to the configuration file.
 
-`issues` is a compact JSON array of invalid paths and is `[]` on success:
+### The annual pull request checks are waiting
 
-```json
-["src/missing.py","src/wrong_owner.py"]
-```
+Approve the workflow run in the pull request. This approval boundary is GitHub's default behavior for pull requests created or updated with `GITHUB_TOKEN`.
 
-## Runtime
+## Runtime and migration
 
-GitHub-hosted Ubuntu runners already provide Python. Self-hosted runners need Python 3.11 or newer available as `python`.
+The CLI requires Python 3.11 or newer and has no runtime package dependencies. GitHub-hosted Ubuntu runners provide Python, while the examples pin Python 3.11 for a reproducible floor.
 
-Version 0.6.0 replaces the Docker runtime with this direct composite action and stops publishing the undocumented `ghcr.io/frgfm/validate-python-headers` image. Existing tags remain unchanged. Public code search did not identify image consumers, but private or unindexed consumers may exist.
+Version 0.6.0 replaces the Docker runtime with a direct Python CLI and composite Action. Existing release tags remain unchanged. Install or reference an owner-controlled `v0.6.0` tag or immutable release SHA after it is published.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for local tests and quality checks.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE).
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE).

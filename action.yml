@@ -7,32 +7,34 @@ branding:
 
 inputs:
   owner:
-    description: 'Name of the copyright owner'
-    required: true
+    description: 'Name of the copyright owner; overrides pyproject.toml'
+    required: false
+    default: '__from_config__'
   starting-year:
-    description: 'Starting year of your project'
-    required: true
+    description: 'Starting year of your project; overrides pyproject.toml'
+    required: false
+    default: '__from_config__'
   license:
     # https://spdx.org/licenses/
-    description: 'License of your project'
+    description: 'License of your project; overrides pyproject.toml'
     required: false
-    default: null
+    default: '__from_config__'
   folders:
-    description: 'Folders to inspect'
+    description: 'Folders to inspect; overrides pyproject.toml'
     required: false
-    default: '.'
+    default: '__from_config__'
   ignore-files:
-    description: 'Files to ignore'
+    description: 'Files to ignore; overrides pyproject.toml'
     required: false
-    default: '__init__.py'
+    default: '__from_config__'
   ignore-folders:
-    description: 'Folders to ignore'
+    description: 'Folders to ignore; overrides pyproject.toml'
     required: false
-    default: '.github/'
+    default: '__from_config__'
   license-notice:
-    description: 'Custom license notice to be used if license is null'
+    description: 'Custom license notice; overrides pyproject.toml'
     required: false
-    default: null
+    default: '__from_config__'
   mode:
     description: 'Whether to check or fix existing headers'
     required: false
@@ -59,10 +61,12 @@ runs:
         INPUT_LICENSE_NOTICE: ${{ inputs.license-notice }}
         INPUT_MODE: ${{ inputs.mode }}
       run: |
-        python "$GITHUB_ACTION_PATH/src/validate_headers.py" "$INPUT_OWNER" "$INPUT_STARTING_YEAR" \
-          --license "$INPUT_LICENSE" \
-          --folders "$INPUT_FOLDERS" \
-          --ignore-files "$INPUT_IGNORE_FILES" \
-          --ignore-folders "$INPUT_IGNORE_FOLDERS" \
-          --license-notice "$INPUT_LICENSE_NOTICE" \
-          --mode "$INPUT_MODE"
+        args=("$INPUT_MODE")
+        if [[ "$INPUT_OWNER" != '__from_config__' ]]; then args+=(--owner "$INPUT_OWNER"); fi
+        if [[ "$INPUT_STARTING_YEAR" != '__from_config__' ]]; then args+=(--starting-year "$INPUT_STARTING_YEAR"); fi
+        if [[ "$INPUT_LICENSE" != '__from_config__' ]]; then args+=(--license "$INPUT_LICENSE"); fi
+        if [[ "$INPUT_FOLDERS" != '__from_config__' ]]; then args+=(--folders "$INPUT_FOLDERS"); fi
+        if [[ "$INPUT_IGNORE_FILES" != '__from_config__' ]]; then args+=(--ignore-files "$INPUT_IGNORE_FILES"); fi
+        if [[ "$INPUT_IGNORE_FOLDERS" != '__from_config__' ]]; then args+=(--ignore-folders "$INPUT_IGNORE_FOLDERS"); fi
+        if [[ "$INPUT_LICENSE_NOTICE" != '__from_config__' ]]; then args+=(--license-notice "$INPUT_LICENSE_NOTICE"); fi
+        python "$GITHUB_ACTION_PATH/src/validate_headers/__main__.py" "${args[@]}"

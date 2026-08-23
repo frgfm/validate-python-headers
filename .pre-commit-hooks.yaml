@@ -1,0 +1,6 @@
+- id: validate-python-headers
+  name: validate Python headers
+  description: Keep Python files connected to their declared copyright owner and license.
+  entry: validate-python-headers check
+  language: python
+  types: [python]
