@@ -1,5 +1,4 @@
 PYPROJECT_FILE = ./pyproject.toml
-REQ_FILE = ./requirements.txt
 
 ########################################################
 # Code checks
@@ -7,23 +6,22 @@ REQ_FILE = ./requirements.txt
 
 
 install-quality: ${PYPROJECT_FILE}
-	uv export --no-hashes --locked --only-dev -o ${REQ_FILE}
-	uv pip install --system -r ${REQ_FILE}
-	prek install
+	uv sync --group quality
+	uv run --group quality prek install
 
 lint-check: ${PYPROJECT_FILE}
-	ruff format --check . --config ${PYPROJECT_FILE}
-	ruff check . --config ${PYPROJECT_FILE}
+	uv run --group quality ruff format --check . --config ${PYPROJECT_FILE}
+	uv run --group quality ruff check . --config ${PYPROJECT_FILE}
 
 lint-format: ${PYPROJECT_FILE}
-	ruff check --fix . --config ${PYPROJECT_FILE}
-	ruff format . --config ${PYPROJECT_FILE}
+	uv run --group quality ruff check --fix . --config ${PYPROJECT_FILE}
+	uv run --group quality ruff format . --config ${PYPROJECT_FILE}
 
 prek: ${PYPROJECT_FILE} .pre-commit-config.yaml
-	prek run --all-files
+	uv run --group quality prek run --all-files
 
 typing-check: ${PYPROJECT_FILE}
-	ty check src
+	uv run --group quality ty check src
 
 deps-check: .github/verify_deps_sync.py
 	uv run --script .github/verify_deps_sync.py
@@ -39,6 +37,9 @@ style: lint-format prek
 
 lock: ${PYPROJECT_FILE}
 	uv lock
+
+lock-check: ${PYPROJECT_FILE}
+	uv lock --check
 
 # Run tests for the library
 test:
