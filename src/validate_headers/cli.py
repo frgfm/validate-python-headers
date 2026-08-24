@@ -15,9 +15,6 @@ from pathlib import Path
 
 from .config import (
     CONFIG_SECTION,
-    _configuration_table,
-    _find_pyproject,
-    _split_values,
     load_configuration,
     resolve_args,
 )
@@ -27,7 +24,6 @@ from .core import (
     Diagnostic,
     DiagnosticCode,
     Settings,
-    _decode_source,
     discover_files,
     get_header_options,
     is_valid_header,
@@ -216,10 +212,6 @@ __all__ = [
     "CONFIG_SECTION",
     "DiagnosticCode",
     "Settings",
-    "_configuration_table",
-    "_decode_source",
-    "_find_pyproject",
-    "_split_values",
     "discover_files",
     "get_header_options",
     "is_valid_header",

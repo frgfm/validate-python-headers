@@ -84,6 +84,10 @@ def _split_values(value: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _relative_path(path: Path) -> str:
+    return Path(os.path.relpath(path, Path.cwd())).as_posix()
+
+
 def resolve_args(args) -> Settings:
     config, project_root, config_path = load_configuration(args.config)
     owner = args.owner if args.owner is not None else config.get("owner")
@@ -100,7 +104,7 @@ def resolve_args(args) -> Settings:
         license_id = config.get("license")
         license_notice = config.get("license-notice")
         if isinstance(license_notice, str):
-            license_notice = os.path.relpath(project_root / license_notice, Path.cwd())
+            license_notice = _relative_path(project_root / license_notice)
     if bool(license_id) == bool(license_notice):
         raise ValueError(
             f"Configure exactly one of {CONFIG_SECTION}.license or {CONFIG_SECTION}.license-notice, "
@@ -115,7 +119,7 @@ def resolve_args(args) -> Settings:
         paths = _split_values(args.folders)
     else:
         configured_paths = cast(list[str], config.get("paths", ["."]))
-        paths = tuple(os.path.relpath(project_root / path, Path.cwd()) for path in configured_paths)
+        paths = tuple(_relative_path(project_root / path) for path in configured_paths)
 
     ignore_files = (
         _split_values(args.ignore_files)
@@ -126,7 +130,7 @@ def resolve_args(args) -> Settings:
     ignore_folders = (
         _split_values(args.ignore_folders)
         if args.ignore_folders is not None
-        else tuple(os.path.relpath(project_root / folder, Path.cwd()) for folder in configured_ignore_folders)
+        else tuple(_relative_path(project_root / folder) for folder in configured_ignore_folders)
     )
     if not paths:
         raise ValueError(f"Invalid {CONFIG_SECTION}.paths: expected at least one path")

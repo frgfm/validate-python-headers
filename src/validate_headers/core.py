@@ -430,6 +430,10 @@ def is_valid_header(raw_source: bytes, header_options: list[list[str]]) -> bool:
         source = _normalize_newlines(_decode_source(raw_source))
     except (LookupError, SyntaxError, UnicodeDecodeError):
         return False
+    lines = source.splitlines(keepends=True)
+    header_index, _ = _preamble(lines)
+    source = "".join(lines[header_index:])
+    # The last option is the display-only template containing <FILE_CREATION_YEAR>.
     return any(source.startswith("".join(option)) for option in header_options[:-1])
 
 
@@ -647,9 +651,9 @@ def run(settings: Settings, command: str, current_year: int | None = None) -> Co
         except OSError as error:
             remaining = []
             for item_path, item in analyses:
-                diagnostic = unsafe.get(item_path, item.content.diagnostic)
-                if item_path not in changed and diagnostic is not None:
-                    remaining.append(diagnostic)
+                item_diagnostic = unsafe.get(item_path, item.content.diagnostic)
+                if item_path not in changed and item_diagnostic is not None:
+                    remaining.append(item_diagnostic)
             return _error_result(
                 settings,
                 command,

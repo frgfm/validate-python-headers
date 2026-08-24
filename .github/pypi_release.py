@@ -33,9 +33,16 @@ def published_hashes(package: str, version: str) -> dict[str, str]:
     return {item["filename"]: item["digests"]["sha256"] for item in payload["urls"]}
 
 
+def reject_unexpected(expected: dict[str, str], remote: dict[str, str]) -> None:
+    unexpected = remote.keys() - expected.keys()
+    if unexpected:
+        raise ValueError(f"Published unexpected artifacts: {', '.join(sorted(unexpected))}")
+
+
 def publish(directory: Path, package: str, version: str) -> None:
     expected = artifact_hashes(directory)
     remote = published_hashes(package, version)
+    reject_unexpected(expected, remote)
     mismatched = {name for name, digest in expected.items() if name in remote and remote[name] != digest}
     if mismatched:
         raise ValueError(f"Published hash mismatch for {', '.join(sorted(mismatched))}")
@@ -54,6 +61,7 @@ def verify(directory: Path, package: str, version: str, attempts: int, delay: in
     expected = artifact_hashes(directory)
     for attempt in range(attempts):
         remote = published_hashes(package, version)
+        reject_unexpected(expected, remote)
         mismatched = {
             name: (digest, remote.get(name)) for name, digest in expected.items() if remote.get(name) != digest
         }

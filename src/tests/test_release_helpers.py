@@ -59,6 +59,18 @@ class ReleaseHelperTestCase(WorkspaceTestCase):
         ):
             pypi.publish(directory, "example", "1.0")
 
+    def test_publish_and_verify_abort_on_unexpected_remote_artifact(self):
+        directory, _, _ = self.artifacts()
+        remote = {**pypi.artifact_hashes(directory), "unreviewed.whl": "digest"}
+
+        with mock.patch.object(pypi, "published_hashes", return_value=remote):
+            for operation in (
+                lambda: pypi.publish(directory, "example", "1.0"),
+                lambda: pypi.verify(directory, "example", "1.0", 1, 0),
+            ):
+                with self.subTest(operation=operation), self.assertRaisesRegex(ValueError, "unexpected"):
+                    operation()
+
     def test_verify_retries_until_all_hashes_match(self):
         directory, _, _ = self.artifacts()
         expected = pypi.artifact_hashes(directory)

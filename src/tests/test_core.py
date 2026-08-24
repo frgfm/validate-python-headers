@@ -31,6 +31,17 @@ class CoreTestCase(WorkspaceTestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.checked, 6)
         self.assertEqual(result.diagnostics, ())
+        settings = self.settings()
+        options = core.get_header_options(
+            settings.owner,
+            settings.year,
+            settings.license,
+            settings.license_notice,
+            CURRENT_YEAR,
+            settings.license_path,
+        )
+        for name in ("single.py", "shebang.py", "cookie.py", "shebang_cookie.py", "bom_crlf.py"):
+            self.assertTrue(core.is_valid_header(Path("src", name).read_bytes(), options))
 
     def test_each_invalid_file_has_one_primary_diagnostic(self):
         self.write_source("src/missing.py", None)
@@ -108,6 +119,7 @@ class CoreTestCase(WorkspaceTestCase):
             bom=True,
         )
         path.chmod(0o754)
+        original_mode = stat.S_IMODE(path.stat().st_mode)
         expected = path.read_bytes().replace(b"Copyright (C) 2024", b"Copyright (C) 2024-2030", 1)
         settings = self.settings(license=None, license_notice=str(notice_path))
 
@@ -120,7 +132,7 @@ class CoreTestCase(WorkspaceTestCase):
         self.assertEqual(first_bytes, expected)
         self.assertEqual(second.changed, ())
         self.assertEqual(path.read_bytes(), first_bytes)
-        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o754)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), original_mode)
 
     def test_fix_repairs_only_recognized_stale_years(self):
         safe = self.write_source("src/safe.py", "2024")
