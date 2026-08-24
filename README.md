@@ -18,18 +18,20 @@ The tool does not choose a license, determine copyright ownership, provide legal
 
 ## Quick start
 
-### 1. Install the CLI
+### 1. Install the CLI from GitHub
+
+Until v0.6.0 is published, install the current release-candidate snapshot directly from GitHub. The full commit SHA keeps the installation reproducible.
 
 With uv:
 
 ```console
-uv tool install validate-python-headers
+uv tool install "git+https://github.com/frgfm/validate-python-headers.git@523b1c2fdd7857374999d664aeea9f8809cd497c"
 ```
 
 Or with pipx:
 
 ```console
-pipx install validate-python-headers
+pipx install "git+https://github.com/frgfm/validate-python-headers.git@523b1c2fdd7857374999d664aeea9f8809cd497c"
 ```
 
 Both install the primary `vph` command and the longer `validate-python-headers` compatibility alias. Python 3.11 or newer is required.
@@ -78,6 +80,34 @@ vph fix
 vph check
 ```
 
+For example, assuming the current year is 2026, `vph fix` changes this recognized stale header:
+
+```python
+# Copyright (C) 2022-2025, YOUR NAME OR ORGANIZATION.
+
+# This program is licensed under the Apache License 2.0.
+# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
+
+
+def greet():
+    return "hello"
+```
+
+into:
+
+```python
+# Copyright (C) 2022-2026, YOUR NAME OR ORGANIZATION.
+
+# This program is licensed under the Apache License 2.0.
+# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
+
+
+def greet():
+    return "hello"
+```
+
+Only the recognized end year changes. Missing or ambiguous headers remain untouched and are reported for manual review.
+
 Pass files or directories to narrow one invocation:
 
 ```console
@@ -92,7 +122,7 @@ The first-party hook uses the standard `.pre-commit-config.yaml` format and work
 ```yaml
 repos:
   - repo: https://github.com/frgfm/validate-python-headers
-    rev: v0.6.0
+    rev: 523b1c2fdd7857374999d664aeea9f8809cd497c
     hooks:
       - id: vph
 ```
@@ -107,7 +137,7 @@ prek run vph --all-files
 
 After the initial baseline, the hook supplies only selected Python files to `vph`.
 
-Use a released tag such as `v0.6.0`, or pin the immutable commit SHA recorded for that release. Do not pin `main`.
+After v0.6.0 is published, you can replace this snapshot SHA with the `v0.6.0` tag. Do not pin `main`.
 
 ## Pull-request checks
 
