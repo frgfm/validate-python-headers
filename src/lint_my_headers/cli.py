@@ -36,7 +36,7 @@ SCHEMA_VERSION = 1
 
 def _tool_version() -> str:
     try:
-        return version("validate-python-headers")
+        return version("lint-my-headers")
     except PackageNotFoundError:
         return "0+unknown"
 
@@ -178,7 +178,7 @@ def parse_args(argv=None):
 
     parser = argparse.ArgumentParser(
         description="Lint Python copyright and license headers and conservatively refresh recognized years.",
-        epilog="Configure once in [tool.validate-python-headers], then run: %(prog)s check",
+        epilog="Configure once in [tool.lint-my-headers], then run: %(prog)s check",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {_tool_version()}")
     commands = parser.add_subparsers(dest="command", required=True)

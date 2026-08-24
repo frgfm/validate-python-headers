@@ -1,10 +1,8 @@
 name: publish release
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+  release:
+    types: [published]
 
 env:
   RELEASE_UV_VERSION: "0.12.5"
@@ -21,6 +19,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
@@ -29,11 +28,17 @@ jobs:
       - name: Verify tag and package versions
         id: version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$ ]]; then
+            echo "Unsupported release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
           package_version="$(uv version --short)"
           if [[ "$version" != "$package_version" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match package version $package_version." >&2
+            echo "Tag $RELEASE_TAG does not match package version $package_version." >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -41,21 +46,14 @@ jobs:
         env:
           PYTHONOPTIMIZE: "1"
         run: python -m unittest discover -s src/tests -v
-      - name: Build wheel and source distribution
-        run: uv build --no-sources
-      - name: Smoke-test wheel
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-        run: uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
-      - name: Smoke-test source distribution
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-        run: uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+      - name: Build and smoke-test distributions
+        run: make package-check
       - name: Retain exact release artifacts and publishing checks
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-artifacts
           if-no-files-found: error
+          retention-days: 30
           path: |
             dist/
             .github/pypi_release.py
@@ -65,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/validate-python-headers
+      url: https://pypi.org/p/lint-my-headers
     permissions:
       id-token: write
     steps:
@@ -110,28 +108,8 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         shell: bash
         run: |
-          actual="$(uvx --refresh-package validate-python-headers --from "validate-python-headers==$VERSION" vph --version)"
-          if [[ "$actual" != "vph $VERSION" ]]; then
+          actual="$(uvx --refresh-package lint-my-headers --from "lint-my-headers==$VERSION" lmh --version)"
+          if [[ "$actual" != "lmh $VERSION" ]]; then
             echo "Unexpected installed version: $actual" >&2
             exit 1
           fi
-
-  github-release:
-    needs: [build, verify]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Create the immutable GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
-        shell: bash
-        run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "GitHub release $GITHUB_REF_NAME already exists."
-            exit 0
-          fi
-          args=(release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME")
-          if [[ "$VERSION" == *rc* ]]; then args+=(--prerelease); fi
-          gh "${args[@]}"

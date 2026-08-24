@@ -3,11 +3,12 @@ requires = ["uv_build>=0.12.5,<1.0.0"]
 build-backend = "uv_build"
 
 [project]
-name = "validate-python-headers"
+name = "lint-my-headers"
 version = "0.6.0rc1"
-description = "Python legal-header linter and conservative copyright-year fixer"
+description = "Agent-ready license-header linting for source code, starting with Python"
 requires-python = ">=3.11,<4.0"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 maintainers = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 readme = "README.md"
@@ -27,29 +28,29 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-vph = "validate_headers.cli:main"
-validate-python-headers = "validate_headers.cli:main"
+lmh = "lint_my_headers.cli:main"
+lint-my-headers = "lint_my_headers.cli:main"
 
 [project.urls]
-Documentation = "https://github.com/frgfm/validate-python-headers#readme"
-Issues = "https://github.com/frgfm/validate-python-headers/issues"
-Changelog = "https://github.com/frgfm/validate-python-headers/releases"
-Repository = "https://github.com/frgfm/validate-python-headers"
+Documentation = "https://github.com/frgfm/lint-my-headers#readme"
+Issues = "https://github.com/frgfm/lint-my-headers/issues"
+Changelog = "https://github.com/frgfm/lint-my-headers/releases"
+Repository = "https://github.com/frgfm/lint-my-headers"
 
 [tool.setuptools.package-data]
-validate_headers = ["supported-licenses.json", "legacy-license-notices.json"]
+lint_my_headers = ["supported-licenses.json", "legacy-license-notices.json"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["validate_headers*"]
+include = ["lint_my_headers*"]
 
-[tool.validate-python-headers]
+[tool.lint-my-headers]
 owner = "François-Guillaume Fernandez"
 starting-year = 2022
 license = "Apache-2.0"
-paths = ["src", ".github"]
+paths = ["src", ".github", "scripts"]
 ignore-files = ["version.py", "__init__.py", "collect_env.py"]
-ignore-folders = [".agents/skills/validate-python-headers/evals/files"]
+ignore-folders = []
 
 [dependency-groups]
 quality = [
@@ -59,7 +60,7 @@ quality = [
 ]
 
 [tool.uv.build-backend]
-module-name = "validate_headers"
+module-name = "lint_my_headers"
 
 [tool.ruff]
 line-length = 120
@@ -120,7 +121,7 @@ ignore = [
     "ISC001",  # implicit string concatenation (handled by format)
     "G004",  # logging-fstring-interpolation
 ]
-exclude = [".git", ".agents/skills/validate-python-headers/evals/files/**"]
+exclude = [".git"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"

@@ -1,4 +1,4 @@
-name: Validate Python headers
+name: Lint My Headers
 author: frgfm
 description: Lint Python legal headers and conservatively refresh recognized copyright years
 branding:
@@ -51,7 +51,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Validate Python headers
+    - name: Lint My Headers
       id: validate
       shell: bash
       env:
@@ -72,4 +72,4 @@ runs:
         if [[ "$INPUT_IGNORE_FILES" != '__from_config__' ]]; then args+=(--ignore-files "$INPUT_IGNORE_FILES"); fi
         if [[ "$INPUT_IGNORE_FOLDERS" != '__from_config__' ]]; then args+=(--ignore-folders "$INPUT_IGNORE_FOLDERS"); fi
         if [[ "$INPUT_LICENSE_NOTICE" != '__from_config__' ]]; then args+=(--license-notice "$INPUT_LICENSE_NOTICE"); fi
-        python "$GITHUB_ACTION_PATH/src/validate_headers/__main__.py" "${args[@]}"
+        python "$GITHUB_ACTION_PATH/src/lint_my_headers/__main__.py" "${args[@]}"

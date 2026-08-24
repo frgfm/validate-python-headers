@@ -12,7 +12,7 @@ from unittest import mock
 
 from support import CURRENT_YEAR, OWNER, WorkspaceTestCase
 
-from validate_headers import cli
+from lint_my_headers import cli
 
 
 class CliTestCase(WorkspaceTestCase):
@@ -57,14 +57,14 @@ class CliTestCase(WorkspaceTestCase):
         self.assertEqual(payload["command"], "check")
         self.assertEqual(payload["changed"], [])
         self.assertEqual([item["path"] for item in payload["diagnostics"]], ["src/a.py", "src/b.py"])
-        self.assertEqual([item["code"] for item in payload["diagnostics"]], ["VPH004", "VPH001"])
+        self.assertEqual([item["code"] for item in payload["diagnostics"]], ["LMH004", "LMH001"])
         self.assertIsNone(payload["error"])
 
     def test_json_fix_reports_changed_and_only_unresolved_findings(self):
         self.write_source("src/stale.py", "2024")
         self.write_source("src/missing.py", None)
 
-        with mock.patch("validate_headers.core.datetime") as current_datetime:
+        with mock.patch("lint_my_headers.core.datetime") as current_datetime:
             current_datetime.now.return_value.year = CURRENT_YEAR
             exit_code, stdout, stderr = self.capture_main([
                 "fix",
@@ -95,20 +95,20 @@ class CliTestCase(WorkspaceTestCase):
         self.assertEqual(payload["changed"], [])
         self.assertEqual(payload["diagnostics"], [])
         self.assertIsNotNone(payload["expected_header"])
-        self.assertEqual(payload["error"]["code"], "VPH900")
+        self.assertEqual(payload["error"]["code"], "LMH900")
         self.assertIn("Invalid path", payload["error"]["message"])
         self.assertEqual(output_path.read_text(encoding="utf-8"), "issues=[]\nchanged=[]\n")
 
     def test_text_output_is_compiler_style(self):
         self.write_source("src/stale.py", "2024")
 
-        with mock.patch("validate_headers.core.datetime") as current_datetime:
+        with mock.patch("lint_my_headers.core.datetime") as current_datetime:
             current_datetime.now.return_value.year = CURRENT_YEAR
             exit_code, stdout, stderr = self.capture_main(["check", *self.common_args(), "src/stale.py"])
 
         self.assertEqual(exit_code, 1)
         self.assertEqual(stdout, "")
-        self.assertIn("src/stale.py:1:1: VPH004", stderr)
+        self.assertIn("src/stale.py:1:1: LMH004", stderr)
         self.assertIn("[fixable]", stderr)
         self.assertIn("Expected header:", stderr)
 
@@ -117,7 +117,7 @@ class CliTestCase(WorkspaceTestCase):
         self.write_source("src/stale.py", "2024")
         self.write_source("src/missing.py", None)
 
-        with mock.patch("validate_headers.core.datetime") as current_datetime:
+        with mock.patch("lint_my_headers.core.datetime") as current_datetime:
             current_datetime.now.return_value.year = CURRENT_YEAR
             exit_code, _, _ = self.capture_main(
                 ["fix", *self.common_args(), "src"],
@@ -133,7 +133,7 @@ class CliTestCase(WorkspaceTestCase):
     def test_version_uses_distribution_metadata(self):
         stdout = io.StringIO()
         with (
-            mock.patch("validate_headers.cli.version", return_value="0.6.0rc1"),
+            mock.patch("lint_my_headers.cli.version", return_value="0.6.0rc1"),
             mock.patch("sys.stdout", stdout),
             self.assertRaises(SystemExit) as raised,
         ):
