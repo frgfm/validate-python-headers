@@ -1,101 +1,87 @@
 # Contributing to validate-python-headers
 
-Everything you need to know to contribute efficiently to the project!
-
-Whatever the way you wish to contribute to the project, please respect the [code of conduct](CODE_OF_CONDUCT.md).
-
-
+Contributions are welcome. Follow the [code of conduct](CODE_OF_CONDUCT.md) and preserve the compatibility and mutation guarantees below.
 
 ## Codebase structure
 
-- [`./src/validate_headers`](https://github.com/frgfm/validate-python-headers/tree/main/src/validate_headers) - The CLI package used for header verification
-- [`./src/tests`](https://github.com/frgfm/validate-python-headers/blob/main/src/tests) - Standard-library unit tests
-- [`action.yml`](https://github.com/frgfm/validate-python-headers/blob/main/action.yml) - The composite action configuration
-- [`.github/workflows`](https://github.com/frgfm/validate-python-headers/tree/main/.github/workflows) - CI and annual header refresh workflows
+- `src/validate_headers/core.py` owns header analysis, diagnostics, discovery, and conservative repair.
+- `src/validate_headers/config.py` owns strict `pyproject.toml` discovery and CLI precedence.
+- `src/validate_headers/cli.py` owns argument parsing, text/JSON rendering, Action outputs, and exit codes.
+- `src/tests` contains standard-library unit and contract tests.
+- `action.yml` is the compatible composite GitHub Action wrapper.
+- `.github/workflows` covers CI, annual review pull requests, and artifact publication.
 
+Keep these boundaries boring. The project does not need a generic rule engine, plugin API, or second parser in an integration.
 
-## Continuous Integration
+## Compatibility and safety rules
 
-This project uses the following integrations to ensure proper codebase maintenance:
+- Python 3.11 is the compatibility floor; Python 3.11–3.14 are release-tested.
+- `check` never writes source files.
+- `fix` changes only one recognized stale year for the configured owner.
+- Missing, malformed, ambiguous, future-dated, wrong-owner, and wrong-license headers remain unchanged.
+- Repairs preserve Python preambles, encodings, newlines, file mode, and every non-year byte.
+- Repairs fail closed for symlinks, reparse points, symlinked parents, hard links, and content races.
+- Keep CLI, JSON, `pyproject.toml`, pre-commit/prek, Action inputs/outputs, README examples, and tests aligned.
+- Preserve exit codes `0` clean, `1` findings, and `2` command/configuration/I/O error.
+- Never infer legal ownership or license choices from Git history or neighboring files.
 
-- [GitHub Actions](https://help.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow) - run unit, integration, and quality checks
-- [Codacy](https://www.codacy.com/) - analyzes commits for code quality
+## Local setup
 
-As a contributor, you will only have to ensure coverage of your code by adding appropriate unit testing of your code.
+Fork and clone the repository, then create a branch rather than working on `main`:
 
-
-
-## Feedback
-
-### Feature requests & bug report
-
-Whether you encountered a problem, or you have a feature suggestion, your input has value and can be used by contributors to reference it in their developments. For this purpose, we advise you to use Github [issues](https://github.com/frgfm/validate-python-headers/issues).
-
-First, check whether the topic wasn't already covered in an open / closed issue. If not, feel free to open a new one! When doing so, use issue templates whenever possible and provide enough information for other contributors to jump in.
-
-### Questions
-
-If you are wondering how to do something with this action, or a more general question, you should consider checking out Github [discussions](https://github.com/frgfm/validate-python-headers/discussions). See it as a Q&A forum, or the project-specific StackOverflow!
-
-
-
-## Submitting a Pull Request
-
-### Preparing your local branch
-
-1 - Fork this [repository](https://github.com/frgfm/validate-python-headers) by clicking on the "Fork" button at the top right of the page. This will create a copy of the project under your GitHub account (cf. [Fork a repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo)).
-
-2 - [Clone your fork](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) to your local disk and set the upstream to this repo
-```shell
+```console
 git clone git@github.com:<YOUR_GITHUB_ACCOUNT>/validate-python-headers.git
 cd validate-python-headers
 git remote add upstream https://github.com/frgfm/validate-python-headers.git
-```
-
-3 - You should not work on the `main` branch, so let's create a new one
-```shell
 git checkout -b a-short-description
-```
-
-4 - Install the quality tools with Python 3.11 and the repository-pinned dependencies:
-```shell
 make install-quality
 ```
 
-### Developing your feature
+## Verification
 
-#### Commits
+Run optimized-mode unit tests:
 
-- **Code**: ensure to provide docstrings to your Python code. In doing so, please follow [Google-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) so it can ease the process of documentation later.
-- **Commit message**: please follow [Udacity guide](http://udacity.github.io/git-styleguide/)
-
-#### Action sanity check
-
-In order to run the same checks as the CI workflows, you can run tests locally:
-
-```shell
-make test
+```console
+PYTHONOPTIMIZE=1 make test
 ```
 
-#### Code quality
+Run formatting, lint, typing, and dependency checks without modifying files:
 
-To run all quality checks together
-
-```shell
+```console
 make quality
 ```
 
-The previous command won't modify anything in your codebase. Some fixes (import ordering and code formatting) can be done automatically using the following command:
+Apply supported formatting fixes:
 
-```shell
+```console
 make style
 ```
 
-### Submit your modifications
+Build and smoke-test the installable artifacts when package behavior changes:
 
-Push your last modifications to your remote branch
-```shell
-git push -u origin a-short-description
+```console
+uv build --no-sources
+version="$(uv version --short)"
+EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
+EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+uvx --from prek==0.4.14 prek try-repo . vph --all-files
 ```
 
-Then [open a Pull Request](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) from your fork's branch. Follow the instructions of the Pull Request template and then click on "Create a pull request".
+Verify the vendored SPDX data after deliberately refreshing it:
+
+```console
+python scripts/update_spdx_licenses.py \
+  --baseline-ref 94972478f38d080eadd37f098f771eb4cd235ae4 \
+  --baseline-sha256 d557d74124ce6b367efd161e7b53ab1743ad45e302c3476bfb0988ee67b766e0 \
+  --spdx-tag v3.28.0 \
+  --expected-sha256 f728c534d8bd1044fc515a2ddb2292be99559021d830bfa3281be0bcd36302ee \
+  --check
+```
+
+Do not publish packages, tags, releases, branches, or pull requests as part of ordinary verification.
+
+## Feedback and pull requests
+
+Use [issues](https://github.com/frgfm/validate-python-headers/issues) for reproducible bugs and feature requests. Use [discussions](https://github.com/frgfm/validate-python-headers/discussions) for usage questions.
+
+Push your focused branch, open a pull request, and complete the repository template. Include the exact checks you ran and any release-only or platform-specific gate that remains open.

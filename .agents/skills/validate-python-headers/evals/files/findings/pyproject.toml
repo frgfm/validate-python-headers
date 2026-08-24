@@ -1,0 +1,7 @@
+[tool.validate-python-headers]
+owner = "Example Owner"
+starting-year = 2022
+license = "Apache-2.0"
+paths = ["src"]
+ignore-files = []
+ignore-folders = []

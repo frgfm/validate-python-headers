@@ -3,219 +3,113 @@
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
+from __future__ import annotations
+
 import argparse
-import io
 import json
 import os
-import re
-import stat
 import sys
-import tempfile
-import tokenize
 import tomllib
-from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Dict, List, Union, cast
 
-SHEBANG = ["#!/usr/bin/python\n"]
-BLANK_LINE = "\n"
-CONFIG_SECTION = "[tool.validate-python-headers]"
-CONFIG_KEYS = {"owner", "starting-year", "license", "license-notice", "paths", "ignore-files", "ignore-folders"}
-COPYRIGHT_RE = re.compile(r"^# Copyright \(C\) (?P<years>(?P<start>\d{4})(?:-(?P<end>\d{4}))?), (?P<owner>.*)\.$")
+from .config import (
+    CONFIG_SECTION,
+    load_configuration,
+    resolve_args,
+)
+from .core import (
+    CommandError,
+    CommandResult,
+    Diagnostic,
+    DiagnosticCode,
+    Settings,
+    discover_files,
+    get_header_options,
+    is_valid_header,
+    repair_header,
+    run,
+)
 
-# https://raw.githubusercontent.com/spdx/license-list-data/v3.17/json/licenses.json
-with Path(__file__).parent.joinpath("supported-licenses.json").open("rb") as f:
-    raw_data = json.load(f)
-LICENSES: Dict[str, Dict[str, str]] = {
-    license_["licenseId"]: {"name": license_["name"], "urls": license_["seeAlso"]} for license_ in raw_data["licenses"]
-}
+SCHEMA_VERSION = 1
 
 
-def get_header_options(
-    owner: str,
-    starting_year: int,
-    license_id: Union[str, None],
-    license_notice: Union[str, None],
-    current_year: Union[int, None] = None,
-    license_path: Path = Path("LICENSE"),
-) -> List[List[str]]:
-    current_year = datetime.now().year if current_year is None else current_year
-    if starting_year < 1000 or starting_year > current_year:
-        raise ValueError(f"Invalid first copyright year: {starting_year}")
-    if len(owner) == 0 or "\n" in owner or "\r" in owner:
-        raise ValueError("Please specify a single-line copyright owner")
+def _tool_version() -> str:
+    try:
+        return version("validate-python-headers")
+    except PackageNotFoundError:
+        return "0+unknown"
 
-    license_notices = []
-    if isinstance(license_id, str) and len(license_id) > 0:
-        license_info = LICENSES.get(license_id)
-        if not isinstance(license_info, dict):
-            raise ValueError(f"Invalid license identifier: {license_id}")
-        if not license_path.is_file():
-            raise FileNotFoundError("Unable to locate local copy of license text.")
-        license_notices = [
-            [
-                f"# This program is licensed under the {license_info['name']}.\n",
-                f"# See LICENSE or go to <{url}> for full license details.\n",
-            ]
-            for url in license_info["urls"]
-        ]
-    elif isinstance(license_notice, str) and len(license_notice) > 0:
-        if not Path(license_notice).is_file():
-            raise FileNotFoundError("Unable to locate the text of the license notice.")
-        with Path(license_notice).open("r", encoding="utf-8") as f:
-            license_notices = [f.readlines()]
-    else:
-        raise ValueError("One of the following args needs to be specified: 'license_id', 'license_notice'")
 
-    year_options = [f"{current_year}"] + [f"{year}-{current_year}" for year in range(starting_year, current_year)]
-    # Last element is the example for the error message.
-    year_options.append(f"{current_year}" if starting_year == current_year else f"<FILE_CREATION_YEAR>-{current_year}")
-    copyright_notices = [[f"# Copyright (C) {year_str}, {owner}.\n"] for year_str in year_options]
+def _display_path(path: Path, root: Path) -> str:
+    absolute = path.absolute()
+    try:
+        return Path(os.path.relpath(absolute, root)).as_posix()
+    except ValueError:
+        return absolute.as_posix()
 
-    return (
-        [
-            [*SHEBANG, BLANK_LINE, *copyright_notice, BLANK_LINE, *license_notice]
-            for copyright_notice in copyright_notices[:-1]
-            for license_notice in license_notices
-        ]
-        + [
-            [*copyright_notice, BLANK_LINE, *license_notice]
-            for copyright_notice in copyright_notices[:-1]
-            for license_notice in license_notices
-        ]
-        + [[*copyright_notices[-1], BLANK_LINE, *license_notices[0]]]
+
+def _diagnostic_dict(diagnostic: Diagnostic, root: Path) -> dict[str, object]:
+    return {
+        "path": _display_path(diagnostic.path, root),
+        "line": diagnostic.line,
+        "column": diagnostic.column,
+        "code": diagnostic.code.value,
+        "message": diagnostic.message,
+        "fixable": diagnostic.fixable,
+    }
+
+
+def _sorted_diagnostics(result: CommandResult) -> list[Diagnostic]:
+    return sorted(
+        result.diagnostics,
+        key=lambda item: (
+            _display_path(item.path, result.project_root),
+            item.line,
+            item.column,
+            item.code.value,
+        ),
     )
 
 
-def discover_files(paths: List[str], ignore_files: List[str], ignore_folders: List[str]) -> List[Path]:
-    if not paths:
-        raise ValueError("Please specify at least one path to inspect")
-
-    ignored_files = set(ignore_files)
-    ignored_folders = {Path(folder) for folder in ignore_folders}
-    source_paths: Dict[Path, None] = {}
-    for raw_path in paths:
-        path = Path(raw_path)
-        if path.is_file():
-            candidates = [path]
-        elif path.is_dir():
-            candidates = sorted(path.rglob("*.py"))
-        else:
-            raise FileNotFoundError(f"Invalid path: {raw_path}")
-
-        for source_path in candidates:
-            if source_path.name in ignored_files or any(
-                ignored_folder == source_path or ignored_folder in source_path.parents
-                for ignored_folder in ignored_folders
-            ):
-                continue
-            source_paths[source_path] = None
-    return list(source_paths)
+def result_dict(result: CommandResult) -> dict[str, object]:
+    root = result.project_root
+    error = None
+    if result.error is not None:
+        error = {
+            "code": result.error.code,
+            "message": result.error.message,
+            "path": None if result.error.path is None else _display_path(result.error.path, root),
+        }
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "tool_version": _tool_version(),
+        "command": result.command,
+        "config_path": None if result.config_path is None else _display_path(result.config_path, root),
+        "checked": result.checked,
+        "changed": sorted(_display_path(path, root) for path in result.changed),
+        "diagnostics": [_diagnostic_dict(item, root) for item in _sorted_diagnostics(result)],
+        "expected_header": result.expected_header,
+        "error": error,
+    }
 
 
-def _decode_source(raw_source: bytes) -> str:
-    encoding, _ = tokenize.detect_encoding(io.BytesIO(raw_source).readline)
-    return raw_source.decode(encoding)
-
-
-def is_valid_header(raw_source: bytes, header_options: List[List[str]]) -> bool:
-    try:
-        source = _decode_source(raw_source).replace("\r\n", "\n").replace("\r", "\n")
-    except (SyntaxError, UnicodeDecodeError):
-        return False
-    return any(source.startswith("".join(option)) for option in header_options[:-1])
-
-
-def _atomic_write(source_path: Path, content: bytes) -> None:
-    source_mode = stat.S_IMODE(source_path.stat().st_mode)
-    file_descriptor, temporary_name = tempfile.mkstemp(prefix=f".{source_path.name}.", dir=source_path.parent)
-    temporary_path = Path(temporary_name)
-    try:
-        with os.fdopen(file_descriptor, "wb") as temporary_file:
-            temporary_file.write(content)
-            temporary_file.flush()
-            os.fsync(temporary_file.fileno())
-        temporary_path.chmod(source_mode)
-        temporary_path.replace(source_path)
-    finally:
-        temporary_path.unlink(missing_ok=True)
-
-
-def repair_header(
-    source_path: Path,
-    owner: str,
-    starting_year: int,
-    current_year: int,
-    header_options: List[List[str]],
-) -> bool:
-    raw_source = source_path.read_bytes()
-    try:
-        decoded_lines = _decode_source(raw_source).splitlines(keepends=True)
-    except (SyntaxError, UnicodeDecodeError):
-        return False
-    raw_lines = raw_source.splitlines(keepends=True)
-    if len(decoded_lines) != len(raw_lines):
-        return False
-
-    matches = []
-    for index, line in enumerate(decoded_lines):
-        match = COPYRIGHT_RE.fullmatch(line.rstrip("\r\n"))
-        if match is not None and match.group("owner") == owner:
-            matches.append((index, match))
-    if len(matches) != 1:
-        return False
-
-    line_index, match = matches[0]
-    start_year = int(match.group("start"))
-    end_year = int(match.group("end")) if match.group("end") is not None else None
-    if start_year < starting_year or start_year >= current_year:
-        return False
-    if end_year is not None and (end_year < start_year or end_year >= current_year):
-        return False
-
-    old_years = match.group("years").encode("ascii")
-    prefix = b"# Copyright (C) "
-    needle = prefix + old_years + b", "
-    raw_line = raw_lines[line_index]
-    if raw_line.count(needle) != 1:
-        return False
-    year_start = raw_line.index(needle) + len(prefix)
-    replacement = f"{start_year}-{current_year}".encode("ascii")
-    raw_lines[line_index] = raw_line[:year_start] + replacement + raw_line[year_start + len(old_years) :]
-    repaired_source = b"".join(raw_lines)
-    if not is_valid_header(repaired_source, header_options):
-        return False
-
-    _atomic_write(source_path, repaired_source)
-    return True
-
-
-def run(args, current_year: Union[int, None] = None) -> tuple[List[Path], List[str]]:
-    current_year = datetime.now().year if current_year is None else current_year
-    if args.mode not in {"check", "fix"}:
-        raise ValueError(f"Invalid mode '{args.mode}': expected 'check' or 'fix'")
-
-    header_options = get_header_options(
-        args.owner,
-        args.year,
-        args.license,
-        args.license_notice,
-        current_year,
-        getattr(args, "license_path", Path("LICENSE")),
+def _write_action_outputs(result: CommandResult) -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path is None:
+        return
+    issues = (
+        []
+        if result.error is not None
+        else sorted({_display_path(item.path, result.project_root) for item in result.diagnostics})
     )
-    source_paths = discover_files(args.paths, args.ignore_files, args.ignore_folders)
-    if args.mode == "fix":
-        for source_path in source_paths:
-            if not is_valid_header(source_path.read_bytes(), header_options):
-                repair_header(source_path, args.owner, args.year, current_year, header_options)
-
-    invalid_files = [
-        source_path for source_path in source_paths if not is_valid_header(source_path.read_bytes(), header_options)
-    ]
-    return invalid_files, header_options[-1]
+    changed = sorted({_display_path(path, result.project_root) for path in result.changed})
+    with Path(output_path).open("a", encoding="utf-8") as output_file:
+        output_file.write(f"issues={json.dumps(issues, separators=(',', ':'))}\n")
+        output_file.write(f"changed={json.dumps(changed, separators=(',', ':'))}\n")
 
 
-def write_issues(invalid_files: List[Path]) -> None:
+def write_issues(invalid_files: list[Path]) -> None:
     output_path = os.environ.get("GITHUB_OUTPUT")
     if output_path is not None:
         issues = json.dumps([path.as_posix() for path in invalid_files], separators=(",", ":"))
@@ -223,132 +117,46 @@ def write_issues(invalid_files: List[Path]) -> None:
             output_file.write(f"issues={issues}\n")
 
 
-def _find_pyproject(config_path: Union[str, None]) -> Union[Path, None]:
-    if config_path is not None:
-        path = Path(config_path)
-        if not path.is_file():
-            raise FileNotFoundError(f"Invalid configuration path: {config_path}")
-        return path
-
-    for directory in (Path.cwd(), *Path.cwd().parents):
-        candidate = directory / "pyproject.toml"
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def _configuration_table(document: Dict[str, object], path: Path) -> Dict[str, object]:
-    tool_config = document.get("tool", {})
-    if not isinstance(tool_config, dict):
-        raise ValueError(f"Invalid [tool]: expected a table in {path}")
-    config = tool_config.get("validate-python-headers", {})
-    if not isinstance(config, dict):
-        raise ValueError(f"Invalid {CONFIG_SECTION}: expected a table in {path}")
-
-    unknown_keys = sorted(set(config) - CONFIG_KEYS)
-    if unknown_keys:
-        key = unknown_keys[0]
-        raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: unknown key in {path}")
-    return config
-
-
-def _validate_scalar_configuration(config: Dict[str, object], path: Path) -> None:
-    for key in ("owner", "license", "license-notice"):
-        if key in config and (not isinstance(config[key], str) or not config[key]):
-            raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: expected a non-empty string in {path}")
-    if "starting-year" in config and (
-        not isinstance(config["starting-year"], int)
-        or isinstance(config["starting-year"], bool)
-        or config["starting-year"] < 1000
-    ):
-        raise ValueError(f"Invalid {CONFIG_SECTION}.starting-year: expected a four-digit integer in {path}")
-
-
-def _validate_list_configuration(config: Dict[str, object], path: Path) -> None:
-    for key in ("paths", "ignore-files", "ignore-folders"):
-        if key not in config:
-            continue
-        value = config[key]
-        if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
-            raise ValueError(f"Invalid {CONFIG_SECTION}.{key}: expected an array of non-empty strings in {path}")
-    if "paths" in config and not config["paths"]:
-        raise ValueError(f"Invalid {CONFIG_SECTION}.paths: expected at least one path in {path}")
-
-
-def load_configuration(config_path: Union[str, None] = None) -> tuple[Dict[str, object], Path]:
-    path = _find_pyproject(config_path)
-    if path is None:
-        return {}, Path.cwd()
-
-    with path.open("rb") as config_file:
-        document = tomllib.load(config_file)
-    config = _configuration_table(document, path)
-    _validate_scalar_configuration(config, path)
-    _validate_list_configuration(config, path)
-    return config, path.parent
-
-
-def _split_values(value: str) -> List[str]:
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
-def resolve_args(args):
-    config, project_root = load_configuration(args.config)
-    owner = args.owner if args.owner is not None else config.get("owner")
-    year = args.starting_year if args.starting_year is not None else config.get("starting-year")
-    if not isinstance(owner, str) or not owner:
-        raise ValueError(f"Missing {CONFIG_SECTION}.owner; set it in pyproject.toml or pass --owner")
-    if not isinstance(year, int) or isinstance(year, bool):
-        raise ValueError(f"Missing {CONFIG_SECTION}.starting-year; set it in pyproject.toml or pass --starting-year")
-
-    if args.license is not None or args.license_notice is not None:
-        license_id = args.license or None
-        license_notice = args.license_notice or None
-    else:
-        license_id = config.get("license")
-        license_notice = config.get("license-notice")
-        if isinstance(license_notice, str):
-            license_notice = os.path.relpath(project_root / license_notice, Path.cwd())
-    if bool(license_id) == bool(license_notice):
-        raise ValueError(
-            f"Configure exactly one of {CONFIG_SECTION}.license or {CONFIG_SECTION}.license-notice, "
-            "or pass one matching CLI option"
+def _render_text(result: CommandResult) -> None:
+    root = result.project_root
+    if result.changed:
+        sys.stdout.write("Updated headers:\n")
+        for path in result.changed:
+            sys.stdout.write(f"- {_display_path(path, root)}\n")
+    if result.error is not None:
+        path = "" if result.error.path is None else f" ({_display_path(result.error.path, root)})"
+        sys.stderr.write(f"error: {result.error.message}{path}\n")
+        return
+    if not result.diagnostics:
+        return
+    for diagnostic in _sorted_diagnostics(result):
+        fixable = " [fixable]" if diagnostic.fixable else ""
+        sys.stderr.write(
+            f"{_display_path(diagnostic.path, root)}:{diagnostic.line}:{diagnostic.column}: "
+            f"{diagnostic.code.value} {diagnostic.message}{fixable}\n"
         )
+    if result.expected_header is not None:
+        sys.stderr.write(f"\nExpected header:\n\n{result.expected_header}\n")
 
-    if args.paths and args.folders is not None:
-        raise ValueError("Pass explicit paths or --folders, not both")
-    paths: List[str]
-    if args.paths:
-        paths = args.paths
-    elif args.folders is not None:
-        paths = _split_values(args.folders)
-    else:
-        configured_paths = cast(List[str], config.get("paths", ["."]))
-        paths = [os.path.relpath(project_root / path, Path.cwd()) for path in configured_paths]
-    ignore_files: List[str]
-    ignore_files = (
-        _split_values(args.ignore_files)
-        if args.ignore_files is not None
-        else cast(List[str], config.get("ignore-files", ["__init__.py"]))
-    )
-    configured_ignore_folders = cast(List[str], config.get("ignore-folders", [".github"]))
-    ignore_folders = (
-        _split_values(args.ignore_folders)
-        if args.ignore_folders is not None
-        else [os.path.relpath(project_root / folder, Path.cwd()) for folder in configured_ignore_folders]
-    )
-    if not paths:
-        raise ValueError(f"Invalid {CONFIG_SECTION}.paths: expected at least one path")
 
-    args.owner = owner
-    args.year = year
-    args.license = license_id
-    args.license_notice = license_notice
-    args.license_path = project_root / "LICENSE"
-    args.paths = list(paths)
-    args.ignore_files = list(ignore_files)
-    args.ignore_folders = list(ignore_folders)
-    return args
+def _render_json(result: CommandResult) -> None:
+    sys.stdout.write(json.dumps(result_dict(result), ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def _error_result(args, error: Exception) -> CommandResult:
+    config_path = None
+    if args.config is not None:
+        config_path = Path(args.config).absolute()
+    return CommandResult(
+        args.command,
+        Path.cwd().resolve(),
+        config_path,
+        0,
+        (),
+        (),
+        None,
+        CommandError(str(error), config_path if isinstance(error, FileNotFoundError) else None),
+    )
 
 
 def parse_args(argv=None):
@@ -361,31 +169,58 @@ def parse_args(argv=None):
     common.add_argument("--folders", help=argparse.SUPPRESS)
     common.add_argument("--ignore-files", help="comma-separated filenames; overrides pyproject.toml")
     common.add_argument("--ignore-folders", help="comma-separated folders; overrides pyproject.toml")
+    common.add_argument(
+        "--output-format",
+        choices=("text", "json"),
+        default="text",
+        help="diagnostic output format",
+    )
 
     parser = argparse.ArgumentParser(
-        description="Keep Python files connected to the copyright owner and license your project declares.",
+        description="Lint Python copyright and license headers and conservatively refresh recognized years.",
         epilog="Configure once in [tool.validate-python-headers], then run: %(prog)s check",
     )
-    commands = parser.add_subparsers(dest="mode", required=True)
-    for mode in ("check", "fix"):
-        command = commands.add_parser(mode, parents=[common], help=f"{mode} copyright and license headers")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_tool_version()}")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command_name in ("check", "fix"):
+        command = commands.add_parser(
+            command_name,
+            parents=[common],
+            help=f"{command_name} copyright and license headers",
+        )
         command.add_argument("paths", nargs="*", help="files or folders; defaults to configured paths")
     return parser.parse_args(argv)
 
 
 def main(argv=None) -> int:
+    args = parse_args(argv)
     try:
-        args = resolve_args(parse_args(argv))
-        invalid_files, example = run(args)
+        settings = resolve_args(args)
+        result = run(settings, args.command)
     except (FileNotFoundError, OSError, ValueError, tomllib.TOMLDecodeError) as error:
-        write_issues([])
-        sys.stderr.write(f"error: {error}\n")
-        return 2
+        result = _error_result(args, error)
 
-    write_issues(invalid_files)
-    if invalid_files:
-        invalid_str = "\n- " + "\n- ".join(map(str, invalid_files))
-        invalid_str += "\n\nYour header should look like:\n\n" + "".join(example)
-        sys.stderr.write(f"Invalid header in the following files:{invalid_str}\n")
-        return 1
-    return 0
+    _write_action_outputs(result)
+    if args.output_format == "json":
+        _render_json(result)
+    else:
+        _render_text(result)
+    return result.exit_code
+
+
+__all__ = [
+    "CONFIG_SECTION",
+    "DiagnosticCode",
+    "Settings",
+    "discover_files",
+    "get_header_options",
+    "is_valid_header",
+    "load_configuration",
+    "main",
+    "parse_args",
+    "repair_header",
+    "resolve_args",
+    "result_dict",
+    "run",
+    "write_issues",
+]

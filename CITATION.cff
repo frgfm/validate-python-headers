@@ -4,6 +4,6 @@ message: "If you use this software in your work, please cite it as below."
 authors:
 - family-names: "Fernandez"
   given-names: "François-Guillaume"
-title: "Header validator for Python files"
-date-released: 2022-06-27
+title: "Python legal-header linter and conservative fixer"
+version: 0.6.0rc1
 url: "https://github.com/frgfm/validate-python-headers"

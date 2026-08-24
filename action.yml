@@ -1,6 +1,6 @@
-name: validate-python-headers
+name: Validate Python headers
 author: frgfm
-description: Validate the copyright & license references in the headers of your Python files
+description: Lint Python legal headers and conservatively refresh recognized copyright years
 branding:
   icon: check-square
   color: blue
@@ -11,12 +11,12 @@ inputs:
     required: false
     default: '__from_config__'
   starting-year:
-    description: 'Starting year of your project; overrides pyproject.toml'
+    description: 'Earliest accepted file start year; overrides pyproject.toml'
     required: false
     default: '__from_config__'
   license:
     # https://spdx.org/licenses/
-    description: 'License of your project; overrides pyproject.toml'
+    description: 'SPDX license identifier; overrides pyproject.toml'
     required: false
     default: '__from_config__'
   folders:
@@ -41,9 +41,12 @@ inputs:
     default: 'check'
 
 outputs:
-  issues: # id of output
-    description: 'The list of files with header issues'
+  issues:
+    description: 'Compact JSON list of files with unresolved header issues'
     value: ${{ steps.validate.outputs.issues }}
+  changed:
+    description: 'Compact JSON list of files changed by fix mode'
+    value: ${{ steps.validate.outputs.changed }}
 
 runs:
   using: 'composite'
