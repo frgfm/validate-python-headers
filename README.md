@@ -81,9 +81,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.5.13'
+          version: '0.12.5'
       - name: Check changed Python files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -124,9 +124,9 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.5.13'
+          version: '0.12.5'
       - name: Refresh recognized copyright years
         run: >-
           uvx --python 3.11

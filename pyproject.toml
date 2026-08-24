@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.12.5,<1.0.0"]
+build-backend = "uv_build"
 
 [project]
 name = "validate-python-headers"
@@ -21,9 +21,6 @@ validate-python-headers = "validate_headers.cli:main"
 [project.urls]
 Repository = "https://github.com/frgfm/validate-python-headers"
 
-[tool.setuptools.package-data]
-validate_headers = ["supported-licenses.json"]
-
 [tool.validate-python-headers]
 owner = "François-Guillaume Fernandez"
 starting-year = 2022
@@ -32,12 +29,15 @@ paths = ["src", ".github"]
 ignore-files = ["version.py", "__init__.py", "collect_env.py"]
 ignore-folders = []
 
-[tool.uv]
-dev-dependencies = [
-    "ruff==0.16.3",
-    "ty==0.0.73",
+[dependency-groups]
+quality = [
+    "ruff==0.16.4",
+    "ty==0.0.74",
     "prek==0.4.14",
 ]
+
+[tool.uv.build-backend]
+module-name = "validate_headers"
 
 [tool.ruff]
 line-length = 120

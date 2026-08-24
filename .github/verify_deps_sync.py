@@ -14,20 +14,10 @@ from pathlib import Path
 
 import yaml
 
-PREK_CONFIG_PATH = ".pre-commit-config.yaml"
-
 
 def main():
     # Retrieve & parse all deps files
     deps_dict = {"uv": []}
-    # Parse prek's pre-commit-compatible configuration
-    with Path(PREK_CONFIG_PATH).open("r") as f:
-        prek_config = yaml.safe_load(f)
-
-    for repo in prek_config["repos"]:
-        if repo["repo"] == "https://github.com/astral-sh/uv-pre-commit":
-            deps_dict["uv"].append({"file": PREK_CONFIG_PATH, "version": repo["rev"].lstrip("v")})
-
     # Parse github/workflows/...
     for workflow_file in Path(".github/workflows").glob("*.yml"):
         with workflow_file.open("r") as f:
