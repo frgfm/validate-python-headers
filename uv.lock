@@ -3,6 +3,31 @@ revision = 3
 requires-python = ">=3.11, <4.0"
 
 [[package]]
+name = "lint-my-headers"
+version = "0.6.0rc1"
+source = { editable = "." }
+
+[package.dev-dependencies]
+build = [
+    { name = "uv" },
+]
+quality = [
+    { name = "prek" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+build = [{ name = "uv", specifier = ">=0.12.5" }]
+quality = [
+    { name = "prek", specifier = "==0.5.3" },
+    { name = "ruff", specifier = "==0.16.9" },
+    { name = "ty", specifier = "==0.0.84" },
+]
+
+[[package]]
 name = "prek"
 version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
@@ -92,29 +117,4 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/55/3a/ec21db858f3fce0081269aadc0ca9a68d00d808ab6d93486aff3ce8231b2/uv-0.12.19-py3-none-win32.whl", hash = "sha256:999d05939068a8cf5cc0b2db65910f557f9e7a729b7fe918bde17fdeb25f0099", size = 19993619, upload-time = "2026-09-25T00:31:28.523Z" },
     { url = "https://files.pythonhosted.org/packages/c2/5d/8e0b84503b77ead843ef57e4f9305eb32a95cac6806c0e0d54b9404a5f7b/uv-0.12.19-py3-none-win_amd64.whl", hash = "sha256:dcbc531a96762569bbfe9639b4f45f00aabff51f427540711f63e7c23f225fdf", size = 18050617, upload-time = "2026-09-25T00:31:31.325Z" },
     { url = "https://files.pythonhosted.org/packages/c6/5b/cfbe66622cd20dd56335bca1e7c8e83c1b893a1a79d69178ab771e313857/uv-0.12.19-py3-none-win_arm64.whl", hash = "sha256:76b48a93e5c9e38cf3b41dcb02f9170935dcb9cd2f99aa0dd44caaa2d8dc2b9d", size = 19368646, upload-time = "2026-09-25T00:31:34.386Z" },
-]
-
-[[package]]
-name = "validate-python-headers"
-version = "0.6.0rc1"
-source = { editable = "." }
-
-[package.dev-dependencies]
-build = [
-    { name = "uv" },
-]
-quality = [
-    { name = "prek" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-build = [{ name = "uv", specifier = ">=0.12.5" }]
-quality = [
-    { name = "prek", specifier = "==0.5.3" },
-    { name = "ruff", specifier = "==0.16.9" },
-    { name = "ty", specifier = "==0.0.84" },
 ]

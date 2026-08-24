@@ -9,13 +9,13 @@ from pathlib import Path
 
 from support import WorkspaceTestCase
 
-from validate_headers import cli
+from lint_my_headers import cli
 
 
 class ConfigTestCase(WorkspaceTestCase):
     def test_nearest_configuration_and_cli_precedence(self):
         Path("pyproject.toml").write_text(
-            """[tool.validate-python-headers]
+            """[tool.lint-my-headers]
 owner = "Config Owner"
 starting-year = 2023
 license = "Apache-2.0"
@@ -61,7 +61,7 @@ ignore-folders = []
     def test_custom_notice_is_relative_to_pyproject(self):
         Path("notice.txt").write_text("# Proprietary.\n", encoding="utf-8")
         Path("pyproject.toml").write_text(
-            """[tool.validate-python-headers]
+            """[tool.lint-my-headers]
 owner = "Example Owner"
 starting-year = 2022
 license-notice = "notice.txt"
@@ -81,23 +81,23 @@ ignore-folders = []
 
     def test_configuration_errors_name_the_exact_key(self):
         invalid_documents = {
-            "missing-owner": """[tool.validate-python-headers]
+            "missing-owner": """[tool.lint-my-headers]
 starting-year = 2022
 license = "Apache-2.0"
 """,
-            "unknown-key": """[tool.validate-python-headers]
+            "unknown-key": """[tool.lint-my-headers]
 owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
 wat = true
 """,
-            "bad-paths": """[tool.validate-python-headers]
+            "bad-paths": """[tool.lint-my-headers]
 owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
 paths = []
 """,
-            "two-licenses": """[tool.validate-python-headers]
+            "two-licenses": """[tool.lint-my-headers]
 owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
@@ -105,9 +105,9 @@ license-notice = "notice.txt"
 """,
         }
         expected = {
-            "missing-owner": "[tool.validate-python-headers].owner",
-            "unknown-key": "[tool.validate-python-headers].wat",
-            "bad-paths": "[tool.validate-python-headers].paths",
+            "missing-owner": "[tool.lint-my-headers].owner",
+            "unknown-key": "[tool.lint-my-headers].wat",
+            "bad-paths": "[tool.lint-my-headers].paths",
             "two-licenses": "Configure exactly one",
         }
 

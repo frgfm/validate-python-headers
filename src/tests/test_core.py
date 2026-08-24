@@ -11,7 +11,7 @@ from unittest import mock
 
 from support import CURRENT_YEAR, WorkspaceTestCase
 
-from validate_headers import core
+from lint_my_headers import core
 
 
 class CoreTestCase(WorkspaceTestCase):
@@ -191,7 +191,7 @@ class CoreTestCase(WorkspaceTestCase):
         path = self.write_source("src/stale.py", "2024")
         original = path.read_bytes()
 
-        with mock.patch("validate_headers.core._matches_identity", side_effect=[True, False]):
+        with mock.patch("lint_my_headers.core._matches_identity", side_effect=[True, False]):
             result = core.run(self.settings(), "fix", CURRENT_YEAR)
 
         self.assertEqual(result.diagnostics[0].code, core.DiagnosticCode.UNSAFE_FIX)

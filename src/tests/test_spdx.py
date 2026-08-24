@@ -10,7 +10,7 @@ from pathlib import Path
 
 from support import WorkspaceTestCase
 
-from validate_headers import core
+from lint_my_headers import core
 
 CURRENT_SHA256 = "f728c534d8bd1044fc515a2ddb2292be99559021d830bfa3281be0bcd36302ee"
 

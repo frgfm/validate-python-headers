@@ -13,8 +13,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
-SNAPSHOT_PATH = Path("src/validate_headers/supported-licenses.json")
-COMPATIBILITY_PATH = Path("src/validate_headers/legacy-license-notices.json")
+SNAPSHOT_PATH = Path("src/lint_my_headers/supported-licenses.json")
+COMPATIBILITY_PATH = Path("src/lint_my_headers/legacy-license-notices.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +38,7 @@ def load_baseline(reference: str) -> bytes:
     if git is None:
         raise FileNotFoundError("git is required to read the baseline snapshot")
     result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] - validated revision
-        [git, "show", f"{reference}:{SNAPSHOT_PATH.as_posix()}"],
+        [git, "show", f"{reference}:src/validate_headers/supported-licenses.json"],
         check=True,
         capture_output=True,
     )

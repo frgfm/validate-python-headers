@@ -26,7 +26,7 @@ jobs:
         with:
           version: '0.12.5'
       - name: Refresh existing copyright years
-        run: uvx --python 3.11 --from validate-python-headers==0.6.0 vph fix
+        run: uvx --python 3.11 --from lint-my-headers==0.6.0 lmh fix
       - name: Open or update the annual pull request
         shell: bash
         env:

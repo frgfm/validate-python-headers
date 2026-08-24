@@ -15,8 +15,8 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from validate_headers import cli
-from validate_headers.core import Settings
+from lint_my_headers import cli
+from lint_my_headers.core import Settings
 
 OWNER = "Example Owner"
 CURRENT_YEAR = 2030

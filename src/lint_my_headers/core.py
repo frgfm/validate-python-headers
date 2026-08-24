@@ -39,14 +39,14 @@ LEGACY_LICENSES = LEGACY_DATA.get("licenses", {})
 
 
 class DiagnosticCode(StrEnum):
-    MISSING_HEADER = "VPH001"
-    OWNER_MISMATCH = "VPH002"
-    INVALID_YEAR = "VPH003"
-    STALE_YEAR = "VPH004"
-    LICENSE_MISMATCH = "VPH005"
-    INVALID_LAYOUT = "VPH006"
-    DECODE_ERROR = "VPH007"
-    UNSAFE_FIX = "VPH008"
+    MISSING_HEADER = "LMH001"
+    OWNER_MISMATCH = "LMH002"
+    INVALID_YEAR = "LMH003"
+    STALE_YEAR = "LMH004"
+    LICENSE_MISMATCH = "LMH005"
+    INVALID_LAYOUT = "LMH006"
+    DECODE_ERROR = "LMH007"
+    UNSAFE_FIX = "LMH008"
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ class Diagnostic:
 class CommandError:
     message: str
     path: Path | None = None
-    code: str = "VPH900"
+    code: str = "LMH900"
 
 
 @dataclass(frozen=True)

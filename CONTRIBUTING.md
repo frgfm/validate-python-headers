@@ -1,12 +1,12 @@
-# Contributing to validate-python-headers
+# Contributing to lint-my-headers
 
 Contributions are welcome. Follow the [code of conduct](CODE_OF_CONDUCT.md) and preserve the compatibility and mutation guarantees below.
 
 ## Codebase structure
 
-- `src/validate_headers/core.py` owns header analysis, diagnostics, discovery, and conservative repair.
-- `src/validate_headers/config.py` owns strict `pyproject.toml` discovery and CLI precedence.
-- `src/validate_headers/cli.py` owns argument parsing, text/JSON rendering, Action outputs, and exit codes.
+- `src/lint_my_headers/core.py` owns header analysis, diagnostics, discovery, and conservative repair.
+- `src/lint_my_headers/config.py` owns strict `pyproject.toml` discovery and CLI precedence.
+- `src/lint_my_headers/cli.py` owns argument parsing, text/JSON rendering, Action outputs, and exit codes.
 - `src/tests` contains standard-library unit and contract tests.
 - `action.yml` is the compatible composite GitHub Action wrapper.
 - `.github/workflows` covers CI, annual review pull requests, and artifact publication.
@@ -30,9 +30,9 @@ Keep these boundaries boring. The project does not need a generic rule engine, p
 Fork and clone the repository, then create a branch rather than working on `main`:
 
 ```console
-git clone git@github.com:<YOUR_GITHUB_ACCOUNT>/validate-python-headers.git
-cd validate-python-headers
-git remote add upstream https://github.com/frgfm/validate-python-headers.git
+git clone git@github.com:<YOUR_GITHUB_ACCOUNT>/lint-my-headers.git
+cd lint-my-headers
+git remote add upstream https://github.com/frgfm/lint-my-headers.git
 git checkout -b a-short-description
 make install-quality
 ```
@@ -60,11 +60,8 @@ make style
 Build and smoke-test the installable artifacts when package behavior changes:
 
 ```console
-uv build --no-sources
-version="$(uv version --short)"
-EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
-EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
-uvx --from prek==0.4.14 prek try-repo . vph --all-files
+make package-check
+uv run --group quality prek try-repo . lmh --all-files
 ```
 
 Verify the vendored SPDX data after deliberately refreshing it:
@@ -82,6 +79,6 @@ Do not publish packages, tags, releases, branches, or pull requests as part of o
 
 ## Feedback and pull requests
 
-Use [issues](https://github.com/frgfm/validate-python-headers/issues) for reproducible bugs and feature requests. Use [discussions](https://github.com/frgfm/validate-python-headers/discussions) for usage questions.
+Use [issues](https://github.com/frgfm/lint-my-headers/issues) for reproducible bugs and feature requests. Use [discussions](https://github.com/frgfm/lint-my-headers/discussions) for usage questions.
 
 Push your focused branch, open a pull request, and complete the repository template. Include the exact checks you ran and any release-only or platform-specific gate that remains open.
