@@ -1,0 +1,82 @@
+[
+  {
+    "query": "Our Python package has stale copyright years in src and tests. Use the existing pyproject policy to repair only what is safe and show me what remains unresolved.",
+    "should_trigger": true
+  },
+  {
+    "query": "Can you add validate-python-headers to this repo's pre-commit setup and make CI check only changed .py files?",
+    "should_trigger": true
+  },
+  {
+    "query": "vph check exits 1 with VPH002 and VPH005 in three files; explain those findings without changing anything.",
+    "should_trigger": true
+  },
+  {
+    "query": "Set up [tool.validate-python-headers] for this library, then run a JSON check. Ask me if the legal policy is not explicit.",
+    "should_trigger": true
+  },
+  {
+    "query": "Our annual Python header workflow keeps opening duplicate PRs. Fix the integration but preserve the vph policy and least permissions.",
+    "should_trigger": true
+  },
+  {
+    "query": "Please audit whether this repository's Python license headers match the configured owner and SPDX identifier.",
+    "should_trigger": true
+  },
+  {
+    "query": "Safely run vph fix on these two files, recheck them, and verify no unrelated dirty file changed.",
+    "should_trigger": true
+  },
+  {
+    "query": "Migrate our old validate-python-headers GitHub Action inputs to config-first v0.6 without changing the header policy.",
+    "should_trigger": true
+  },
+  {
+    "query": "The vph hook works locally but fails in GitHub Actions with exit 2. Diagnose the structured error and stop before mutation.",
+    "should_trigger": true
+  },
+  {
+    "query": "Install the released validate-python-headers CLI and configure its optional agent skill for this Python repo.",
+    "should_trigger": true
+  },
+  {
+    "query": "Which open-source license should my startup choose, and who owns code written by our contractors?",
+    "should_trigger": false
+  },
+  {
+    "query": "Update copyright banners in our JavaScript, Rust, and Go monorepo using a generic template engine.",
+    "should_trigger": false
+  },
+  {
+    "query": "Add a LICENSE file to my new repository and explain whether GPL is compatible with our commercial SDK.",
+    "should_trigger": false
+  },
+  {
+    "query": "The HTTP response headers from our Python API are missing Content-Security-Policy and HSTS.",
+    "should_trigger": false
+  },
+  {
+    "query": "Write module docstrings and reorder __future__ imports at the top of every Python file.",
+    "should_trigger": false
+  },
+  {
+    "query": "Generate SPDX SBOM files and verify license compatibility for every dependency in our polyglot repository.",
+    "should_trigger": false
+  },
+  {
+    "query": "Change the copyright owner across all files based on the most frequent Git committer.",
+    "should_trigger": false
+  },
+  {
+    "query": "Why does Python's tokenize.detect_encoding reject this source file? Do not inspect any legal headers.",
+    "should_trigger": false
+  },
+  {
+    "query": "Create a custom Ruff rule that checks our internal comment convention anywhere in a Python file.",
+    "should_trigger": false
+  },
+  {
+    "query": "Publish a new PyPI version and move the v0 Git tag after the upload finishes.",
+    "should_trigger": false
+  }
+]

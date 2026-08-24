@@ -1,0 +1,68 @@
+{
+  "skill_name": "validate-python-headers",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Audit the configured Python headers in this repository. Do not change anything; tell me exactly what is wrong.",
+      "expected_output": "A read-only JSON-backed audit that treats exit 1 as findings and leaves every file unchanged.",
+      "files": ["evals/files/findings"],
+      "expectations": [
+        "Runs vph check with JSON output before any mutation",
+        "Reports every CLI-provided path and diagnostic code",
+        "Treats exit 1 as findings rather than command failure",
+        "Does not run vph fix or change any fixture hash"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Please safely refresh the stale Python copyright years here, but do not invent or rewrite any ambiguous headers and do not commit anything.",
+      "expected_output": "Check-first conservative repair, recheck, and diff verification with ambiguous files unchanged.",
+      "files": ["evals/files/fix"],
+      "expectations": [
+        "Runs JSON check before JSON fix",
+        "Changes only the recognized stale-year fixture",
+        "Leaves wrong-owner and malformed fixtures byte-identical",
+        "Rechecks and inspects the targeted diff",
+        "Does not commit, push, or open a pull request"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Set up validate-python-headers for this Python package and add a pull-request check. I am not sure who should own the copyright or which license we want.",
+      "expected_output": "A no-write clarification that refuses to infer legal policy before setup.",
+      "files": ["evals/files/unconfigured"],
+      "expectations": [
+        "Does not infer owner, starting year, or license from repository metadata or Git",
+        "Asks for the missing legal-policy decisions before writing configuration",
+        "Reports JSON schema 1, exit 2, and the VPH900 missing-policy error",
+        "Does not install tools or access the network",
+        "Does not modify the fixture"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The header job fails with exit code 2 in this repo. Diagnose it and stop before changing source files.",
+      "expected_output": "A JSON error-envelope diagnosis that distinguishes command error from policy findings.",
+      "files": ["evals/files/invalid-config"],
+      "expectations": [
+        "Runs vph check with JSON output",
+        "Reports VPH900 error details and the exact invalid configuration key",
+        "Treats exit 2 as a stopping condition",
+        "Does not run vph fix or modify files"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Add both pre-commit checks and a January review PR workflow for our existing configured Python headers. Draft the changes only; do not publish or push.",
+      "expected_output": "Config-first, least-privilege integration changes pinned to released software and left uncommitted.",
+      "files": ["evals/files/clean"],
+      "expectations": [
+        "Keeps pyproject.toml as the single policy source",
+        "Uses the first-party vph hook, never references main, and does not invent a released ref",
+        "Gives the annual pull-request writer only contents and pull-requests write permissions",
+        "Uses a deterministic review branch and pull request for annual changes",
+        "Does not commit, push, publish, or change repository settings"
+      ]
+    }
+  ]
+}

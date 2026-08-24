@@ -18,7 +18,7 @@ jobs:
       BRANCH_NAME: automation/update-copyright-years
       BASE_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
@@ -26,7 +26,7 @@ jobs:
         with:
           version: '0.12.5'
       - name: Refresh existing copyright years
-        run: uvx --python 3.11 --from . vph fix
+        run: uvx --python 3.11 --from validate-python-headers==0.6.0 vph fix
       - name: Open or update the annual pull request
         shell: bash
         env:

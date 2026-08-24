@@ -7,17 +7,49 @@ on:
     branches: main
 
 env:
+  PYTHONOPTIMIZE: "1"
   PYTHON_VERSION: "3.11"
   UV_VERSION: "0.12.5"
 
 jobs:
+  unit-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: ubuntu-latest
+            python: "3.14"
+          - os: macos-latest
+            python: "3.14"
+          - os: windows-latest
+            python: "3.14"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests
+        run: python -m unittest discover -s src/tests -v
+
   run-action:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Run unit tests
-        run: python -m unittest discover -s src/tests -v
-      - name: Check repository headers
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+      - name: Check repository headers from configuration
         uses: ./
       - name: Prepare integration fixtures
         shell: bash
@@ -53,17 +85,23 @@ jobs:
       - name: Save first fix
         shell: bash
         env:
+          CHANGED: ${{ steps.fix.outputs.changed }}
           ISSUES: ${{ steps.fix.outputs.issues }}
         run: |
           python - <<'PY'
+          import json
           import os
           from pathlib import Path
 
-          assert os.environ["ISSUES"] == "[]"
+          if json.loads(os.environ["ISSUES"]) != []:
+              raise SystemExit(f"Unexpected issues: {os.environ['ISSUES']}")
+          if json.loads(os.environ["CHANGED"]) != [".action-test/success/stale.py"]:
+              raise SystemExit(f"Unexpected changed files: {os.environ['CHANGED']}")
           source = Path(".action-test/success/stale.py")
           Path(os.environ["RUNNER_TEMP"], "fixed.py").write_bytes(source.read_bytes())
           PY
       - name: Run fix a second time
+        id: second-fix
         uses: ./
         with:
           mode: fix
@@ -75,15 +113,22 @@ jobs:
           ignore-folders: ''
       - name: Verify idempotence
         shell: bash
+        env:
+          CHANGED: ${{ steps.second-fix.outputs.changed }}
         run: |
           python - <<'PY'
+          import json
           import os
           from datetime import datetime
           from pathlib import Path
 
           source = Path(".action-test/success/stale.py")
-          assert source.read_bytes() == Path(os.environ["RUNNER_TEMP"], "fixed.py").read_bytes()
-          assert f"Copyright (C) 2024-{datetime.now().year}" in source.read_text(encoding="utf-8")
+          if source.read_bytes() != Path(os.environ["RUNNER_TEMP"], "fixed.py").read_bytes():
+              raise SystemExit("Second fix changed the source")
+          if json.loads(os.environ["CHANGED"]) != []:
+              raise SystemExit(f"Second fix reported changes: {os.environ['CHANGED']}")
+          if f"Copyright (C) 2024-{datetime.now().year}" not in source.read_text(encoding="utf-8"):
+              raise SystemExit("Current year was not written")
           PY
       - name: Fix safe files and fail on ambiguity
         id: mixed
@@ -100,6 +145,7 @@ jobs:
       - name: Verify fail-closed repair
         shell: bash
         env:
+          CHANGED: ${{ steps.mixed.outputs.changed }}
           ISSUES: ${{ steps.mixed.outputs.issues }}
           OUTCOME: ${{ steps.mixed.outcome }}
         run: |
@@ -109,21 +155,54 @@ jobs:
           from datetime import datetime
           from pathlib import Path
 
-          assert os.environ["OUTCOME"] == "failure"
-          assert json.loads(os.environ["ISSUES"]) == [".action-test/mixed/bad.py"]
-          assert f"Copyright (C) 2024-{datetime.now().year}" in Path(
+          if os.environ["OUTCOME"] != "failure":
+              raise SystemExit(f"Unexpected action outcome: {os.environ['OUTCOME']}")
+          if json.loads(os.environ["ISSUES"]) != [".action-test/mixed/bad.py"]:
+              raise SystemExit(f"Unexpected issues: {os.environ['ISSUES']}")
+          if json.loads(os.environ["CHANGED"]) != [".action-test/mixed/safe.py"]:
+              raise SystemExit(f"Unexpected changed files: {os.environ['CHANGED']}")
+          if f"Copyright (C) 2024-{datetime.now().year}" not in Path(
               ".action-test/mixed/safe.py"
-          ).read_text(encoding="utf-8")
-          assert "Another Owner" in Path(".action-test/mixed/bad.py").read_text(encoding="utf-8")
+          ).read_text(encoding="utf-8"):
+              raise SystemExit("Safe file was not repaired")
+          if "Another Owner" not in Path(".action-test/mixed/bad.py").read_text(encoding="utf-8"):
+              raise SystemExit("Ambiguous file changed")
           PY
       - name: Verify tracked files are unchanged
         run: git diff --exit-code
 
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          version: ${{ env.RELEASE_UV_VERSION }}
+      - name: Build distributions
+        run: uv build --no-sources
+      - name: Smoke-test wheel and source distribution
+        shell: bash
+        run: |
+          version="$(uv version --short)"
+          EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
+          EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+      - name: Exercise the first-party hook
+        run: uvx --from prek==0.4.14 prek try-repo . vph --all-files
+
   deps-sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           architecture: x64
@@ -133,14 +212,15 @@ jobs:
       - name: Run dependency sync checker
         run: |
           make deps-check
+          make spdx-check
 
-  headers:
+  legacy-action-inputs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check the headers
+      - name: Check headers through legacy Action inputs
         uses: ./
         with:
           license: 'Apache-2.0'

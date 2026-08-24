@@ -4,14 +4,26 @@ build-backend = "uv_build"
 
 [project]
 name = "validate-python-headers"
-version = "0.6.0.dev0"
-description = "Keep Python files connected to their declared copyright owner and license"
+version = "0.6.0rc1"
+description = "Python legal-header linter and conservative copyright-year fixer"
 requires-python = ">=3.11,<4.0"
 license = "Apache-2.0"
 authors = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 maintainers = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 readme = "README.md"
-keywords = ["github action", "python", "header", "copyright", "license"]
+keywords = ["python", "legal headers", "copyright", "license", "linter", "pre-commit", "github action", "spdx"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = []
 
 [project.scripts]
@@ -19,7 +31,17 @@ vph = "validate_headers.cli:main"
 validate-python-headers = "validate_headers.cli:main"
 
 [project.urls]
+Documentation = "https://github.com/frgfm/validate-python-headers#readme"
+Issues = "https://github.com/frgfm/validate-python-headers/issues"
+Changelog = "https://github.com/frgfm/validate-python-headers/releases"
 Repository = "https://github.com/frgfm/validate-python-headers"
+
+[tool.setuptools.package-data]
+validate_headers = ["supported-licenses.json", "legacy-license-notices.json"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["validate_headers*"]
 
 [tool.validate-python-headers]
 owner = "François-Guillaume Fernandez"
@@ -27,7 +49,7 @@ starting-year = 2022
 license = "Apache-2.0"
 paths = ["src", ".github"]
 ignore-files = ["version.py", "__init__.py", "collect_env.py"]
-ignore-folders = []
+ignore-folders = [".agents/skills/validate-python-headers/evals/files"]
 
 [dependency-groups]
 quality = [
@@ -98,7 +120,7 @@ ignore = [
     "ISC001",  # implicit string concatenation (handled by format)
     "G004",  # logging-fstring-interpolation
 ]
-exclude = [".git"]
+exclude = [".git", ".agents/skills/validate-python-headers/evals/files/**"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"

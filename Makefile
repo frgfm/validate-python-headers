@@ -26,6 +26,14 @@ typing-check: ${PYPROJECT_FILE}
 deps-check: .github/verify_deps_sync.py
 	uv run --script .github/verify_deps_sync.py
 
+spdx-check: scripts/update_spdx_licenses.py
+	python scripts/update_spdx_licenses.py \
+		--baseline-ref 94972478f38d080eadd37f098f771eb4cd235ae4 \
+		--baseline-sha256 d557d74124ce6b367efd161e7b53ab1743ad45e302c3476bfb0988ee67b766e0 \
+		--spdx-tag v3.28.0 \
+		--expected-sha256 f728c534d8bd1044fc515a2ddb2292be99559021d830bfa3281be0bcd36302ee \
+		--check
+
 # this target runs checks on all files
 quality: lint-check typing-check deps-check
 
