@@ -1,0 +1,116 @@
+name: publish release
+
+on:
+  release:
+    types: [published]
+
+env:
+  PYTHON_VERSION: "3.11"
+  UV_VERSION: "0.12.5"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          version: ${{ env.UV_VERSION }}
+      - name: Match release tag to package version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(python scripts/release_version.py "$RELEASE_TAG")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Run release tests
+        env:
+          PYTHONOPTIMIZE: "1"
+        run: python -m unittest discover -s src/tests -v
+      - name: Verify generated SPDX data
+        run: python scripts/update_spdx_licenses.py --check
+      - name: Build and smoke-test distributions
+        run: make package-check
+      - name: Store exact distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          if-no-files-found: error
+          name: distributions
+          path: dist/
+          retention-days: 30
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/lint-my-headers/${{ needs.build.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          version: ${{ env.UV_VERSION }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: distributions
+          path: dist/
+      - name: Publish missing files and attestations with Trusted Publishing
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          mapfile -t files < <(python scripts/pypi_files.py --version "$VERSION" dist/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "Exact release files are already present on PyPI."
+            exit 0
+          fi
+          uv publish \
+            --check-url https://pypi.org/simple/ \
+            --trusted-publishing always \
+            "${files[@]}"
+
+  verify:
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          version: ${{ env.UV_VERSION }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: distributions
+          path: dist/
+      - name: Verify PyPI filenames and hashes
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: python scripts/pypi_files.py --version "$VERSION" --verify --retries 12 dist/*
+      - name: Install and smoke-test the live release
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: uv run --isolated --no-project --refresh-package lint-my-headers --with "lint-my-headers==$VERSION" scripts/smoke_package.py

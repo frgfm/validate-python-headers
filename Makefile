@@ -23,8 +23,9 @@ prek: ${PYPROJECT_FILE} .pre-commit-config.yaml
 typing-check: ${PYPROJECT_FILE}
 	uv run --group quality ty check src
 
-deps-check: .github/verify_deps_sync.py
+deps-check: .github/verify_deps_sync.py scripts/update_spdx_licenses.py
 	uv run --script .github/verify_deps_sync.py
+	uv run python scripts/update_spdx_licenses.py --check
 
 # this target runs checks on all files
 quality: lint-check typing-check deps-check
@@ -43,4 +44,9 @@ lock-check: ${PYPROJECT_FILE}
 
 # Run tests for the library
 test:
-	python -m unittest discover -s src/tests -v
+	PYTHONOPTIMIZE=1 python -m unittest discover -s src/tests -v
+
+package-check:
+	uv build --clear --no-sources
+	uv run --isolated --no-project --with dist/*.whl scripts/smoke_package.py
+	uv run --isolated --no-project --with dist/*.tar.gz scripts/smoke_package.py

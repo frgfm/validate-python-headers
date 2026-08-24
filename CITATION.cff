@@ -4,6 +4,6 @@ message: "If you use this software in your work, please cite it as below."
 authors:
 - family-names: "Fernandez"
   given-names: "François-Guillaume"
-title: "Header validator for Python files"
+title: "Lint My Headers"
 date-released: 2022-06-27
-url: "https://github.com/frgfm/validate-python-headers"
+url: "https://github.com/frgfm/lint-my-headers"

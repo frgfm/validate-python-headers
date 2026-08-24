@@ -1,6 +1,6 @@
-name: validate-python-headers
+name: Lint My Headers
 author: frgfm
-description: Validate the copyright & license references in the headers of your Python files
+description: Check and safely update copyright and license headers in Python source files
 branding:
   icon: check-square
   color: blue
@@ -41,14 +41,17 @@ inputs:
     default: 'check'
 
 outputs:
-  issues: # id of output
+  issues:
     description: 'The list of files with header issues'
     value: ${{ steps.validate.outputs.issues }}
+  changed:
+    description: 'The list of files changed by fix mode'
+    value: ${{ steps.validate.outputs.changed }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Validate Python headers
+    - name: Lint license headers
       id: validate
       shell: bash
       env:
@@ -69,4 +72,4 @@ runs:
         if [[ "$INPUT_IGNORE_FILES" != '__from_config__' ]]; then args+=(--ignore-files "$INPUT_IGNORE_FILES"); fi
         if [[ "$INPUT_IGNORE_FOLDERS" != '__from_config__' ]]; then args+=(--ignore-folders "$INPUT_IGNORE_FOLDERS"); fi
         if [[ "$INPUT_LICENSE_NOTICE" != '__from_config__' ]]; then args+=(--license-notice "$INPUT_LICENSE_NOTICE"); fi
-        python "$GITHUB_ACTION_PATH/src/validate_headers/__main__.py" "${args[@]}"
+        python "$GITHUB_ACTION_PATH/src/lint_my_headers/__main__.py" "${args[@]}"

@@ -3,6 +3,27 @@ revision = 3
 requires-python = ">=3.11, <4.0"
 
 [[package]]
+name = "lint-my-headers"
+version = "0.6.0rc1"
+source = { editable = "." }
+
+[package.dev-dependencies]
+quality = [
+    { name = "prek" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+quality = [
+    { name = "prek", specifier = "==0.4.14" },
+    { name = "ruff", specifier = "==0.16.4" },
+    { name = "ty", specifier = "==0.0.74" },
+]
+
+[[package]]
 name = "prek"
 version = "0.4.14"
 source = { registry = "https://pypi.org/simple" }
@@ -74,25 +95,4 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/33/a8c12188227e6f74f91853a7374e01ed81d6ad21c16c8b70e92dbebfe46a/ty-0.0.74-py3-none-win32.whl", hash = "sha256:db0bb6a8f098ef9bd1be861f73b4f7c0320d40d4c05c7ae0a8677d4e7aa4f6e5", size = 12130002, upload-time = "2026-08-22T15:05:46.058Z" },
     { url = "https://files.pythonhosted.org/packages/21/5c/064f28ccb9c234cfce5a2f7aa69a256663d5ae5bb0290b3a9706cc4d1e4c/ty-0.0.74-py3-none-win_amd64.whl", hash = "sha256:bebff181515255b3c78bd2e7693ae66fab6064ad4feea2065c68bc01022aa678", size = 12771435, upload-time = "2026-08-22T15:05:48.811Z" },
     { url = "https://files.pythonhosted.org/packages/fe/06/d6becdaca0315346c26b6df97cb0eafa81de4f870945d6989e88704374ed/ty-0.0.74-py3-none-win_arm64.whl", hash = "sha256:1a3469eaaf8c85b1c0a15bede25d36daea4b09fce1d913e965b24e24b3f1d6c6", size = 12558299, upload-time = "2026-08-22T15:05:51.543Z" },
-]
-
-[[package]]
-name = "validate-python-headers"
-version = "0.6.0.dev0"
-source = { editable = "." }
-
-[package.dev-dependencies]
-quality = [
-    { name = "prek" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-quality = [
-    { name = "prek", specifier = "==0.4.14" },
-    { name = "ruff", specifier = "==0.16.4" },
-    { name = "ty", specifier = "==0.0.74" },
 ]

@@ -1,0 +1,191 @@
+{
+  "Apache-2.0": {
+    "name": "Apache License 2.0",
+    "urls": [
+      "https://opensource.org/licenses/Apache-2.0",
+      "https://www.apache.org/licenses/LICENSE-2.0"
+    ]
+  },
+  "BSD-3-Clause": {
+    "name": "BSD 3-Clause \"New\" or \"Revised\" License",
+    "urls": [
+      "https://opensource.org/licenses/BSD-3-Clause"
+    ]
+  },
+  "BSD-3-Clause-No-Nuclear-License": {
+    "name": "BSD 3-Clause No Nuclear License",
+    "urls": [
+      "http://download.oracle.com/otn-pub/java/licenses/bsd.txt?AuthParam=1467140197_43d516ce1776bd08a58235a7785be1cc"
+    ]
+  },
+  "BSD-4-Clause": {
+    "name": "BSD 4-Clause \"Original\" or \"Old\" License",
+    "urls": [
+      "http://directory.fsf.org/wiki/License:BSD_4Clause"
+    ]
+  },
+  "EPL-2.0": {
+    "name": "Eclipse Public License 2.0",
+    "urls": [
+      "https://www.eclipse.org/legal/epl-2.0",
+      "https://www.opensource.org/licenses/EPL-2.0"
+    ]
+  },
+  "Fair": {
+    "name": "Fair License",
+    "urls": [
+      "http://fairlicense.org/",
+      "https://opensource.org/licenses/Fair"
+    ]
+  },
+  "GPL-2.0-only": {
+    "name": "GNU General Public License v2.0 only",
+    "urls": [
+      "https://opensource.org/licenses/GPL-2.0",
+      "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html"
+    ]
+  },
+  "GPL-2.0-or-later": {
+    "name": "GNU General Public License v2.0 or later",
+    "urls": [
+      "https://opensource.org/licenses/GPL-2.0",
+      "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html"
+    ]
+  },
+  "HPND": {
+    "name": "Historical Permission Notice and Disclaimer",
+    "urls": [
+      "https://opensource.org/licenses/HPND"
+    ]
+  },
+  "HPND-sell-variant": {
+    "name": "Historical Permission Notice and Disclaimer - sell variant",
+    "urls": [
+      "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/sunrpc/auth_gss/gss_generic_token.c?h=v4.19"
+    ]
+  },
+  "IJG": {
+    "name": "Independent JPEG Group License",
+    "urls": [
+      "http://dev.w3.org/cvsweb/Amaya/libjpeg/Attic/README?rev=1.2"
+    ]
+  },
+  "KiCad-libraries-exception": {
+    "name": "KiCad Libraries Exception",
+    "urls": [
+      "https://www.kicad.org/libraries/license/"
+    ]
+  },
+  "LGPL-2.1+": {
+    "name": "GNU Library General Public License v2.1 or later",
+    "urls": [
+      "https://opensource.org/licenses/LGPL-2.1",
+      "https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html"
+    ]
+  },
+  "LGPL-2.1-only": {
+    "name": "GNU Lesser General Public License v2.1 only",
+    "urls": [
+      "https://opensource.org/licenses/LGPL-2.1",
+      "https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html"
+    ]
+  },
+  "LGPL-2.1-or-later": {
+    "name": "GNU Lesser General Public License v2.1 or later",
+    "urls": [
+      "https://opensource.org/licenses/LGPL-2.1",
+      "https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html"
+    ]
+  },
+  "LiLiQ-P-1.1": {
+    "name": "Licence Libre du Québec – Permissive version 1.1",
+    "urls": [
+      "http://opensource.org/licenses/LiLiQ-P-1.1",
+      "https://forge.gouv.qc.ca/licence/fr/liliq-v1-1/"
+    ]
+  },
+  "LiLiQ-R-1.1": {
+    "name": "Licence Libre du Québec – Réciprocité version 1.1",
+    "urls": [
+      "http://opensource.org/licenses/LiLiQ-R-1.1",
+      "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-liliq-r-v1-1/"
+    ]
+  },
+  "LiLiQ-Rplus-1.1": {
+    "name": "Licence Libre du Québec – Réciprocité forte version 1.1",
+    "urls": [
+      "http://opensource.org/licenses/LiLiQ-Rplus-1.1",
+      "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-forte-liliq-r-v1-1/"
+    ]
+  },
+  "MIT": {
+    "name": "MIT License",
+    "urls": [
+      "https://opensource.org/licenses/MIT"
+    ]
+  },
+  "MIT-open-group": {
+    "name": "MIT Open Group variant",
+    "urls": [
+      "https://gitlab.freedesktop.org/xorg/app/iceauth/-/blob/master/COPYING",
+      "https://gitlab.freedesktop.org/xorg/app/xauth/-/blob/master/COPYING",
+      "https://gitlab.freedesktop.org/xorg/app/xsetroot/-/blob/master/COPYING",
+      "https://gitlab.freedesktop.org/xorg/app/xvinfo/-/blob/master/COPYING"
+    ]
+  },
+  "MulanPSL-2.0": {
+    "name": "Mulan Permissive Software License, Version 2",
+    "urls": [
+      "https://license.coscl.org.cn/MulanPSL2/"
+    ]
+  },
+  "PSF-2.0": {
+    "name": "Python Software Foundation License 2.0",
+    "urls": [
+      "https://opensource.org/licenses/Python-2.0"
+    ]
+  },
+  "Ruby": {
+    "name": "Ruby License",
+    "urls": [
+      "http://www.ruby-lang.org/en/LICENSE.txt"
+    ]
+  },
+  "Spencer-94": {
+    "name": "Spencer License 94",
+    "urls": [
+      "https://fedoraproject.org/wiki/Licensing/Henry_Spencer_Reg-Ex_Library_License"
+    ]
+  },
+  "StandardML-NJ": {
+    "name": "Standard ML of New Jersey License",
+    "urls": [
+      "http://www.smlnj.org//license.html"
+    ]
+  },
+  "Unicode-DFS-2016": {
+    "name": "Unicode License Agreement - Data Files and Software (2016)",
+    "urls": [
+      "http://www.unicode.org/copyright.html"
+    ]
+  },
+  "Unicode-TOU": {
+    "name": "Unicode Terms of Use",
+    "urls": [
+      "http://www.unicode.org/copyright.html"
+    ]
+  },
+  "W3C-20150513": {
+    "name": "W3C Software Notice and Document License (2015-05-13)",
+    "urls": [
+      "https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document"
+    ]
+  },
+  "bzip2-1.0.6": {
+    "name": "bzip2 and libbzip2 License v1.0.6",
+    "urls": [
+      "http://bzip.org/1.0.5/bzip2-manual-1.0.5.html",
+      "https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE;hb=bzip2-1.0.6"
+    ]
+  }
+}

@@ -11,13 +11,62 @@ env:
   UV_VERSION: "0.12.5"
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    env:
+      PYTHONOPTIMIZE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run unit and contract tests
+        run: python -m unittest discover -s src/tests -v
+
+  platform-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    env:
+      PYTHONOPTIMIZE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Run Python 3.14 CLI and path tests
+        run: python -m unittest discover -s src/tests -v
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Build and smoke-test distributions
+        run: make package-check
+
   run-action:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Run unit tests
-        run: python -m unittest discover -s src/tests -v
-      - name: Check repository headers
+      - name: Check repository headers from configuration
         uses: ./
       - name: Prepare integration fixtures
         shell: bash
@@ -50,20 +99,26 @@ jobs:
           folders: '.action-test/success'
           ignore-files: ''
           ignore-folders: ''
-      - name: Save first fix
+      - name: Save and verify first fix
         shell: bash
         env:
+          CHANGED: ${{ steps.fix.outputs.changed }}
           ISSUES: ${{ steps.fix.outputs.issues }}
         run: |
           python - <<'PY'
+          import json
           import os
           from pathlib import Path
 
-          assert os.environ["ISSUES"] == "[]"
+          if json.loads(os.environ["ISSUES"]) != []:
+              raise RuntimeError("fix left unresolved issues")
+          if json.loads(os.environ["CHANGED"]) != [".action-test/success/stale.py"]:
+              raise RuntimeError("fix changed output is incorrect")
           source = Path(".action-test/success/stale.py")
           Path(os.environ["RUNNER_TEMP"], "fixed.py").write_bytes(source.read_bytes())
           PY
       - name: Run fix a second time
+        id: second-fix
         uses: ./
         with:
           mode: fix
@@ -75,15 +130,22 @@ jobs:
           ignore-folders: ''
       - name: Verify idempotence
         shell: bash
+        env:
+          CHANGED: ${{ steps.second-fix.outputs.changed }}
         run: |
           python - <<'PY'
+          import json
           import os
           from datetime import datetime
           from pathlib import Path
 
           source = Path(".action-test/success/stale.py")
-          assert source.read_bytes() == Path(os.environ["RUNNER_TEMP"], "fixed.py").read_bytes()
-          assert f"Copyright (C) 2024-{datetime.now().year}" in source.read_text(encoding="utf-8")
+          if json.loads(os.environ["CHANGED"]) != []:
+              raise RuntimeError("second fix was not idempotent")
+          if source.read_bytes() != Path(os.environ["RUNNER_TEMP"], "fixed.py").read_bytes():
+              raise RuntimeError("second fix changed bytes")
+          if f"Copyright (C) 2024-{datetime.now().year}" not in source.read_text(encoding="utf-8"):
+              raise RuntimeError("year was not updated")
           PY
       - name: Fix safe files and fail on ambiguity
         id: mixed
@@ -100,6 +162,7 @@ jobs:
       - name: Verify fail-closed repair
         shell: bash
         env:
+          CHANGED: ${{ steps.mixed.outputs.changed }}
           ISSUES: ${{ steps.mixed.outputs.issues }}
           OUTCOME: ${{ steps.mixed.outcome }}
         run: |
@@ -109,12 +172,18 @@ jobs:
           from datetime import datetime
           from pathlib import Path
 
-          assert os.environ["OUTCOME"] == "failure"
-          assert json.loads(os.environ["ISSUES"]) == [".action-test/mixed/bad.py"]
-          assert f"Copyright (C) 2024-{datetime.now().year}" in Path(
+          if os.environ["OUTCOME"] != "failure":
+              raise RuntimeError("ambiguous file did not fail the Action")
+          if json.loads(os.environ["ISSUES"]) != [".action-test/mixed/bad.py"]:
+              raise RuntimeError("issues output is incorrect")
+          if json.loads(os.environ["CHANGED"]) != [".action-test/mixed/safe.py"]:
+              raise RuntimeError("changed output is incorrect")
+          if f"Copyright (C) 2024-{datetime.now().year}" not in Path(
               ".action-test/mixed/safe.py"
-          ).read_text(encoding="utf-8")
-          assert "Another Owner" in Path(".action-test/mixed/bad.py").read_text(encoding="utf-8")
+          ).read_text(encoding="utf-8"):
+              raise RuntimeError("safe file was not repaired")
+          if "Another Owner" not in Path(".action-test/mixed/bad.py").read_text(encoding="utf-8"):
+              raise RuntimeError("ambiguous file was changed")
           PY
       - name: Verify tracked files are unchanged
         run: git diff --exit-code
@@ -123,16 +192,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          architecture: x64
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: ${{ env.UV_VERSION }}
-      - name: Run dependency sync checker
-        run: |
-          make deps-check
+      - name: Run generated-data and dependency checks
+        run: make deps-check
 
   headers:
     runs-on: ubuntu-latest
@@ -140,13 +209,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Check the headers
+      - name: Check repository headers
         uses: ./
         with:
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
           starting-year: 2022
-          folders: 'src,.github'
-          # collect_env.py retains its upstream-specific Apache notice.
+          folders: 'src,.github,scripts'
           ignore-files: 'version.py,__init__.py,collect_env.py'
           ignore-folders: ''
