@@ -12,7 +12,7 @@ from typing import cast
 
 from .core import Settings
 
-CONFIG_SECTION = "[tool.validate-python-headers]"
+CONFIG_SECTION = "[tool.lint-my-headers]"
 CONFIG_KEYS = {"owner", "starting-year", "license", "license-notice", "paths", "ignore-files", "ignore-folders"}
 
 
@@ -34,7 +34,7 @@ def _configuration_table(document: dict[str, object], path: Path) -> dict[str, o
     tool_config = document.get("tool", {})
     if not isinstance(tool_config, dict):
         raise ValueError(f"Invalid [tool]: expected a table in {path}")
-    config = tool_config.get("validate-python-headers", {})
+    config = tool_config.get("lint-my-headers", {})
     if not isinstance(config, dict):
         raise ValueError(f"Invalid {CONFIG_SECTION}: expected a table in {path}")
 

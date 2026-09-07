@@ -76,7 +76,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Publish or verify byte-identical PyPI artifacts")
     parser.add_argument("command", choices=("publish", "verify"))
     parser.add_argument("directory", type=Path)
-    parser.add_argument("--package", default="validate-python-headers")
+    parser.add_argument("--package", default="lint-my-headers")
     parser.add_argument("--version", required=True)
     parser.add_argument("--attempts", type=int, default=12)
     parser.add_argument("--delay", type=int, default=10)

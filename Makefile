@@ -27,7 +27,7 @@ deps-check: .github/verify_deps_sync.py
 	uv run --script .github/verify_deps_sync.py
 
 spdx-check: scripts/update_spdx_licenses.py
-	python scripts/update_spdx_licenses.py \
+	uv run python scripts/update_spdx_licenses.py \
 		--baseline-ref 94972478f38d080eadd37f098f771eb4cd235ae4 \
 		--baseline-sha256 d557d74124ce6b367efd161e7b53ab1743ad45e302c3476bfb0988ee67b766e0 \
 		--spdx-tag v3.28.0 \
@@ -51,4 +51,9 @@ lock-check: ${PYPROJECT_FILE}
 
 # Run tests for the library
 test:
-	python -m unittest discover -s src/tests -v
+	PYTHONOPTIMIZE=1 uv run python -m unittest discover -s src/tests -v
+
+package-check:
+	uv build --clear --no-sources
+	EXPECTED_VERSION="$$(uv version --short)" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
+	EXPECTED_VERSION="$$(uv version --short)" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py

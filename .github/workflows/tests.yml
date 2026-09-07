@@ -183,17 +183,11 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
-      - name: Build distributions
-        run: uv build --no-sources
-      - name: Smoke-test wheel and source distribution
-        shell: bash
-        run: |
-          version="$(uv version --short)"
-          EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
-          EXPECTED_VERSION="$version" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+          version: ${{ env.UV_VERSION }}
+      - name: Build and smoke-test distributions
+        run: make package-check
       - name: Exercise the first-party hook
-        run: uvx --from prek==0.4.14 prek try-repo . vph --all-files
+        run: uv run --group quality prek try-repo . lmh --all-files
 
   deps-sync:
     runs-on: ubuntu-latest
