@@ -53,7 +53,7 @@ ignore-folders = [".agents/skills/validate-python-headers/evals/files"]
 
 [dependency-groups]
 quality = [
-    "ruff==0.16.6",
+    "ruff==0.16.8",
     "ty==0.0.74",
     "prek==0.5.2",
 ]
