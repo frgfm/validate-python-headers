@@ -54,9 +54,9 @@ ignore-folders = [".agents/skills/validate-python-headers/evals/files"]
 [dependency-groups]
 build = ["uv>=0.12.5"]
 quality = [
-    "ruff==0.16.6",
-    "ty==0.0.74",
-    "prek==0.5.2",
+    "ruff==0.16.9",
+    "ty==0.0.84",
+    "prek==0.5.3",
 ]
 
 [tool.uv.build-backend]
