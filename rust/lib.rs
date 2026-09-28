@@ -7,7 +7,7 @@ use chrono::Datelike;
 use clap::{CommandFactory, FromArgMatches};
 use config::{Cli, OutputFormat};
 use filesystem::RepairError;
-use model::{CommandResult, Diagnostic, Settings};
+use model::{CommandResult, Settings};
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 
@@ -47,112 +47,84 @@ pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResu
         .config_path
         .as_ref()
         .map(|p| display_path(p, &settings.project_root));
-    let policy = match analysis::build_policy(settings, current_year) {
-        Ok(policy) => policy,
-        Err(error) => {
-            result.fail(error, None);
-            return result;
-        }
-    };
-    result.expected_header = Some(policy.expected_header.clone());
-    let mut paths = match filesystem::discover(settings) {
-        Ok(paths) => paths,
-        Err(error) => {
-            result.fail(error, None);
-            return result;
-        }
-    };
-    paths.sort_by_key(|p| display_path(p, &settings.project_root));
-    let mut files = Vec::with_capacity(paths.len());
-    for path in &paths {
-        let shown = display_path(path, &settings.project_root);
-        let snapshot = match filesystem::read(path, &settings.project_root) {
-            Ok(snapshot) => snapshot,
-            Err(error) => {
-                result.fail(error, Some(shown));
-                return result;
+    let outcome: Result<(), (String, Option<String>)> = (|| {
+        let policy = analysis::build_policy(settings, current_year).map_err(|e| (e, None))?;
+        result.expected_header = Some(policy.expected_header.clone());
+        let mut paths = filesystem::discover(settings).map_err(|e| (e, None))?;
+        paths.sort_by_key(|p| display_path(p, &settings.project_root));
+        let read = |path: &Path| {
+            let shown = display_path(path, &settings.project_root);
+            let snapshot = filesystem::read(path, &settings.project_root)
+                .map_err(|e| (e.to_string(), Some(shown.clone())))?;
+            let mut content = analysis::analyze(&snapshot.bytes, &policy, &shown);
+            if let Some(diagnostic) = &mut content.diagnostic {
+                diagnostic.fixable &= snapshot.unsafe_reason.is_none();
             }
+            Ok::<_, (String, Option<String>)>((snapshot, content))
         };
-        let mut content = analysis::analyze(&snapshot.bytes, &policy, &shown);
-        if let Some(diagnostic) = &mut content.diagnostic {
-            if diagnostic.code == "LMH004" {
-                diagnostic.fixable =
-                    snapshot.unsafe_reason.is_none() && content.replacement.is_some();
-            }
-            result.diagnostics.push(diagnostic.clone());
+        let mut files = Vec::with_capacity(paths.len());
+        for path in &paths {
+            let file = read(path)?;
+            result.diagnostics.extend(file.1.diagnostic.clone());
+            result.checked += 1;
+            files.push(file);
         }
-        result.checked += 1;
-        files.push((snapshot, content));
-    }
-    if command == "check" {
-        return result;
-    }
-
-    let mut unsafe_findings: Vec<Diagnostic> = Vec::new();
-    for (path, (snapshot, content)) in paths.iter().zip(&files) {
-        let Some(diagnostic) = &content.diagnostic else {
-            continue;
-        };
-        if diagnostic.code != "LMH004" {
-            continue;
+        if command != "fix" {
+            return Ok(());
         }
-        let repaired = match (&snapshot.unsafe_reason, &content.replacement) {
-            (Some(reason), _) => Err(RepairError::Unsafe(reason.clone())),
-            (None, Some(bytes)) => {
-                filesystem::replace(path, snapshot, bytes, &settings.project_root)
-            }
-            (None, None) => Err(RepairError::Unsafe(
-                "copyright bytes cannot be repaired safely".into(),
-            )),
-        };
-        match repaired {
-            Ok(()) => {
-                result.changed.push(diagnostic.path.clone());
-                result.diagnostics.retain(|d| d.path != diagnostic.path);
-            }
-            Err(RepairError::Unsafe(reason)) => {
-                let mut unsafe_diagnostic = diagnostic.clone();
-                unsafe_diagnostic.code = "LMH008".into();
-                unsafe_diagnostic.message = reason;
-                unsafe_diagnostic.fixable = false;
-                if let Some(existing) = result
-                    .diagnostics
-                    .iter_mut()
-                    .find(|d| d.path == diagnostic.path)
-                {
-                    *existing = unsafe_diagnostic.clone();
+        let repaired = paths
+            .iter()
+            .zip(&mut files)
+            .try_for_each(|(path, (snapshot, content))| {
+                let Some(diagnostic) = &mut content.diagnostic else {
+                    return Ok(());
+                };
+                if diagnostic.code != "LMH004" {
+                    return Ok(());
                 }
-                unsafe_findings.push(unsafe_diagnostic);
-            }
-            Err(RepairError::Io(error)) => {
-                result.fail(error, Some(diagnostic.path.clone()));
-                return result;
-            }
-        }
-    }
-
-    // Recheck through the same analyzer: the report describes the files after fix.
-    result.diagnostics.clear();
-    for path in &paths {
-        let shown = display_path(path, &settings.project_root);
-        if let Some(diagnostic) = unsafe_findings.iter().find(|d| d.path == shown) {
-            result.diagnostics.push(diagnostic.clone());
-            continue;
-        }
-        match filesystem::read(path, &settings.project_root) {
-            Ok(snapshot) => {
-                if let Some(mut diagnostic) =
-                    analysis::analyze(&snapshot.bytes, &policy, &shown).diagnostic
-                {
-                    diagnostic.fixable &= snapshot.unsafe_reason.is_none();
-                    result.diagnostics.push(diagnostic);
+                let repair = match (&snapshot.unsafe_reason, &content.replacement) {
+                    (Some(reason), _) => Err(RepairError::Unsafe(reason.clone())),
+                    (None, Some(bytes)) => {
+                        filesystem::replace(path, snapshot, bytes, &settings.project_root)
+                    }
+                    (None, None) => Err(RepairError::Unsafe(
+                        "copyright bytes cannot be repaired safely".into(),
+                    )),
+                };
+                match repair {
+                    Ok(()) => {
+                        result.changed.push(diagnostic.path.clone());
+                        content.diagnostic = None;
+                    }
+                    Err(RepairError::Unsafe(reason)) => {
+                        diagnostic.code = "LMH008".into();
+                        diagnostic.message = reason;
+                        diagnostic.fixable = false;
+                    }
+                    Err(RepairError::Io(error)) => {
+                        return Err((error.to_string(), Some(diagnostic.path.clone())));
+                    }
                 }
-            }
-            Err(error) => {
-                result.fail(error, Some(shown));
-                return result;
-            }
+                Ok(())
+            });
+        result.diagnostics = files
+            .iter()
+            .filter_map(|file| file.1.diagnostic.clone())
+            .collect();
+        repaired?;
+        // Keep unsafe findings; otherwise report the files as they stand after repair.
+        result.diagnostics.clear();
+        for (path, (_, content)) in paths.iter().zip(files) {
+            let diagnostic = match content.diagnostic {
+                Some(d) if d.code == "LMH008" => Some(d),
+                _ => read(path)?.1.diagnostic,
+            };
+            result.diagnostics.extend(diagnostic);
         }
+        Ok(())
+    })();
+    if let Err((message, path)) = outcome {
+        result.fail(message, path);
     }
     result
 }

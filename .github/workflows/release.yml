@@ -17,12 +17,14 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Check out the tagged source
+      - &checkout
+        name: Check out the tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.release.tag_name || github.sha }}
-      - name: Install uv
+      - &setup_uv
+        name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: false
@@ -94,14 +96,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.release.tag_name || github.sha }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
+      - *checkout
+      - *setup_uv
       - name: Build native wheel
         uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8 # v1
         with:
@@ -141,17 +137,15 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
-      - name: Download reviewed artifacts
+      - *setup_uv
+      - &download_source
+        name: Download reviewed artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-artifacts
           path: .
-      - name: Download reviewed platform wheels
+      - &download_wheels
+        name: Download reviewed platform wheels
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: release-wheels-*
@@ -169,22 +163,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
-      - name: Download reviewed artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-artifacts
-          path: .
-      - name: Download reviewed platform wheels
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: release-wheels-*
-          merge-multiple: true
-          path: dist
+      - *setup_uv
+      - *download_source
+      - *download_wheels
       - name: Verify live PyPI filenames and hashes
         run: >-
           python .github/pypi_release.py verify dist

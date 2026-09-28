@@ -16,15 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
         include:
-          - os: ubuntu-latest
-            python: "3.11"
-          - os: ubuntu-latest
-            python: "3.12"
-          - os: ubuntu-latest
-            python: "3.13"
-          - os: ubuntu-latest
-            python: "3.14"
           - os: macos-latest
             python: "3.14"
           - os: windows-latest
@@ -41,11 +35,10 @@ jobs:
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: "1.93.0"
-      - name: Test Rust and Python distribution helpers
-        run: |
-          cargo test --locked
-          cargo build --locked --bins
-          python -m unittest discover -s src/tests -v
+      - name: Test Rust
+        run: cargo test --locked
+      - name: Test Python distribution helpers
+        run: python -m unittest discover -s src/tests -v
 
   run-action:
     runs-on: ubuntu-latest
@@ -81,7 +74,7 @@ jobs:
       - name: Fix a stale header
         id: fix
         uses: ./
-        with:
+        with: &fix_inputs
           mode: fix
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
@@ -110,14 +103,7 @@ jobs:
       - name: Run fix a second time
         id: second-fix
         uses: ./
-        with:
-          mode: fix
-          license: 'Apache-2.0'
-          owner: 'François-Guillaume Fernandez'
-          starting-year: 2022
-          folders: '.action-test/success'
-          ignore-files: ''
-          ignore-folders: ''
+        with: *fix_inputs
       - name: Verify idempotence
         shell: bash
         env:

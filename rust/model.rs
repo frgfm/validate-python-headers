@@ -41,7 +41,7 @@ pub struct CommandError {
     pub path: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct CommandResult {
     pub schema_version: u8,
     pub tool_version: String,
@@ -60,12 +60,7 @@ impl CommandResult {
             schema_version: 1,
             tool_version: crate::version(),
             command: command.into(),
-            config_path: None,
-            checked: 0,
-            changed: Vec::new(),
-            diagnostics: Vec::new(),
-            expected_header: None,
-            error: None,
+            ..Self::default()
         }
     }
 

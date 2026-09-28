@@ -323,9 +323,9 @@ pub fn replace(
             "repair target changed before replacement".into(),
         ));
     }
-    temporary
-        .persist(path)
-        .map_err(|error| RepairError::Io(error.error))?;
+    // std supports replacing an open Windows target; tempfile::persist does not.
+    fs::rename(temporary.path(), path)?;
+    temporary.disable_cleanup(true);
     Ok(())
 }
 
@@ -395,6 +395,12 @@ mod tests {
         assert_eq!(stamp(&fs::metadata(&path).unwrap()).unwrap(), before);
         replace(&path, &snapshot, repaired, root.path()).unwrap();
         assert_eq!(fs::read(&path).unwrap(), repaired);
+        #[cfg(windows)]
+        assert_eq!(
+            fs::metadata(&path).unwrap().file_attributes()
+                & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_TEMPORARY,
+            0
+        );
         #[cfg(unix)]
         assert_eq!(fs::metadata(&path).unwrap().mode() & 0o7777, 0o754);
         assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);

@@ -9,9 +9,10 @@ const CONFIG: &str = "[tool.lint-my-headers]\nowner = 'Example Owner'\nstarting-
 
 fn workspace() -> TempDir {
     let dir = tempdir().unwrap();
-    fs::write(dir.path().join("LICENSE"), "Apache-2.0\n").unwrap();
-    fs::write(dir.path().join("pyproject.toml"), CONFIG).unwrap();
-    fs::create_dir(dir.path().join("src")).unwrap();
+    let root = dir.path();
+    fs::write(root.join("LICENSE"), "Apache-2.0\n").unwrap();
+    fs::write(root.join("pyproject.toml"), CONFIG).unwrap();
+    fs::create_dir(root.join("src")).unwrap();
     dir
 }
 
@@ -21,6 +22,14 @@ fn year() -> i32 {
 
 fn source(years: impl std::fmt::Display, owner: &str, notice: &str) -> String {
     format!("# Copyright (C) {years}, {owner}.\n\n{notice}\nvalue = 'café'\n")
+}
+
+fn header(years: impl std::fmt::Display) -> String {
+    source(years, OWNER, NOTICE)
+}
+
+fn message(result: &Value) -> &str {
+    result["error"]["message"].as_str().unwrap()
 }
 
 fn write(root: &Path, name: &str, contents: impl AsRef<[u8]>) {
@@ -52,7 +61,8 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 #[test]
 fn native_commands_help_version_and_legacy_names() {
     let dir = workspace();
-    let version = run(dir.path(), &["--version"], 0);
+    let root = dir.path();
+    let version = run(root, &["--version"], 0);
     assert!(
         String::from_utf8(version.stdout)
             .unwrap()
@@ -75,33 +85,29 @@ fn native_commands_help_version_and_legacy_names() {
         assert!(help.contains("check") && help.contains("fix"));
     }
     for removed in ["vph", "validate-python-headers", "validate_headers"] {
-        run(dir.path(), &[removed], 2);
+        run(root, &[removed], 2);
     }
     write(
-        dir.path(),
+        root,
         "pyproject.toml",
         CONFIG.replace("lint-my-headers", "validate-python-headers"),
     );
-    let result = json_run(dir.path(), &["check"], 2);
-    assert!(
-        result["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("owner")
-    );
+    let result = json_run(root, &["check"], 2);
+    assert!(message(&result).contains("owner"));
 }
 
 #[test]
 fn check_json_is_ordered_complete_and_read_only() {
     let dir = workspace();
-    write(dir.path(), "src/b.py", "value = 1\n");
-    let stale = source(year() - 2, OWNER, NOTICE);
-    write(dir.path(), "src/a.py", &stale);
-    let before = fs::metadata(dir.path().join("src/a.py"))
+    let root = dir.path();
+    write(root, "src/b.py", "value = 1\n");
+    let stale = header(year() - 2);
+    write(root, "src/a.py", &stale);
+    let before = fs::metadata(root.join("src/a.py"))
         .unwrap()
         .modified()
         .unwrap();
-    let output = run(dir.path(), &["check", "--output-format", "json"], 1);
+    let output = run(root, &["check", "--output-format", "json"], 1);
     assert!(output.stderr.is_empty());
     let text = String::from_utf8(output.stdout).unwrap();
     let keys = [
@@ -138,12 +144,9 @@ fn check_json_is_ordered_complete_and_read_only() {
             .unwrap()
             .contains("<FILE_CREATION_YEAR>")
     );
+    assert_eq!(fs::read(root.join("src/a.py")).unwrap(), stale.as_bytes());
     assert_eq!(
-        fs::read(dir.path().join("src/a.py")).unwrap(),
-        stale.as_bytes()
-    );
-    assert_eq!(
-        fs::metadata(dir.path().join("src/a.py"))
+        fs::metadata(root.join("src/a.py"))
             .unwrap()
             .modified()
             .unwrap(),
@@ -154,20 +157,17 @@ fn check_json_is_ordered_complete_and_read_only() {
 #[test]
 fn text_diagnostics_and_action_outputs_remain_compatible() {
     let dir = workspace();
-    write(
-        dir.path(),
-        "src/stale.py",
-        source(year() - 2, OWNER, NOTICE),
-    );
-    write(dir.path(), "src/missing.py", "value = 1\n");
-    let output = run(dir.path(), &["check"], 1);
+    let root = dir.path();
+    write(root, "src/stale.py", header(year() - 2));
+    write(root, "src/missing.py", "value = 1\n");
+    let output = run(root, &["check"], 1);
     assert!(output.stdout.is_empty());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("src/stale.py:1:1: LMH004"));
     assert!(stderr.contains("[fixable]") && stderr.contains("Expected header:"));
-    let action_output = dir.path().join("github-output.txt");
+    let action_output = root.join("github-output.txt");
     let output = Command::new(env!("CARGO_BIN_EXE_lmh"))
-        .current_dir(dir.path())
+        .current_dir(root)
         .env("PATH", "")
         .env("GITHUB_OUTPUT", &action_output)
         .arg("fix")
@@ -184,7 +184,7 @@ fn text_diagnostics_and_action_outputs_remain_compatible() {
             .contains("Updated headers:\n- src/stale.py\n")
     );
     let output = Command::new(env!("CARGO_BIN_EXE_lmh"))
-        .current_dir(dir.path())
+        .current_dir(root)
         .env("GITHUB_OUTPUT", &action_output)
         .args(["check", "--output-format", "json", "missing.py"])
         .output()
@@ -206,6 +206,7 @@ fn text_diagnostics_and_action_outputs_remain_compatible() {
 #[test]
 fn diagnostic_precedence_and_unfixable_sources() {
     let dir = workspace();
+    let root = dir.path();
     let invalid = [
         ("missing", "value = 1\n".to_owned(), "LMH001"),
         (
@@ -226,7 +227,7 @@ fn diagnostic_precedence_and_unfixable_sources() {
             "duplicate",
             format!(
                 "{}# Copyright (C) {}, {OWNER}.\n",
-                source(year() - 2, OWNER, NOTICE),
+                header(year() - 2),
                 year()
             ),
             "LMH006",
@@ -238,22 +239,15 @@ fn diagnostic_precedence_and_unfixable_sources() {
         ),
         (
             "late_cookie",
-            format!(
-                "value = 0\n# coding: utf-8\n\n{}",
-                source(year(), OWNER, NOTICE)
-            ),
+            format!("value = 0\n# coding: utf-8\n\n{}", header(year())),
             "LMH006",
         ),
     ];
     for (name, contents, _) in &invalid {
-        write(dir.path(), &format!("src/{name}.py"), contents);
+        write(root, &format!("src/{name}.py"), contents);
     }
-    write(
-        dir.path(),
-        "src/stale.py",
-        source(year() - 2, OWNER, NOTICE),
-    );
-    let result = json_run(dir.path(), &["fix"], 1);
+    write(root, "src/stale.py", header(year() - 2));
+    let result = json_run(root, &["fix"], 1);
     assert_eq!(result["changed"], json!(["src/stale.py"]));
     let diagnostics = result["diagnostics"].as_array().unwrap();
     assert_eq!(diagnostics.len(), invalid.len());
@@ -262,13 +256,14 @@ fn diagnostic_precedence_and_unfixable_sources() {
         let diagnostic = diagnostics.iter().find(|d| d["path"] == path).unwrap();
         assert_eq!(diagnostic["code"], code, "{name}");
         assert_eq!(diagnostic["fixable"], false, "{name}");
-        assert_eq!(fs::read_to_string(dir.path().join(path)).unwrap(), contents);
+        assert_eq!(fs::read_to_string(root.join(path)).unwrap(), contents);
     }
 }
 
 #[test]
 fn python_preambles_and_string_examples_are_accepted() {
     let dir = workspace();
+    let root = dir.path();
     for (name, preamble) in [
         ("single", ""),
         ("shebang", "#!/usr/bin/env python3\n\n"),
@@ -280,25 +275,21 @@ fn python_preambles_and_string_examples_are_accepted() {
         ("second_cookie", "# A comment\n# coding=utf-8\n\n"),
     ] {
         write(
-            dir.path(),
+            root,
             &format!("src/{name}.py"),
-            format!("{preamble}{}", source(year(), OWNER, NOTICE)),
+            format!("{preamble}{}", header(year())),
         );
     }
+    write(root, "src/range.py", header(format!("2024-{}", year())));
     write(
-        dir.path(),
-        "src/range.py",
-        source(format!("2024-{}", year()), OWNER, NOTICE),
-    );
-    write(
-        dir.path(),
+        root,
         "src/example.py",
         format!(
             "{}EXAMPLE = '''\n# Copyright (C) 2024, Someone Else.\n'''\n",
-            source(year(), OWNER, NOTICE)
+            header(year())
         ),
     );
-    let result = json_run(dir.path(), &["check"], 0);
+    let result = json_run(root, &["check"], 0);
     assert_eq!(result["checked"], 7);
     assert_eq!(result["diagnostics"], json!([]));
 }
@@ -306,8 +297,9 @@ fn python_preambles_and_string_examples_are_accepted() {
 #[test]
 fn fix_preserves_bytes_mode_and_is_idempotent() {
     let dir = workspace();
+    let root = dir.path();
     write(
-        dir.path(),
+        root,
         "notice.txt",
         "# Proprietary.\n# All rights reserved.\n",
     );
@@ -322,18 +314,18 @@ fn fix_preserves_bytes_mode_and_is_idempotent() {
         &format!("Copyright (C) {}-{},", year() - 2, year()),
         1,
     );
-    write(dir.path(), "src/stale.py", &original);
-    let path = dir.path().join("src/stale.py");
+    write(root, "src/stale.py", &original);
+    let path = root.join("src/stale.py");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&path, fs::Permissions::from_mode(0o754)).unwrap();
     }
-    let result = json_run(dir.path(), &["fix", "--license-notice", "notice.txt"], 0);
+    let result = json_run(root, &["fix", "--license-notice", "notice.txt"], 0);
     assert_eq!(result["changed"], json!(["src/stale.py"]));
     assert_eq!(fs::read(&path).unwrap(), expected.as_bytes());
     let modified = fs::metadata(&path).unwrap().modified().unwrap();
-    let result = json_run(dir.path(), &["fix", "--license-notice", "notice.txt"], 0);
+    let result = json_run(root, &["fix", "--license-notice", "notice.txt"], 0);
     assert_eq!(result["changed"], json!([]));
     assert_eq!(fs::read(&path).unwrap(), expected.as_bytes());
     assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
@@ -350,13 +342,14 @@ fn fix_preserves_bytes_mode_and_is_idempotent() {
 #[test]
 fn non_utf8_sources_keep_their_original_encoding() {
     let dir = workspace();
+    let root = dir.path();
     let raw = format!(
         "# coding: latin-1\n\n{}",
         source(year() - 2, "André", NOTICE)
     );
     let bytes: Vec<u8> = raw.chars().map(|ch| ch as u8).collect();
-    write(dir.path(), "src/latin.py", &bytes);
-    let result = json_run(dir.path(), &["fix", "--owner", "André"], 0);
+    write(root, "src/latin.py", &bytes);
+    let result = json_run(root, &["fix", "--owner", "André"], 0);
     assert_eq!(result["changed"], json!(["src/latin.py"]));
     let expected: Vec<u8> = raw
         .replacen(
@@ -367,21 +360,22 @@ fn non_utf8_sources_keep_their_original_encoding() {
         .chars()
         .map(|ch| ch as u8)
         .collect();
-    assert_eq!(fs::read(dir.path().join("src/latin.py")).unwrap(), expected);
+    assert_eq!(fs::read(root.join("src/latin.py")).unwrap(), expected);
 }
 
 #[test]
 fn nearest_configuration_cli_precedence_and_root_relative_paths() {
     let dir = workspace();
-    write(dir.path(), "src/clean.py", source(year(), OWNER, NOTICE));
-    fs::create_dir_all(dir.path().join("nested/deep")).unwrap();
-    let nested = dir.path().join("nested/deep");
+    let root = dir.path();
+    write(root, "src/clean.py", header(year()));
+    fs::create_dir_all(root.join("nested/deep")).unwrap();
+    let nested = root.join("nested/deep");
     let configured = json_run(&nested, &["check"], 0);
     assert_eq!(configured["checked"], 1);
     assert_eq!(configured["config_path"], "pyproject.toml");
-    write(dir.path(), "notice.txt", "# Proprietary.\n");
+    write(root, "notice.txt", "# Proprietary.\n");
     write(
-        dir.path(),
+        root,
         "nested/deep/selected.py",
         source(year() - 2, "CLI Owner", "# Proprietary.\n"),
     );
@@ -403,13 +397,13 @@ fn nearest_configuration_cli_precedence_and_root_relative_paths() {
     assert_eq!(result["diagnostics"][0]["path"], "nested/deep/selected.py");
     assert_eq!(result["diagnostics"][0]["code"], "LMH004");
     write(
-        dir.path(),
+        root,
         "nested/pyproject.toml",
         CONFIG
             .replace("Example Owner", "Nested Owner")
             .replace("paths = ['src']", "paths = ['deep']"),
     );
-    write(dir.path(), "nested/LICENSE", "Apache-2.0\n");
+    write(root, "nested/LICENSE", "Apache-2.0\n");
     let result = json_run(&nested, &["check"], 1);
     assert_eq!(result["diagnostics"][0]["path"], "deep/selected.py");
     assert_eq!(result["diagnostics"][0]["code"], "LMH002");
@@ -420,30 +414,29 @@ fn nearest_configuration_cli_precedence_and_root_relative_paths() {
 #[test]
 fn configured_custom_notice_is_relative_to_the_config() {
     let dir = workspace();
-    write(dir.path(), "notice.txt", "# Proprietary.\r\n");
+    let root = dir.path();
+    write(root, "notice.txt", "# Proprietary.\r\n");
     write(
-        dir.path(),
+        root,
         "pyproject.toml",
         CONFIG.replace("license = 'Apache-2.0'", "license-notice = 'notice.txt'"),
     );
     write(
-        dir.path(),
+        root,
         "src/clean.py",
         source(year(), OWNER, "# Proprietary.\n"),
     );
-    fs::create_dir(dir.path().join("nested")).unwrap();
-    fs::remove_file(dir.path().join("LICENSE")).unwrap();
-    assert_eq!(
-        json_run(&dir.path().join("nested"), &["check"], 0)["checked"],
-        1
-    );
+    fs::create_dir(root.join("nested")).unwrap();
+    fs::remove_file(root.join("LICENSE")).unwrap();
+    assert_eq!(json_run(&root.join("nested"), &["check"], 0)["checked"], 1);
 }
 
 #[test]
 fn invalid_config_is_rejected_before_any_write() {
     let dir = workspace();
-    let stale = source(year() - 2, OWNER, NOTICE);
-    write(dir.path(), "src/stale.py", &stale);
+    let root = dir.path();
+    let stale = header(year() - 2);
+    write(root, "src/stale.py", &stale);
     for (key, value) in [
         ("owner", "true"),
         ("owner", "''"),
@@ -464,50 +457,53 @@ fn invalid_config_is_rejected_before_any_write() {
             .filter(|line| !line.starts_with(&format!("{key} =")))
             .collect();
         write(
-            dir.path(),
+            root,
             "pyproject.toml",
             format!("{}\n{key} = {value}\n", filtered.join("\n")),
         );
-        let result = json_run(dir.path(), &["fix"], 2);
+        let result = json_run(root, &["fix"], 2);
         assert_eq!(result["error"]["code"], "LMH900", "{key}={value}");
         assert!(
-            result["error"]["message"]
-                .as_str()
-                .unwrap()
-                .contains(&format!("[tool.lint-my-headers].{key}")),
+            message(&result).contains(&format!("[tool.lint-my-headers].{key}")),
             "{result}"
         );
         assert_eq!(result["changed"], json!([]));
         assert_eq!(
-            fs::read_to_string(dir.path().join("src/stale.py")).unwrap(),
+            fs::read_to_string(root.join("src/stale.py")).unwrap(),
             stale
         );
     }
     write(
-        dir.path(),
+        root,
         "pyproject.toml",
         format!("{CONFIG}license-notice = 'notice.txt'\n"),
     );
     assert!(
-        json_run(dir.path(), &["fix"], 2)["error"]["message"]
+        json_run(root, &["fix"], 2)["error"]["message"]
             .as_str()
             .unwrap()
             .contains("exactly one")
     );
-    write(dir.path(), "pyproject.toml", CONFIG);
+    write(root, "pyproject.toml", CONFIG);
     for args in [
         vec!["fix", "--folders", "src", "src/stale.py"],
         vec!["fix", "--license", "made-up-license"],
         vec!["fix", "--config", "missing.toml"],
         vec!["fix", "--owner", "bad\nowner"],
     ] {
-        assert_eq!(json_run(dir.path(), &args, 2)["changed"], json!([]));
+        assert_eq!(json_run(root, &args, 2)["changed"], json!([]));
     }
-    let missing = json_run(dir.path(), &["check", "--config", "missing.toml"], 2);
+    let missing = json_run(root, &["check", "--config", "missing.toml"], 2);
+    json_run(
+        root,
+        &["fix", "--starting-year", &(year() + 1).to_string()],
+        2,
+    );
+    json_run(root, &["fix", "--license", ""], 2);
     assert_eq!(missing["config_path"], "missing.toml");
     assert_eq!(missing["error"]["path"], "missing.toml");
     assert_eq!(
-        fs::read_to_string(dir.path().join("src/stale.py")).unwrap(),
+        fs::read_to_string(root.join("src/stale.py")).unwrap(),
         stale
     );
 }
@@ -550,23 +546,20 @@ fn discovery_deduplicates_ignores_and_sorts_external_paths() {
 #[test]
 fn hardlinked_targets_are_readable_but_never_fixed() {
     let dir = workspace();
-    let stale = source(year() - 2, OWNER, NOTICE);
-    write(dir.path(), "src/first.py", &stale);
-    fs::hard_link(
-        dir.path().join("src/first.py"),
-        dir.path().join("src/second.py"),
-    )
-    .unwrap();
-    let check = json_run(dir.path(), &["check", "src/first.py"], 1);
+    let root = dir.path();
+    let stale = header(year() - 2);
+    write(root, "src/first.py", &stale);
+    fs::hard_link(root.join("src/first.py"), root.join("src/second.py")).unwrap();
+    let check = json_run(root, &["check", "src/first.py"], 1);
     assert_eq!(check["diagnostics"][0]["code"], "LMH004");
     assert_eq!(check["diagnostics"][0]["fixable"], false);
-    let fixed = json_run(dir.path(), &["fix"], 1);
+    let fixed = json_run(root, &["fix"], 1);
     assert_eq!(fixed["changed"], json!([]));
     for diagnostic in fixed["diagnostics"].as_array().unwrap() {
         assert_eq!(diagnostic["code"], "LMH008");
     }
     for path in ["src/first.py", "src/second.py"] {
-        assert_eq!(fs::read_to_string(dir.path().join(path)).unwrap(), stale);
+        assert_eq!(fs::read_to_string(root.join(path)).unwrap(), stale);
     }
 }
 
@@ -574,10 +567,11 @@ fn hardlinked_targets_are_readable_but_never_fixed() {
 #[test]
 fn symlinks_are_skipped_during_discovery_and_refused_during_fix() {
     let dir = workspace();
-    let stale = source(year() - 2, OWNER, NOTICE);
-    write(dir.path(), "outside/target.py", &stale);
-    let target = dir.path().join("outside/target.py");
-    let link = dir.path().join("src/link.py");
+    let root = dir.path();
+    let stale = header(year() - 2);
+    write(root, "outside/target.py", &stale);
+    let target = root.join("outside/target.py");
+    let link = root.join("src/link.py");
     #[cfg(unix)]
     std::os::unix::fs::symlink(&target, &link).unwrap();
     #[cfg(windows)]
@@ -587,11 +581,11 @@ fn symlinks_are_skipped_during_discovery_and_refused_during_fix() {
         }
         panic!("{error}");
     }
-    assert_eq!(json_run(dir.path(), &["check"], 0)["checked"], 0);
-    let check = json_run(dir.path(), &["check", "src/link.py"], 1);
+    assert_eq!(json_run(root, &["check"], 0)["checked"], 0);
+    let check = json_run(root, &["check", "src/link.py"], 1);
     assert_eq!(check["diagnostics"][0]["code"], "LMH004");
     assert_eq!(check["diagnostics"][0]["fixable"], false);
-    let fixed = json_run(dir.path(), &["fix", "src/link.py"], 1);
+    let fixed = json_run(root, &["fix", "src/link.py"], 1);
     assert_eq!(fixed["diagnostics"][0]["code"], "LMH008");
     assert_eq!(fs::read_to_string(&target).unwrap(), stale);
     assert!(
@@ -600,16 +594,13 @@ fn symlinks_are_skipped_during_discovery_and_refused_during_fix() {
             .file_type()
             .is_symlink()
     );
-    let linked_root = dir.path().join("linked-root");
+    let linked_root = root.join("linked-root");
     #[cfg(unix)]
-    std::os::unix::fs::symlink(dir.path().join("outside"), &linked_root).unwrap();
+    std::os::unix::fs::symlink(root.join("outside"), &linked_root).unwrap();
     #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(dir.path().join("outside"), &linked_root).unwrap();
-    assert_eq!(
-        json_run(dir.path(), &["check", "linked-root"], 2)["checked"],
-        0
-    );
-    let result = json_run(dir.path(), &["fix", "linked-root/target.py"], 1);
+    std::os::windows::fs::symlink_dir(root.join("outside"), &linked_root).unwrap();
+    assert_eq!(json_run(root, &["check", "linked-root"], 2)["checked"], 0);
+    let result = json_run(root, &["fix", "linked-root/target.py"], 1);
     assert_eq!(result["diagnostics"][0]["code"], "LMH008");
     assert_eq!(fs::read_to_string(target).unwrap(), stale);
 }
@@ -633,6 +624,7 @@ fn pinned_spdx_data_accepts_every_legacy_notice_and_new_identifiers() {
     let licenses = legacy["licenses"].as_object().unwrap();
     assert_eq!(licenses.len(), 29);
     let dir = workspace();
+    let root = dir.path();
     for (identifier, entry) in licenses {
         for url in entry["urls"].as_array().unwrap() {
             let notice = format!(
@@ -640,8 +632,8 @@ fn pinned_spdx_data_accepts_every_legacy_notice_and_new_identifiers() {
                 entry["name"].as_str().unwrap(),
                 url.as_str().unwrap()
             );
-            write(dir.path(), "src/valid.py", source(year(), OWNER, &notice));
-            let result = json_run(dir.path(), &["check", "--license", identifier], 0);
+            write(root, "src/valid.py", source(year(), OWNER, &notice));
+            let result = json_run(root, &["check", "--license", identifier], 0);
             assert_eq!(result["checked"], 1, "{identifier}");
         }
     }
@@ -656,9 +648,23 @@ fn pinned_spdx_data_accepts_every_legacy_notice_and_new_identifiers() {
         new["name"].as_str().unwrap(),
         new["seeAlso"][0].as_str().unwrap()
     );
-    write(dir.path(), "src/valid.py", source(year(), OWNER, &notice));
-    assert_eq!(
-        json_run(dir.path(), &["check", "--license", "3D-Slicer-1.0"], 0)["checked"],
-        1
+    write(root, "src/valid.py", source(year(), OWNER, &notice));
+    let result = json_run(
+        root,
+        &[
+            "check",
+            "--license",
+            "3D-Slicer-1.0",
+            "--starting-year",
+            &year().to_string(),
+        ],
+        0,
+    );
+    assert_eq!(result["checked"], 1);
+    assert!(
+        result["expected_header"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("# Copyright (C) {}, {OWNER}.", year()))
     );
 }

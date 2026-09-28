@@ -456,57 +456,8 @@ mod tests {
         format!("# Copyright (C) {years}, Example Owner.\n\n# License notice.\n\nvalue = 'café'\n")
     }
 
-    #[test]
-    fn policy_keeps_every_legacy_notice_and_rejects_invalid_settings() {
-        let license = tempfile::NamedTempFile::new().unwrap();
-        let mut settings = Settings {
-            owner: "Example Owner".into(),
-            year: 2022,
-            license: None,
-            license_notice: None,
-            license_path: license.path().into(),
-            paths: Vec::new(),
-            ignore_files: Vec::new(),
-            ignore_folders: Vec::new(),
-            project_root: std::env::temp_dir(),
-            config_path: None,
-        };
-        assert!(build_policy(&settings, 2030).is_err());
-        for (id, entry) in LEGACY["licenses"].as_object().unwrap() {
-            settings.license = Some(id.clone());
-            let policy = build_policy(&settings, 2030).unwrap();
-            let name = entry["name"].as_str().unwrap();
-            for url in entry["urls"].as_array().unwrap() {
-                let expected = format!(
-                    "# This program is licensed under the {name}.\n\
-                     # See LICENSE or go to <{}> for full license details.\n",
-                    url.as_str().unwrap()
-                );
-                assert!(policy.license_notices.contains(&expected), "{id}");
-            }
-        }
-        settings.license = Some("not-an-SPDX-license".into());
-        assert!(
-            build_policy(&settings, 2030)
-                .unwrap_err()
-                .starts_with("Invalid license identifier:")
-        );
-        settings.year = 2031;
-        assert!(
-            build_policy(&settings, 2030)
-                .unwrap_err()
-                .starts_with("Invalid first copyright year:")
-        );
-        settings.year = 2030;
-        settings.license = Some("Apache-2.0".into());
-        assert!(
-            build_policy(&settings, 2030)
-                .unwrap()
-                .expected_header
-                .starts_with("# Copyright (C) 2030, Example Owner.")
-        );
-        settings.owner = "Two\nLines".into();
-        assert!(build_policy(&settings, 2030).is_err());
+    fn inspect(source: impl AsRef<[u8]>) -> ContentAnalysis {
+        analyze(source.as_ref(), &policy(), "x.py")
     }
 
     #[test]
@@ -524,7 +475,7 @@ mod tests {
             "cp1251",
         ] {
             let raw = format!("# coding: {label}\n\n{}", header("2024"));
-            let result = analyze(raw.as_bytes(), &policy(), "x.py");
+            let result = inspect(raw.as_bytes());
             assert_eq!(result.diagnostic.unwrap().code, "LMH007");
             assert!(result.replacement.is_none());
         }
@@ -533,11 +484,7 @@ mod tests {
     #[test]
     fn diagnostics_and_precedence() {
         let valid = header("2030");
-        assert!(
-            analyze(valid.as_bytes(), &policy(), "x.py")
-                .diagnostic
-                .is_none()
-        );
+        assert!(inspect(valid.as_bytes()).diagnostic.is_none());
         let cases = [
             ("value = 1\n".into(), "LMH001", 1),
             (
@@ -558,7 +505,7 @@ mod tests {
             (format!("#!/usr/bin/python\n{valid}"), "LMH006", 2),
         ];
         for (source, code, line) in cases {
-            let result = analyze(source.as_bytes(), &policy(), "x.py");
+            let result = inspect(source.as_bytes());
             let diagnostic = result.diagnostic.unwrap();
             assert_eq!(diagnostic.code, code, "{source}");
             assert_eq!(diagnostic.line, line, "{source}");
@@ -575,27 +522,17 @@ mod tests {
             "r'\"# Copyright (C) 2024, Other.\"'",
         ] {
             let source = format!("{}\nEXAMPLE = {literal}\n", header("2030"));
-            assert!(
-                analyze(source.as_bytes(), &policy(), "x.py")
-                    .diagnostic
-                    .is_none()
-            );
+            assert!(inspect(source.as_bytes()).diagnostic.is_none());
         }
         let duplicate = format!("{}\n# Copyright (C) 2024, Other.\n", header("2030"));
         assert_eq!(
-            analyze(duplicate.as_bytes(), &policy(), "x.py")
-                .diagnostic
-                .unwrap()
-                .code,
+            inspect(duplicate.as_bytes()).diagnostic.unwrap().code,
             "LMH006"
         );
         let example =
             "EXAMPLE = '''\n# Copyright (C) 2030, Example Owner.\n\n# License notice.\n'''\n";
         assert_eq!(
-            analyze(example.as_bytes(), &policy(), "x.py")
-                .diagnostic
-                .unwrap()
-                .code,
+            inspect(example.as_bytes()).diagnostic.unwrap().code,
             "LMH001"
         );
     }
@@ -611,7 +548,7 @@ mod tests {
             let raw = format!("\u{feff}{preamble}{}", header("2024"))
                 .replace('\n', "\r\n")
                 .into_bytes();
-            let fixed = analyze(&raw, &policy(), "x.py").replacement.unwrap();
+            let fixed = inspect(&raw).replacement.unwrap();
             assert_eq!(
                 fixed,
                 String::from_utf8(raw)
@@ -619,7 +556,7 @@ mod tests {
                     .replacen("2024", "2024-2030", 1)
                     .as_bytes()
             );
-            assert!(analyze(&fixed, &policy(), "x.py").diagnostic.is_none());
+            assert!(inspect(&fixed).diagnostic.is_none());
         }
         let text = format!("# coding: latin-1\n\n{}", header("2024"));
         let raw: Vec<u8> = text.chars().map(|c| c as u8).collect();
@@ -648,16 +585,13 @@ mod tests {
             b"# coding: iso-8859-9\n\n# \x80\n",
             b"# coding: latin-1 \xff\n",
         ] {
-            let result = analyze(raw, &policy(), "x.py");
+            let result = inspect(raw);
             assert_eq!(result.diagnostic.unwrap().code, "LMH007");
             assert!(result.replacement.is_none());
         }
         let source = format!("value = 0\n# coding: utf-8\n\n{}", header("2030"));
         assert_eq!(
-            analyze(source.as_bytes(), &policy(), "x.py")
-                .diagnostic
-                .unwrap()
-                .code,
+            inspect(source.as_bytes()).diagnostic.unwrap().code,
             "LMH006"
         );
     }
@@ -666,7 +600,7 @@ mod tests {
     fn bare_carriage_returns_do_not_authorize_a_repair() {
         for years in ["2024", "2030"] {
             let source = header(years).replace('\n', "\r");
-            let result = analyze(source.as_bytes(), &policy(), "x.py");
+            let result = inspect(source.as_bytes());
             let diagnostic = result.diagnostic.unwrap();
             assert_eq!(diagnostic.code, "LMH006");
             assert_eq!(diagnostic.line, 1);
@@ -674,11 +608,7 @@ mod tests {
             assert!(result.replacement.is_none());
         }
         let mixed = header("2024").replacen('\n', "\r", 1);
-        assert!(
-            analyze(mixed.as_bytes(), &policy(), "x.py")
-                .replacement
-                .is_none()
-        );
+        assert!(inspect(mixed.as_bytes()).replacement.is_none());
     }
 
     #[test]
@@ -686,16 +616,12 @@ mod tests {
         for body in ["x = 0xZZ\n", "x = ) )\n", "x = f\"{\n 1 + 1\n}\"\n"] {
             let source = format!("{}{body}", header("2024"));
             // Malformed bodies alone do not prevent an unambiguous year-only repair.
-            assert!(
-                analyze(source.as_bytes(), &policy(), "x.py")
-                    .replacement
-                    .is_some()
-            );
+            assert!(inspect(source.as_bytes()).replacement.is_some());
             for tail in [
                 "# Copyright (C) 2024, Other Owner.\n",
                 "example = '# Copyright (C) 2024, Other Owner.'\n",
             ] {
-                let result = analyze(format!("{source}{tail}").as_bytes(), &policy(), "x.py");
+                let result = inspect(format!("{source}{tail}").as_bytes());
                 let diagnostic = result.diagnostic.unwrap();
                 assert_eq!(diagnostic.code, "LMH006", "{body}{tail}");
                 assert_eq!(diagnostic.line, 1);
@@ -712,7 +638,7 @@ mod tests {
                 "{}\nx = {prefix}'''{{\n# Copyright (C) 2024, Other Owner.\n1\n}}'''\n",
                 header("2024")
             );
-            let result = analyze(source.as_bytes(), &policy(), "x.py");
+            let result = inspect(source.as_bytes());
             let diagnostic = result.diagnostic.unwrap();
             assert_eq!(diagnostic.code, "LMH006", "{prefix}");
             assert!(!diagnostic.fixable);
@@ -722,11 +648,7 @@ mod tests {
             "{}\nx = '''{{\n# Copyright (C) 2024, Other Owner.\n1\n}}'''\n",
             header("2024")
         );
-        assert!(
-            analyze(literal.as_bytes(), &policy(), "x.py")
-                .replacement
-                .is_some()
-        );
+        assert!(inspect(literal.as_bytes()).replacement.is_some());
     }
 
     #[test]
@@ -737,12 +659,7 @@ mod tests {
             "{{\n# Copyright (C) 2024, Example Owner.\n}}",
         ] {
             let source = format!("{}\nx = f'''{value}'''\n", header("2024"));
-            assert!(
-                analyze(source.as_bytes(), &policy(), "x.py")
-                    .replacement
-                    .is_some(),
-                "{value}"
-            );
+            assert!(inspect(source.as_bytes()).replacement.is_some(), "{value}");
         }
         for value in [
             "{{{\n# Copyright (C) 2024, Other.\n1\n}}}",

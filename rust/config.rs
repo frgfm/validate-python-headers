@@ -4,15 +4,6 @@ use std::path::{Path, PathBuf};
 use toml::{Table, Value};
 
 const SECTION: &str = "[tool.lint-my-headers]";
-const KEYS: &[&str] = &[
-    "owner",
-    "starting-year",
-    "license",
-    "license-notice",
-    "paths",
-    "ignore-files",
-    "ignore-folders",
-];
 
 #[derive(Parser, Debug)]
 #[command(
@@ -112,35 +103,32 @@ fn config_table(path: &Path) -> Result<Table, String> {
         .as_table()
         .ok_or_else(|| format!("Invalid {SECTION}: expected a table in {}", path.display()))?;
     for (key, value) in config {
-        let invalid = |reason| format!("Invalid {SECTION}.{key}: {reason} in {}", path.display());
-        if !KEYS.contains(&key.as_str()) {
-            return Err(invalid("unknown key"));
-        }
-        match key.as_str() {
-            "owner" | "license" | "license-notice" => {
-                if value.as_str().is_none_or(str::is_empty) {
-                    return Err(invalid("expected a non-empty string"));
-                }
-            }
-            "starting-year" => {
-                if value
-                    .as_integer()
-                    .is_none_or(|v| !(1000..=9999).contains(&v))
+        let reason = match key.as_str() {
+            "owner" | "license" | "license-notice" => value
+                .as_str()
+                .is_none_or(str::is_empty)
+                .then_some("expected a non-empty string"),
+            "starting-year" => value
+                .as_integer()
+                .is_none_or(|v| !(1000..=9999).contains(&v))
+                .then_some("expected a four-digit integer"),
+            "paths" | "ignore-files" | "ignore-folders" => match value.as_array() {
+                Some(items)
+                    if items
+                        .iter()
+                        .all(|v| v.as_str().is_some_and(|s| !s.is_empty())) =>
                 {
-                    return Err(invalid("expected a four-digit integer"));
+                    (key == "paths" && items.is_empty()).then_some("expected at least one path")
                 }
-            }
-            _ => {
-                let Some(items) = value.as_array() else {
-                    return Err(invalid("expected an array of non-empty strings"));
-                };
-                if items.iter().any(|v| v.as_str().is_none_or(str::is_empty)) {
-                    return Err(invalid("expected an array of non-empty strings"));
-                }
-                if key == "paths" && items.is_empty() {
-                    return Err(invalid("expected at least one path"));
-                }
-            }
+                _ => Some("expected an array of non-empty strings"),
+            },
+            _ => Some("unknown key"),
+        };
+        if let Some(reason) = reason {
+            return Err(format!(
+                "Invalid {SECTION}.{key}: {reason} in {}",
+                path.display()
+            ));
         }
     }
     Ok(config.clone())
@@ -182,14 +170,14 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
         .unwrap_or(&cwd)
         .to_path_buf();
     let string = |key| table.get(key).and_then(Value::as_str).map(str::to_owned);
+    let missing =
+        |key| format!("Missing {SECTION}.{key}; set it in pyproject.toml or pass --{key}");
     let owner = options
         .owner
         .clone()
         .or_else(|| string("owner"))
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| {
-            format!("Missing {SECTION}.owner; set it in pyproject.toml or pass --owner")
-        })?;
+        .ok_or_else(|| missing("owner"))?;
     let year = options
         .starting_year
         .or_else(|| {
@@ -198,11 +186,7 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
                 .and_then(Value::as_integer)
                 .and_then(|i| i32::try_from(i).ok())
         })
-        .ok_or_else(|| {
-            format!(
-                "Missing {SECTION}.starting-year; set it in pyproject.toml or pass --starting-year"
-            )
-        })?;
+        .ok_or_else(|| missing("starting-year"))?;
     let (license, notice) = if options.license.is_some() || options.license_notice.is_some() {
         (options.license.clone(), options.license_notice.clone())
     } else {

@@ -1,34 +1,20 @@
 # Lint My Headers
 
-<p align="center">
-  <a href="https://github.com/frgfm/lint-my-headers/actions/workflows/tests.yml">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/frgfm/lint-my-headers/tests.yml?branch=main&label=CI&logo=github&style=flat-square">
-  </a>
-  <a href="https://pypi.org/project/lint-my-headers/">
-    <img alt="PyPI" src="https://img.shields.io/pypi/v/lint-my-headers?style=flat-square">
-  </a>
-  <a href="https://github.com/frgfm/lint-my-headers/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/frgfm/lint-my-headers?style=flat-square">
-  </a>
-</p>
-
-`lint-my-headers` is a Rust executable for license-header linting, starting with Python source files. It checks every selected file against one project policy, explains each failure with a stable diagnostic, and safely updates only recognized stale copyright years. Checking and fixing do not require a Python interpreter.
-
-It does not choose a license, provide legal advice, insert missing headers, or claim full SPDX/REUSE compliance.
+A Rust CLI that checks Python copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
-Install the command as a tool:
+Install a published release, or build this checkout with Rust 1.93:
 
 ```shell
 uv tool install lint-my-headers
+# From source:
+cargo build --release --locked
 ```
 
-PyPI wheels contain native executables. Building from a source distribution requires Rust 1.93; alternatively, build this checkout with `cargo build --release --locked`. The binaries are `target/release/lmh` and `target/release/lint-my-headers` (`.exe` on Windows).
+PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust. Python 3.11+ is needed only for PyPI tooling and the optional `python -m lint_my_headers` / `main(argv)` launchers. Checking and fixing run entirely in Rust.
 
-`python -m lint_my_headers` and `from lint_my_headers import main` remain available as thin launchers when installed from PyPI. Parsing, configuration, diagnostics, file discovery, and repairs run in Rust; the former internal Python `core`, `config`, and `cli` modules are no longer shipped.
-
-Declare the policy once in `pyproject.toml`:
+Declare the policy in `pyproject.toml`:
 
 ```toml
 [tool.lint-my-headers]
@@ -40,112 +26,106 @@ ignore-files = ["version.py"]
 ignore-folders = ["src/generated"]
 ```
 
-Then check it:
-
 ```shell
-lmh check
+lmh check                              # Read-only; configured paths
+lmh check src/package tests/test_api.py # Explicit paths
+lmh fix                                # Safe stale-year repairs only
+lmh --version
+lmh check --help
 ```
 
-A valid file looks like:
+A valid header in 2026:
 
 ```python
 # Copyright (C) 2024-2026, Example Organization.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
-
-value = 1
 ```
 
-Failures point to one primary problem per file:
+Diagnostics name the location, reason, and repair eligibility:
 
 ```text
 src/example.py:1:1: LMH004 copyright year ends at 2025; expected 2026 [fixable]
 ```
 
-Use the long command without installing:
+Exit codes: **0** clean, **1** unresolved findings, **2** invocation/configuration/I/O error. `fix` preserves the creation year and changes no other bytes. Unknown, missing, malformed, duplicate, wrong-owner, or future-dated headers require manual review.
 
-```shell
-uvx --from lint-my-headers lint-my-headers check
-```
+## Configuration and safety
 
-## Commands
+CLI policy options override configuration; `--config` selects another `pyproject.toml`. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
 
-| Command | Behavior |
+| Key / CLI option | Meaning and default |
 | --- | --- |
-| `lmh check` | Reports findings and never writes source files. |
-| `lmh fix` | Updates only a recognized stale year on a safe regular file, then reparses it. |
-| `lmh --version` | Prints the installed distribution version. |
+| `owner` / `--owner` | Required exact single-line copyright owner. |
+| `starting-year` / `--starting-year` | Required earliest accepted file creation year. |
+| `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
+| `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
+| `paths` / positional paths | Selected files or directories; default `.`. |
+| `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
+| `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
-Both `lmh` and `lint-my-headers` are first-party entry points. Commands return `0` when clean, `1` for findings, and `2` for invocation, configuration, or I/O failures.
+CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
-Explicit files or folders override configured `paths`:
+Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
-```shell
-lmh check src/package tests/test_package.py
-```
+Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
-CLI policy options override `pyproject.toml`. `--config` selects a specific configuration file.
+The bundled SPDX snapshot is v3.28.0. All previously accepted v3.17 names/URLs remain valid, including the legacy `KiCad-libraries-exception`. Compound SPDX expressions and new exception semantics are unsupported.
 
-## Stable JSON for coding agents
+## Agents and JSON
 
-Put `--output-format` after `check` or `fix`:
-
-```shell
-lmh check --output-format json
-```
-
-JSON is the only stdout in this mode:
+Use `lmh check --output-format json`. Successfully parsed JSON-mode commands write only JSON to stdout; malformed CLI syntax remains a stderr usage error.
 
 ```json
 {
-  "changed": [],
-  "checked": 1,
+  "schema_version": 1,
+  "tool_version": "0.6.0",
   "command": "check",
   "config_path": "pyproject.toml",
+  "checked": 1,
+  "changed": [],
   "diagnostics": [
     {
-      "code": "LMH004",
-      "column": 1,
-      "fixable": true,
+      "path": "src/example.py",
       "line": 1,
+      "column": 1,
+      "code": "LMH004",
       "message": "copyright year ends at 2025; expected 2026",
-      "path": "src/example.py"
+      "fixable": true
     }
   ],
-  "error": null,
   "expected_header": "# Copyright (C) <FILE_CREATION_YEAR>-2026, Example Organization.\n...",
-  "schema_version": 1,
-  "tool_version": "0.6.0"
+  "error": null
 }
 ```
 
-The diagnostic codes are stable within schema version 1:
+| Code | Meaning |
+| --- | --- |
+| `LMH001` | Missing header |
+| `LMH002` | Owner mismatch |
+| `LMH003` | Invalid, reversed, future, or out-of-policy year |
+| `LMH004` | Recognized stale year; repairable only when `fixable` is true |
+| `LMH005` | Missing/mismatched license notice |
+| `LMH006` | Malformed, misplaced, duplicated, or ambiguous layout |
+| `LMH007` | Unsupported encoding or invalid bytes |
+| `LMH008` | Unsafe or concurrently changed repair target |
+| `LMH900` | Command/configuration/I/O error, in `error` rather than `diagnostics` |
 
-| Code | Meaning | Automatically repairable |
-| --- | --- | --- |
-| `LMH001` | Missing legal header | No |
-| `LMH002` | Copyright owner mismatch | No |
-| `LMH003` | Invalid, reversed, future, or out-of-policy year | No |
-| `LMH004` | Recognized stale year | Only on a safe file |
-| `LMH005` | Missing or mismatched license notice | No |
-| `LMH006` | Malformed, misplaced, duplicated, or ambiguous layout | No |
-| `LMH007` | Python source encoding cannot be decoded | No |
-| `LMH008` | Repair target is unsafe or changed during repair | No |
-| `LMH900` | Configuration, selected-path, I/O, or runtime failure | No |
-
-### Copy-paste instruction for a coding agent
+Copy this instruction into an agent task:
 
 ```text
-Integrate lint-my-headers without guessing legal facts. Read the repository's owner,
-starting year, license, and selected Python paths; ask me if any are missing. Add one
-[tool.lint-my-headers] table, then run `lmh check --output-format json`. Treat exit 1
-as findings and exit 2 as an integration error. Do not run `lmh fix` unless I explicitly
-authorize source mutations. After an authorized fix, rerun check and inspect only the
-targeted diff. Do not install, commit, push, or open a pull request without permission.
+Read the declared owner, starting year, license, and paths; ask if any are missing.
+Run lmh check --output-format json. Exit 1 means findings; exit 2 means stop.
+Only run lmh fix when source changes are authorized, then recheck and inspect the
+targeted diff. Never infer legal facts or install, commit, or push without permission.
 ```
 
-## Pre-commit and prek
+The optional [agent skill](.agents/skills/lint-my-headers/SKILL.md) uses this same contract. Its retained model-evaluation results are historical Python-era evidence, not Rust evaluations.
+
+## Integrations
+
+Pre-commit or [prek](https://github.com/j178/prek):
 
 ```yaml
 repos:
@@ -155,19 +135,9 @@ repos:
       - id: lmh
 ```
 
-Run it with either pre-commit or [prek](https://github.com/j178/prek):
+The hook checks selected Python files. Its first installation compiles Rust with the pinned toolchain. Pre-commit's installer does not pass `--locked`; release builds and the Action do.
 
-```shell
-uvx --from prek prek run lmh --all-files
-```
-
-The first-party hook intentionally selects Python files. Additional source languages are not part of v0.6.
-
-The hook uses pre-commit's native Rust integration and a pinned Rust toolchain. Its initial installation compiles the executable; subsequent runs execute the binary directly. Pre-commit's Rust installer does not pass `--locked`; release wheels and the GitHub Action do.
-
-## GitHub Action
-
-Configuration-first usage avoids duplicating policy in workflow YAML:
+Pull-request CI can run the same hook or the [GitHub Action](action.yml):
 
 ```yaml
 steps:
@@ -175,79 +145,12 @@ steps:
   - uses: frgfm/lint-my-headers@v0.6.0
 ```
 
-Every policy input remains available when a repository cannot use `pyproject.toml`:
+The Action reads repository policy; its documented inputs override it. It builds from its own checkout and `Cargo.lock`. Prefer immutable release SHAs for integrations.
 
-```yaml
-- uses: frgfm/lint-my-headers@v0.6.0
-  with:
-    mode: check
-    owner: Example Organization
-    starting-year: 2024
-    license: Apache-2.0
-    folders: src,tests
-    ignore-files: version.py
-    ignore-folders: src/generated
-```
+Action outputs are compact JSON arrays: `issues` contains unresolved paths; `changed` contains completed writes. On exit 2, `issues` stays `[]`, while `changed` retains any completed repairs.
 
-The Action always exposes compact JSON outputs:
+The optional [January 1 workflow](.github/workflows/update-copyright-years.yml) opens or updates one reviewable year-refresh PR. It never writes directly to protected `main`.
 
-- `issues`: sorted unresolved paths;
-- `changed`: sorted paths actually written by `fix`.
+## Maintenance
 
-For compatibility, `issues` is `[]` on exit `2`; `changed` still lists writes completed before a later I/O failure.
-
-For supply-chain-sensitive workflows, replace the version tag with the immutable commit SHA from the release.
-
-The composite Action builds the Rust binary from its own pinned checkout with `Cargo.lock`, then invokes it from the caller's repository. It never selects a separately published package version.
-
-## Policy and file semantics
-
-| Key | Required | Meaning |
-| --- | --- | --- |
-| `owner` | Yes | Exact single-line copyright owner. |
-| `starting-year` | Yes | Earliest allowed creation year. |
-| `license` | One license source | SPDX license identifier selecting the bundled prose notice. |
-| `license-notice` | One license source | Project-relative custom notice file. |
-| `paths` | No | Project-relative files or folders; default `.`. |
-| `ignore-files` | No | Exact filenames ignored everywhere; default `__init__.py`. |
-| `ignore-folders` | No | Project-relative subtrees ignored everywhere; default `.github`. |
-
-- Configuration paths are relative to the selected `pyproject.toml`; explicit CLI paths are relative to the invocation directory.
-- Output paths are sorted, project-root-relative, and use `/`. An explicitly selected external path may begin with `..`.
-- A UTF-8 BOM, any first-line shebang beginning `#!`, and valid PEP 263 encoding cookies are recognized before the legal header.
-- Source decoding supports UTF-8, ASCII, Latin-1, and Windows-1252 with Python-compatible byte mappings. Other codecs produce `LMH007`; malformed bytes are never decoded lossily or repaired.
-- If newer Python string syntax or a tokenization failure makes a further copyright comment ambiguous, the linter reports `LMH006` and leaves the file unchanged.
-- `check` may inspect an explicitly selected symlinked file, but `fix` refuses symlinks, symlinked parents, reparse points, and multi-link inodes.
-- Directory discovery never follows symlink or reparse-point directories.
-- `fix` preserves every byte outside the stale year, preserves file mode, validates the repaired bytes, and fails closed if the file changes during repair.
-
-The bundled license list is the exact SPDX License List Data v3.28.0 snapshot. Previously accepted v3.17 notice names and URLs remain valid, including removed legacy identifiers, but compound SPDX expressions and new exception semantics are not introduced.
-
-## Agent skill
-
-The optional instruction-only skill lives in [`.agents/skills/lint-my-headers`](.agents/skills/lint-my-headers/SKILL.md). It uses the same CLI and JSON contract to check first, request missing legal policy, and fix only when asked. The upstream evaluation fixtures and reports are retained; historical model-evaluation results do not describe this Rust implementation.
-
-## Annual year refresh
-
-The January 1 workflow is optional. This repository's tested implementation is [`.github/workflows/update-copyright-years.yml`](https://github.com/frgfm/lint-my-headers/blob/main/.github/workflows/update-copyright-years.yml). It opens or updates one reviewable pull request; it does not push protected `main`.
-
-## v0.6 migration
-
-v0.6 is an intentional identity break:
-
-- repository and Action: `frgfm/lint-my-headers`;
-- distribution: `lint-my-headers`;
-- commands: `lmh`, `lint-my-headers`;
-- configuration: `[tool.lint-my-headers]`;
-- Python module: `lint_my_headers`;
-- diagnostics: `LMH...`.
-
-There are no `vph`, `validate-python-headers`, `[tool.validate-python-headers]`, or `validate_headers` aliases. GitHub does not redirect Action calls after a repository rename, so old `uses:` references must be updated. The historical `validate-python-headers` name was never published on PyPI and remains unclaimed by design.
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and release boundaries. The Rust toolchain is pinned in `rust-toolchain.toml`; Cargo dependencies are locked. Python 3.11+ is only needed for the optional Python launcher, PyPI tooling, and maintainer checks.
-
-## License
-
-Distributed under the Apache License 2.0. See [LICENSE](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks and [RELEASE_NOTES.md](RELEASE_NOTES.md) for the breaking rename and publication gates. Runtime logic is Rust; the Python package contains only launchers and source data. Licensed under [Apache-2.0](LICENSE).

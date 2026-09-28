@@ -1,10 +1,5 @@
 PYPROJECT_FILE = ./pyproject.toml
 
-########################################################
-# Code checks
-########################################################
-
-
 install-quality: ${PYPROJECT_FILE}
 	uv sync --group quality --no-install-project
 	uv run --no-sync --group quality prek install
@@ -37,17 +32,12 @@ spdx-check: scripts/update_spdx_licenses.py
 		--expected-sha256 f728c534d8bd1044fc515a2ddb2292be99559021d830bfa3281be0bcd36302ee \
 		--check
 
-# this target runs checks on all files
 quality: lint-check typing-check deps-check
 
 quality-env:
 	uv sync --group quality --no-install-project
 
 style: lint-format prek
-
-########################################################
-# Build
-########################################################
 
 lock: ${PYPROJECT_FILE}
 	uv lock
@@ -57,7 +47,6 @@ lock-check: ${PYPROJECT_FILE}
 
 test:
 	cargo test --locked
-	cargo build --locked --bins
 	PYTHONOPTIMIZE=1 uv run --no-project python -m unittest discover -s src/tests -v
 
 package-check:
