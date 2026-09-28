@@ -22,7 +22,7 @@ updates:
       - dependency-name: "ty"
       - dependency-name: "prek"
       - dependency-name: "uv"
-      - dependency-name: "uv-build"
+      - dependency-name: "maturin"
     groups:
       quality:
         patterns:
@@ -32,4 +32,12 @@ updates:
       build:
         patterns:
           - "uv"
-          - "uv-build"
+          - "maturin"
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      rust:
+        patterns:
+          - "*"

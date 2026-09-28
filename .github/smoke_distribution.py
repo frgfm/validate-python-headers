@@ -56,14 +56,21 @@ def main() -> int:
         for entry in importlib.metadata.distribution(PACKAGE).entry_points
         if entry.group == "console_scripts"
     }
-    if commands != {"lmh", "lint-my-headers"}:
-        fail(f"Unexpected console commands: {commands}")
+    if commands:
+        fail(f"Expected native executables, found Python console wrappers: {commands}")
     if any(path.parts[0] == "tests" for path in importlib.metadata.files(PACKAGE) or ()):
         fail("Distribution unexpectedly contains the test suite")
 
     verify_version([require_command("lmh")], expected)
     verify_version([require_command("lint-my-headers")], expected)
     verify_version([sys.executable, "-m", "lint_my_headers"], expected)
+    verify_version(
+        [sys.executable, "-c", "from lint_my_headers import main; raise SystemExit(main(['--version']))"], expected
+    )
+    for name in ("lmh", "lint-my-headers"):
+        signature = Path(require_command(name)).read_bytes()[:4]
+        if signature not in (b"\x7fELF", b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf") and not signature.startswith(b"MZ"):
+            fail(f"{name} is not a native executable")
 
     package_files = importlib.resources.files("lint_my_headers")
     for name in ("supported-licenses.json", "legacy-license-notices.json"):

@@ -1,12 +1,14 @@
 # Contributor guidance
 
-`lint-my-headers` is a standard-library Python 3.11+ CLI. Keep changes focused and preserve these public contracts:
+`lint-my-headers` is a Rust CLI with a thin optional Python 3.11+ launcher. Keep changes focused and preserve these public contracts:
 
 - commands `lmh` and `lint-my-headers` with `check` and `fix`;
 - configuration `[tool.lint-my-headers]`;
 - exits 0 clean, 1 findings, 2 invocation/configuration/I/O failure;
 - JSON schema version 1 and `LMH` diagnostic meanings;
 - GitHub Action inputs plus `issues` and `changed` outputs.
+
+Runtime logic belongs in `rust/`; never add a second Python parser. Keep Cargo/PyPI versions aligned, preserve the SPDX snapshots, and retain the renamed agent skill and evaluation assets.
 
 `check` must never write. `fix` may only update one recognized stale year for the configured owner, must preserve all other bytes and mode, and must refuse ambiguous, symlinked, reparse-point, multi-link, or concurrently changed targets. Never infer an owner, license, starting year, or legal conclusion.
 
@@ -16,7 +18,7 @@ Run before handoff:
 make test
 make quality
 make package-check
-uv run --group quality prek run --all-files
+uv run --no-sync --group quality prek run --all-files
 git diff --check
 ```
 

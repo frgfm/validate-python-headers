@@ -6,28 +6,31 @@ PYPROJECT_FILE = ./pyproject.toml
 
 
 install-quality: ${PYPROJECT_FILE}
-	uv sync --group quality
-	uv run --group quality prek install
+	uv sync --group quality --no-install-project
+	uv run --no-sync --group quality prek install
 
-lint-check: ${PYPROJECT_FILE}
-	uv run --group quality ruff format --check . --config ${PYPROJECT_FILE}
-	uv run --group quality ruff check . --config ${PYPROJECT_FILE}
+lint-check: quality-env ${PYPROJECT_FILE}
+	cargo fmt --all --check
+	uv run --no-sync --group quality ruff format --check . --config ${PYPROJECT_FILE}
+	uv run --no-sync --group quality ruff check . --config ${PYPROJECT_FILE}
 
-lint-format: ${PYPROJECT_FILE}
-	uv run --group quality ruff check --fix . --config ${PYPROJECT_FILE}
-	uv run --group quality ruff format . --config ${PYPROJECT_FILE}
+lint-format: quality-env ${PYPROJECT_FILE}
+	cargo fmt --all
+	uv run --no-sync --group quality ruff check --fix . --config ${PYPROJECT_FILE}
+	uv run --no-sync --group quality ruff format . --config ${PYPROJECT_FILE}
 
-prek: ${PYPROJECT_FILE} .pre-commit-config.yaml
-	uv run --group quality prek run --all-files
+prek: quality-env ${PYPROJECT_FILE} .pre-commit-config.yaml
+	uv run --no-sync --group quality prek run --all-files
 
-typing-check: ${PYPROJECT_FILE}
-	uv run --group quality ty check src
+typing-check: quality-env ${PYPROJECT_FILE}
+	cargo clippy --locked --all-targets -- -D warnings
+	uv run --no-sync --group quality ty check src
 
 deps-check: .github/verify_deps_sync.py
 	uv run --script .github/verify_deps_sync.py
 
 spdx-check: scripts/update_spdx_licenses.py
-	uv run python scripts/update_spdx_licenses.py \
+	uv run --no-project python scripts/update_spdx_licenses.py \
 		--baseline-ref 94972478f38d080eadd37f098f771eb4cd235ae4 \
 		--baseline-sha256 d557d74124ce6b367efd161e7b53ab1743ad45e302c3476bfb0988ee67b766e0 \
 		--spdx-tag v3.28.0 \
@@ -36,6 +39,9 @@ spdx-check: scripts/update_spdx_licenses.py
 
 # this target runs checks on all files
 quality: lint-check typing-check deps-check
+
+quality-env:
+	uv sync --group quality --no-install-project
 
 style: lint-format prek
 
@@ -49,11 +55,12 @@ lock: ${PYPROJECT_FILE}
 lock-check: ${PYPROJECT_FILE}
 	uv lock --check
 
-# Run tests for the library
 test:
-	PYTHONOPTIMIZE=1 uv run python -m unittest discover -s src/tests -v
+	cargo test --locked
+	cargo build --locked --bins
+	PYTHONOPTIMIZE=1 uv run --no-project python -m unittest discover -s src/tests -v
 
 package-check:
 	uv build --clear --no-sources
 	EXPECTED_VERSION="$$(uv version --short)" uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
-	EXPECTED_VERSION="$$(uv version --short)" uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+	EXPECTED_VERSION="$$(uv version --short)" uv run --isolated --no-project --no-binary-package lint-my-headers --with dist/*.tar.gz .github/smoke_distribution.py

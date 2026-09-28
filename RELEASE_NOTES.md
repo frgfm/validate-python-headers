@@ -26,13 +26,16 @@ No legacy aliases or redirect PyPI package are provided. The historical PyPI nam
 
 ## Highlights
 
-- PyPI wheel and source distribution with no runtime dependency.
+- Native Rust executables, platform-specific PyPI wheels, and a Cargo-buildable source distribution.
 - Stable JSON schema version 1 for coding agents and CI.
 - One deterministic diagnostic per unresolved file.
 - Python-aware BOM, shebang, and PEP 263 encoding handling.
 - Conservative stale-year repair with symlink, reparse-point, hard-link, and concurrent-change protection.
 - SPDX License List Data v3.28.0 with compatibility for every notice accepted from the previous v3.17 snapshot.
 - First-party pre-commit/prek hook and composite Action with `issues` and `changed` outputs.
+- Renamed upstream agent skill and eval assets retained; historical model evaluations have not been rerun.
+
+The optional Python `main` and `python -m lint_my_headers` forward to the installed executable. Internal Python parsing APIs are removed. Unsupported Python-specific encodings return `LMH007`; supported codecs and source-build requirements are documented in the README.
 
 v0.6.0 supports Python source files. The broader name does not promise additional source languages in this release.
 

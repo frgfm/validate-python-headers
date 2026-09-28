@@ -22,11 +22,9 @@ def main():
     for workflow_file in Path(".github/workflows").glob("*.yml"):
         with workflow_file.open("r") as f:
             workflow = yaml.safe_load(f)
-            if "env" in workflow and "UV_VERSION" in workflow["env"]:
-                deps_dict["uv"].append({
-                    "file": str(workflow_file),
-                    "version": workflow["env"]["UV_VERSION"].lstrip("v"),
-                })
+            for name, version in workflow.get("env", {}).items():
+                if name in {"UV_VERSION", "RELEASE_UV_VERSION"}:
+                    deps_dict["uv"].append({"file": str(workflow_file), "version": version.lstrip("v")})
 
     # Assert all deps are in sync
     troubles = []
@@ -42,7 +40,7 @@ def main():
             ])
 
     if len(troubles) > 0:
-        raise AssertionError("Some dependencies are out of sync:\n\n" + "\n".join(troubles))
+        raise ValueError("Some dependencies are out of sync:\n\n" + "\n".join(troubles))
 
 
 if __name__ == "__main__":

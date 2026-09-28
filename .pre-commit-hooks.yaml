@@ -2,5 +2,6 @@
   name: lmh
   description: Check copyright and license headers in Python source files.
   entry: lmh check
-  language: python
+  language: rust
+  language_version: "1.93.0"
   types: [python]

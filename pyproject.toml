@@ -1,6 +1,6 @@
 [build-system]
-requires = ["uv_build>=0.12.5,<1.0.0"]
-build-backend = "uv_build"
+requires = ["maturin>=1.9.3,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "lint-my-headers"
@@ -23,13 +23,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []
-
-[project.scripts]
-lmh = "lint_my_headers.cli:main"
-lint-my-headers = "lint_my_headers.cli:main"
 
 [project.urls]
 Documentation = "https://github.com/frgfm/lint-my-headers#readme"
@@ -37,12 +34,14 @@ Issues = "https://github.com/frgfm/lint-my-headers/issues"
 Changelog = "https://github.com/frgfm/lint-my-headers/releases"
 Repository = "https://github.com/frgfm/lint-my-headers"
 
-[tool.setuptools.package-data]
-lint_my_headers = ["supported-licenses.json", "legacy-license-notices.json"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["lint_my_headers*"]
+[tool.maturin]
+bindings = "bin"
+module-name = "lint_my_headers"
+python-source = "src"
+locked = true
+strip = true
+exclude = ["src/tests/**", "**/__pycache__/**", "**/*.pyc"]
+include = [{ path = "src/lint_my_headers/*.json", format = "sdist" }]
 
 [tool.lint-my-headers]
 owner = "François-Guillaume Fernandez"
@@ -50,7 +49,7 @@ starting-year = 2022
 license = "Apache-2.0"
 paths = ["src", ".github", "scripts"]
 ignore-files = ["version.py", "__init__.py", "collect_env.py"]
-ignore-folders = []
+ignore-folders = [".agents/skills/lint-my-headers/evals/files"]
 
 [dependency-groups]
 build = ["uv>=0.12.5"]
@@ -59,9 +58,6 @@ quality = [
     "ty==0.0.84",
     "prek==0.5.3",
 ]
-
-[tool.uv.build-backend]
-module-name = "lint_my_headers"
 
 [tool.ruff]
 line-length = 120
@@ -122,7 +118,7 @@ ignore = [
     "ISC001",  # implicit string concatenation (handled by format)
     "G004",  # logging-fstring-interpolation
 ]
-exclude = [".git"]
+exclude = [".git", ".agents/skills/lint-my-headers/evals/files/**"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"

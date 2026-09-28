@@ -6,18 +6,33 @@
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess  # ruff: ignore[suspicious-subprocess-import] - fixed uv executable
 import time
+import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 
+def verify_versions(root: Path) -> None:
+    python_version = tomllib.loads(root.joinpath("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    rust_version = tomllib.loads(root.joinpath("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]
+    if not re.fullmatch(r"\d+\.\d+\.\d+(rc\d+)?", python_version):
+        raise ValueError(f"Unsupported release version: {python_version}")
+    if rust_version.replace("-rc.", "rc") != python_version:
+        raise ValueError(f"Cargo version {rust_version} does not match package version {python_version}")
+
+
 def artifact_hashes(directory: Path) -> dict[str, str]:
-    artifacts = sorted([*directory.glob("*.whl"), *directory.glob("*.tar.gz")])
-    if len(artifacts) != 2:
-        raise ValueError(f"Expected one wheel and one sdist, found {len(artifacts)}")
+    wheels = sorted(directory.glob("*.whl"))
+    sources = list(directory.glob("*.tar.gz"))
+    if not wheels or len(sources) != 1:
+        raise ValueError(
+            f"Expected platform wheels and one sdist, found {len(wheels)} wheels and {len(sources)} sdists"
+        )
+    artifacts = sorted([*wheels, *sources])
     return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in artifacts}
 
 
@@ -74,14 +89,18 @@ def verify(directory: Path, package: str, version: str, attempts: int, delay: in
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Publish or verify byte-identical PyPI artifacts")
-    parser.add_argument("command", choices=("publish", "verify"))
-    parser.add_argument("directory", type=Path)
+    parser.add_argument("command", choices=("publish", "verify", "versions"))
+    parser.add_argument("directory", type=Path, nargs="?")
     parser.add_argument("--package", default="lint-my-headers")
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version")
     parser.add_argument("--attempts", type=int, default=12)
     parser.add_argument("--delay", type=int, default=10)
     args = parser.parse_args()
-    if args.command == "publish":
+    if args.command == "versions":
+        verify_versions(Path.cwd())
+    elif args.directory is None or args.version is None:
+        parser.error("publish and verify require a directory and --version")
+    elif args.command == "publish":
         publish(args.directory, args.package, args.version)
     else:
         verify(args.directory, args.package, args.version, args.attempts, args.delay)

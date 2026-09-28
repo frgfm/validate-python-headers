@@ -4,10 +4,12 @@ Contributions are welcome. Follow the [code of conduct](CODE_OF_CONDUCT.md) and 
 
 ## Codebase structure
 
-- `src/lint_my_headers/core.py` owns header analysis, diagnostics, discovery, and conservative repair.
-- `src/lint_my_headers/config.py` owns strict `pyproject.toml` discovery and CLI precedence.
-- `src/lint_my_headers/cli.py` owns argument parsing, text/JSON rendering, Action outputs, and exit codes.
-- `src/tests` contains standard-library unit and contract tests.
+- `rust/analysis.rs` owns header analysis and byte-preserving year replacements.
+- `rust/filesystem.rs` owns discovery, identity checks, and atomic writes.
+- `rust/config.rs` and `rust/lib.rs` own configuration, CLI execution, and JSON/Action outputs.
+- `tests/cli.rs` exercises compiled binaries; Rust module tests cover internal safety behavior.
+- `src/lint_my_headers` contains only the optional Python launcher and embedded SPDX source data.
+- `src/tests` contains tests for Python release-maintenance helpers.
 - `action.yml` is the compatible composite GitHub Action wrapper.
 - `.github/workflows` covers CI, annual review pull requests, and artifact publication.
 
@@ -15,7 +17,7 @@ Keep these boundaries boring. The project does not need a generic rule engine, p
 
 ## Compatibility and safety rules
 
-- Python 3.11 is the compatibility floor; Python 3.11–3.14 are release-tested.
+- Rust 1.93 is the build toolchain; the optional Python launcher supports Python 3.11+.
 - `check` never writes source files.
 - `fix` changes only one recognized stale year for the configured owner.
 - Missing, malformed, ambiguous, future-dated, wrong-owner, and wrong-license headers remain unchanged.
@@ -39,10 +41,10 @@ make install-quality
 
 ## Verification
 
-Run optimized-mode unit tests:
+Run Rust tests and optimized-mode Python release-helper tests:
 
 ```console
-PYTHONOPTIMIZE=1 make test
+make test
 ```
 
 Run formatting, lint, typing, and dependency checks without modifying files:
@@ -61,7 +63,7 @@ Build and smoke-test the installable artifacts when package behavior changes:
 
 ```console
 make package-check
-uv run --group quality prek try-repo . lmh --all-files
+uv run --no-sync --group quality prek try-repo . lmh --all-files
 ```
 
 Verify the vendored SPDX data after deliberately refreshing it:

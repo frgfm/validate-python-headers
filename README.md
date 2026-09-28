@@ -12,7 +12,7 @@
   </a>
 </p>
 
-`lint-my-headers` is agent-ready license-header linting for source code, starting with Python. It checks every selected file against one project policy, explains each failure with a stable diagnostic, and safely updates only recognized stale copyright years.
+`lint-my-headers` is a Rust executable for license-header linting, starting with Python source files. It checks every selected file against one project policy, explains each failure with a stable diagnostic, and safely updates only recognized stale copyright years. Checking and fixing do not require a Python interpreter.
 
 It does not choose a license, provide legal advice, insert missing headers, or claim full SPDX/REUSE compliance.
 
@@ -23,6 +23,10 @@ Install the command as a tool:
 ```shell
 uv tool install lint-my-headers
 ```
+
+PyPI wheels contain native executables. Building from a source distribution requires Rust 1.93; alternatively, build this checkout with `cargo build --release --locked`. The binaries are `target/release/lmh` and `target/release/lint-my-headers` (`.exe` on Windows).
+
+`python -m lint_my_headers` and `from lint_my_headers import main` remain available as thin launchers when installed from PyPI. Parsing, configuration, diagnostics, file discovery, and repairs run in Rust; the former internal Python `core`, `config`, and `cli` modules are no longer shipped.
 
 Declare the policy once in `pyproject.toml`:
 
@@ -56,7 +60,7 @@ value = 1
 Failures point to one primary problem per file:
 
 ```text
-src/example.py:1:1: LMH004 copyright year ends before 2026 [fixable]
+src/example.py:1:1: LMH004 copyright year ends at 2025; expected 2026 [fixable]
 ```
 
 Use the long command without installing:
@@ -105,7 +109,7 @@ JSON is the only stdout in this mode:
       "column": 1,
       "fixable": true,
       "line": 1,
-      "message": "copyright year ends before 2026",
+      "message": "copyright year ends at 2025; expected 2026",
       "path": "src/example.py"
     }
   ],
@@ -159,6 +163,8 @@ uvx --from prek prek run lmh --all-files
 
 The first-party hook intentionally selects Python files. Additional source languages are not part of v0.6.
 
+The hook uses pre-commit's native Rust integration and a pinned Rust toolchain. Its initial installation compiles the executable; subsequent runs execute the binary directly. Pre-commit's Rust installer does not pass `--locked`; release wheels and the GitHub Action do.
+
 ## GitHub Action
 
 Configuration-first usage avoids duplicating policy in workflow YAML:
@@ -192,6 +198,8 @@ For compatibility, `issues` is `[]` on exit `2`; `changed` still lists writes co
 
 For supply-chain-sensitive workflows, replace the version tag with the immutable commit SHA from the release.
 
+The composite Action builds the Rust binary from its own pinned checkout with `Cargo.lock`, then invokes it from the caller's repository. It never selects a separately published package version.
+
 ## Policy and file semantics
 
 | Key | Required | Meaning |
@@ -207,11 +215,17 @@ For supply-chain-sensitive workflows, replace the version tag with the immutable
 - Configuration paths are relative to the selected `pyproject.toml`; explicit CLI paths are relative to the invocation directory.
 - Output paths are sorted, project-root-relative, and use `/`. An explicitly selected external path may begin with `..`.
 - A UTF-8 BOM, any first-line shebang beginning `#!`, and valid PEP 263 encoding cookies are recognized before the legal header.
+- Source decoding supports UTF-8, ASCII, Latin-1, and Windows-1252 with Python-compatible byte mappings. Other codecs produce `LMH007`; malformed bytes are never decoded lossily or repaired.
+- If newer Python string syntax or a tokenization failure makes a further copyright comment ambiguous, the linter reports `LMH006` and leaves the file unchanged.
 - `check` may inspect an explicitly selected symlinked file, but `fix` refuses symlinks, symlinked parents, reparse points, and multi-link inodes.
 - Directory discovery never follows symlink or reparse-point directories.
 - `fix` preserves every byte outside the stale year, preserves file mode, validates the repaired bytes, and fails closed if the file changes during repair.
 
 The bundled license list is the exact SPDX License List Data v3.28.0 snapshot. Previously accepted v3.17 notice names and URLs remain valid, including removed legacy identifiers, but compound SPDX expressions and new exception semantics are not introduced.
+
+## Agent skill
+
+The optional instruction-only skill lives in [`.agents/skills/lint-my-headers`](.agents/skills/lint-my-headers/SKILL.md). It uses the same CLI and JSON contract to check first, request missing legal policy, and fix only when asked. The upstream evaluation fixtures and reports are retained; historical model-evaluation results do not describe this Rust implementation.
 
 ## Annual year refresh
 
@@ -232,7 +246,7 @@ There are no `vph`, `validate-python-headers`, `[tool.validate-python-headers]`,
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and release boundaries. The runtime remains standard-library-only and supports Python 3.11 through 3.14.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and release boundaries. The Rust toolchain is pinned in `rust-toolchain.toml`; Cargo dependencies are locked. Python 3.11+ is only needed for the optional Python launcher, PyPI tooling, and maintainer checks.
 
 ## License
 

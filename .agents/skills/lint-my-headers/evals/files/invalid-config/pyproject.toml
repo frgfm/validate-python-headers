@@ -1,0 +1,5 @@
+[tool.lint-my-headers]
+owner = "Example Owner"
+starting_year = 2022
+license = "Apache-2.0"
+paths = ["src"]
