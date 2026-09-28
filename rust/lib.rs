@@ -17,13 +17,12 @@ pub fn version() -> String {
 
 pub fn display_path(path: &Path, root: &Path) -> String {
     fn absolute(path: &Path) -> PathBuf {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let path = path.strip_prefix(&cwd).unwrap_or(path);
         let path = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            std::env::current_dir()
-                .and_then(|cwd| cwd.canonicalize())
-                .unwrap_or_default()
-                .join(path)
+            cwd.canonicalize().unwrap_or(cwd).join(path)
         };
         let mut normal = PathBuf::new();
         for part in path.components() {
