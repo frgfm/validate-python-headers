@@ -9,7 +9,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "pip"
+    groups:
+      actions:
+        patterns:
+          - "*"
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "daily"
@@ -17,3 +21,15 @@ updates:
       - dependency-name: "ruff"
       - dependency-name: "ty"
       - dependency-name: "prek"
+      - dependency-name: "uv"
+      - dependency-name: "uv-build"
+    groups:
+      quality:
+        patterns:
+          - "ruff"
+          - "ty"
+          - "prek"
+      build:
+        patterns:
+          - "uv"
+          - "uv-build"
