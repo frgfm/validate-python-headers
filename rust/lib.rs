@@ -20,11 +20,26 @@ pub fn display_path(path: &Path, root: &Path) -> String {
         let path = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            std::env::current_dir().unwrap_or_default().join(path)
+            std::env::current_dir()
+                .and_then(|cwd| cwd.canonicalize())
+                .unwrap_or_default()
+                .join(path)
         };
         let mut normal = PathBuf::new();
         for part in path.components() {
             match part {
+                #[cfg(windows)]
+                Component::Prefix(prefix) => match prefix.kind() {
+                    std::path::Prefix::VerbatimDisk(drive) => {
+                        normal.push(format!("{}:", char::from(drive)));
+                    }
+                    std::path::Prefix::VerbatimUNC(server, share) => {
+                        normal.push(r"\\");
+                        normal.push(server);
+                        normal.push(share);
+                    }
+                    _ => normal.push(prefix.as_os_str()),
+                },
                 Component::CurDir => {}
                 Component::ParentDir => {
                     normal.pop();

@@ -543,6 +543,25 @@ fn discovery_deduplicates_ignores_and_sorts_external_paths() {
     assert_eq!(paths, ["../external.py", "src/a.py", "src/z.py"]);
 }
 
+#[cfg(windows)]
+#[test]
+fn display_paths_match_verbatim_and_regular_prefixes() {
+    for (root, path, expected) in [
+        (r"\\?\C:\repo", r"C:\repo\src\a.py", "src/a.py"),
+        (r"C:\repo", r"\\?\C:\external.py", "../external.py"),
+        (
+            r"\\?\UNC\server\share\repo",
+            r"\\server\share\repo\src\a.py",
+            "src/a.py",
+        ),
+    ] {
+        assert_eq!(
+            lint_my_headers::display_path(Path::new(path), Path::new(root)),
+            expected
+        );
+    }
+}
+
 #[test]
 fn hardlinked_targets_are_readable_but_never_fixed() {
     let dir = workspace();
