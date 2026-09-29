@@ -18,6 +18,10 @@ import yaml
 def main():
     # Retrieve & parse all deps files
     deps_dict = {"uv": []}
+    action = yaml.safe_load(Path("action.yml").read_text())
+    for step in action["runs"]["steps"]:
+        if step.get("uses", "").startswith("astral-sh/setup-uv@"):
+            deps_dict["uv"].append({"file": "action.yml", "version": step["with"]["version"]})
     # Parse github/workflows/...
     for workflow_file in Path(".github/workflows").glob("*.yml"):
         with workflow_file.open("r") as f:

@@ -25,6 +25,7 @@ jobs:
       - name: Refresh existing copyright years
         uses: ./
         with:
+          version: source
           mode: fix
       - name: Open or update the annual pull request
         shell: bash

@@ -83,10 +83,11 @@ After `fix`:
 ### 5. Configure integrations only when requested
 
 - Put policy in `pyproject.toml`; do not duplicate it in each integration.
-- Prefer the first-party `lmh` pre-commit hook and a verified released tag or immutable SHA. Use an explicit placeholder when the release cannot be verified without unauthorized network access.
+- Prefer the README's wheel-only local `lmh` hook with an exact verified PyPI version. The first-party Rust hook is for source checkouts. Use explicit placeholders when publication cannot be verified without unauthorized network access.
 - Give pull-request checks read-only `contents` permission.
 - Treat annual year refresh as an optional project convention. Use a deterministic review branch and pull request, never a direct default-branch write.
 - Preserve existing Action inputs for compatibility, but omit overrides when repository config is authoritative.
+- The Action defaults to the exact package version declared by its ref, without source-build fallback. Use `version: source` explicitly for unreleased code; never infer that a checked-out package version has been published.
 
 ## Report format
 

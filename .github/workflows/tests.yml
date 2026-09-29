@@ -51,6 +51,8 @@ jobs:
           python-version: "3.14"
       - name: Check repository headers from configuration
         uses: ./
+        with:
+          version: source
       - name: Prepare integration fixtures
         shell: bash
         run: |
@@ -75,6 +77,7 @@ jobs:
         id: fix
         uses: ./
         with: &fix_inputs
+          version: source
           mode: fix
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
@@ -128,6 +131,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
+          version: source
           mode: fix
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
@@ -179,10 +183,40 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - name: Build and smoke-test distributions
         run: make package-check
+      - name: Exercise the wheel-only Action without a published release
+        uses: ./
+        env:
+          UV_OFFLINE: "true"
+          UV_FIND_LINKS: ${{ github.workspace }}/dist
+      - name: Reject floating package versions
+        id: unpinned
+        uses: ./
+        continue-on-error: true
+        with:
+          version: latest
+      - name: Verify version rejection
+        env:
+          OUTCOME: ${{ steps.unpinned.outcome }}
+        run: test "$OUTCOME" = failure
       - name: Exercise the first-party hook
         run: |
           make quality-env
           uv run --no-sync --group quality prek try-repo . lmh --all-files
+      - name: Exercise the wheel-only local hook
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          hook = {
+              "id": "lmh", "name": "Lint My Headers", "entry": "lmh check",
+              "language": "python", "types": ["python"],
+              "additional_dependencies": ["--only-binary=lint-my-headers", next(Path("dist").glob("*.whl")).resolve().as_uri()],
+          }
+          Path(os.environ["RUNNER_TEMP"], "lmh-wheel.json").write_text(json.dumps({"repos": [{"repo": "local", "hooks": [hook]}]}))
+          PY
+          uv run --no-sync --group quality prek run --config "$RUNNER_TEMP/lmh-wheel.json" --all-files
 
   deps-sync:
     runs-on: ubuntu-latest
@@ -212,6 +246,7 @@ jobs:
       - name: Check headers through legacy Action inputs
         uses: ./
         with:
+          version: source
           license: 'Apache-2.0'
           owner: 'François-Guillaume Fernandez'
           starting-year: 2022

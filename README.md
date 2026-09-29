@@ -12,7 +12,7 @@ uv tool install lint-my-headers
 cargo build --release --locked
 ```
 
-PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust. Python 3.11+ is needed only for PyPI tooling and the optional `python -m lint_my_headers` / `main(argv)` launchers. Checking and fixing run entirely in Rust.
+PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust. Python 3.11+ is needed only for PyPI tooling and the optional launchers. `python -m lint_my_headers` replaces Python with the native process on Unix; Windows starts a child process. The callable `main(argv)` always returns the child's exit code. Checking and fixing run entirely in Rust.
 
 Declare the policy in `pyproject.toml`:
 
@@ -125,27 +125,43 @@ The optional [agent skill](.agents/skills/lint-my-headers/SKILL.md) uses this sa
 
 ## Integrations
 
-Pre-commit or [prek](https://github.com/j178/prek):
+For pre-commit or [prek](https://github.com/j178/prek), install a published wheel in the hook's isolated Python 3.11+ environment. Replace `<RELEASE_VERSION>` with an exact published version; `--only-binary` prevents an unexpected Rust build:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: lmh
+        name: Lint My Headers
+        entry: lmh check
+        language: python
+        types: [python]
+        additional_dependencies:
+          - --only-binary=lint-my-headers
+          - lint-my-headers==<RELEASE_VERSION>
+```
+
+To test an unreleased checkout instead, the first-party source hook remains available:
 
 ```yaml
 repos:
   - repo: https://github.com/frgfm/lint-my-headers
-    rev: v0.6.0
+    rev: <TAG_OR_IMMUTABLE_SHA>
     hooks:
       - id: lmh
 ```
 
-The hook checks selected Python files. Its first installation compiles Rust with the pinned toolchain. Pre-commit's installer does not pass `--locked`; release builds and the Action do.
+The source hook compiles Rust on first installation with the pinned toolchain. Pre-commit's Rust installer does not pass `--locked`; the Action's source mode does.
 
 Pull-request CI can run the same hook or the [GitHub Action](action.yml):
 
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: frgfm/lint-my-headers@v0.6.0
+  - uses: frgfm/lint-my-headers@<RELEASE_TAG_OR_SHA>
 ```
 
-The Action reads repository policy; its documented inputs override it. It builds from its own checkout and `Cargo.lock`. Prefer immutable release SHAs for integrations.
+The Action reads repository policy; its documented inputs override it. By default it uses uv to install the exact PyPI version declared by the Action ref, with source builds disabled. `version: '0.6.0'` can select an exact published version; `version: source` explicitly builds the checked-out Action code using `Cargo.lock`. Floating versions, missing releases, and unavailable wheels fail rather than falling back to a compiler. Prefer immutable release SHAs. Until publication, use source mode for local/unreleased refs; the wheel recipes above are release-gated, not claims that v0.6 is already on PyPI.
 
 Action outputs are compact JSON arrays: `issues` contains unresolved paths; `changed` contains completed writes. On exit 2, `issues` stays `[]`, while `changed` retains any completed repairs.
 

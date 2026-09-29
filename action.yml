@@ -6,6 +6,10 @@ branding:
   color: blue
 
 inputs:
+  version:
+    description: 'Exact stable/RC PyPI version; defaults to this ref’s package version. Use source to build this checkout.'
+    required: false
+    default: ''
   owner:
     description: 'Name of the copyright owner; overrides pyproject.toml'
     required: false
@@ -51,7 +55,14 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install uv
+      if: inputs.version != 'source'
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: "0.12.5"
+        enable-cache: false
     - name: Install Rust
+      if: inputs.version == 'source'
       uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
       with:
         toolchain: "1.93.0"
@@ -59,6 +70,7 @@ runs:
       id: validate
       shell: bash
       env:
+        INPUT_VERSION: ${{ inputs.version }}
         INPUT_OWNER: ${{ inputs.owner }}
         INPUT_STARTING_YEAR: ${{ inputs.starting-year }}
         INPUT_LICENSE: ${{ inputs.license }}
@@ -76,5 +88,14 @@ runs:
         if [[ "$INPUT_IGNORE_FILES" != '__from_config__' ]]; then args+=(--ignore-files "$INPUT_IGNORE_FILES"); fi
         if [[ "$INPUT_IGNORE_FOLDERS" != '__from_config__' ]]; then args+=(--ignore-folders "$INPUT_IGNORE_FOLDERS"); fi
         if [[ "$INPUT_LICENSE_NOTICE" != '__from_config__' ]]; then args+=(--license-notice "$INPUT_LICENSE_NOTICE"); fi
-        (cd "$GITHUB_ACTION_PATH" && cargo build --quiet --locked --release --target-dir "$GITHUB_ACTION_PATH/target" --bin lmh)
-        "$GITHUB_ACTION_PATH/target/release/lmh" "${args[@]}"
+        if [[ "$INPUT_VERSION" == 'source' ]]; then
+          (cd "$GITHUB_ACTION_PATH" && cargo build --quiet --locked --release --target-dir "$GITHUB_ACTION_PATH/target" --bin lmh)
+          "$GITHUB_ACTION_PATH/target/release/lmh" "${args[@]}"
+        else
+          version="${INPUT_VERSION:-$(uv --no-config --directory "$GITHUB_ACTION_PATH" version --short)}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$ ]]; then
+            echo "Expected an exact release version or 'source', got: $version" >&2
+            exit 2
+          fi
+          uv tool run --isolated --no-config --no-build --python '>=3.11' --from "lint-my-headers==$version" lmh "${args[@]}"
+        fi
