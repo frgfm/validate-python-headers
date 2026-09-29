@@ -12,4 +12,5 @@ if sys.platform == "win32":
     raise SystemExit(main())
 
 executable = str(_find_binary())
-os.execv(executable, [executable, *sys.argv[1:]])  # ruff: ignore[start-process-with-no-shell] - installed native binary
+# Absolute installed executable and literal argv; no shell or PATH lookup.
+os.execv(executable, [executable, *sys.argv[1:]])  # nosec B606 # ruff: ignore[start-process-with-no-shell]

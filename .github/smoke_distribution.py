@@ -64,9 +64,9 @@ def main() -> int:
     verify_version([require_command("lmh")], expected)
     verify_version([require_command("lint-my-headers")], expected)
     verify_version([sys.executable, "-m", "lint_my_headers"], expected)
-    returned = run([sys.executable, "-c", "from lint_my_headers import main; print('returned', main(['--version']))"])
-    if returned.returncode != 0 or not returned.stdout.rstrip().endswith("returned 0"):
-        fail(f"Python main did not return: {returned.stdout}{returned.stderr}")
+    verify_version(
+        [sys.executable, "-c", "from lint_my_headers import main; print('returned', main(['--version']))"], "returned 0"
+    )
     for name in ("lmh", "lint-my-headers"):
         signature = Path(require_command(name)).read_bytes()[:4]
         if signature not in (b"\x7fELF", b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf") and not signature.startswith(b"MZ"):
