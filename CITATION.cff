@@ -6,4 +6,4 @@ authors:
   given-names: "François-Guillaume"
 title: "Python legal-header linter and conservative fixer"
 version: 0.6.0rc1
-url: "https://github.com/frgfm/validate-python-headers"
+url: "https://github.com/frgfm/lint-my-headers"

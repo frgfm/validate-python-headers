@@ -4,11 +4,11 @@
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
 import importlib.util
+import os
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
-
-from support import WorkspaceTestCase
 
 
 def load_helper(name):
@@ -24,7 +24,14 @@ def load_helper(name):
 pypi = load_helper("pypi_release")
 
 
-class ReleaseHelperTestCase(WorkspaceTestCase):
+class ReleaseHelperTestCase(unittest.TestCase):
+    def setUp(self):
+        self.original_directory = Path.cwd()
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.chdir, self.original_directory)
+        os.chdir(temporary.name)
+
     def artifacts(self):
         directory = Path("dist")
         directory.mkdir()
@@ -33,6 +40,23 @@ class ReleaseHelperTestCase(WorkspaceTestCase):
         wheel.write_bytes(b"wheel")
         source.write_bytes(b"source")
         return directory, wheel, source
+
+    def test_platform_wheels_and_single_sdist(self):
+        directory, wheel, source = self.artifacts()
+        second_wheel = directory / "package_macos.whl"
+        second_wheel.write_bytes(b"macos wheel")
+        self.assertEqual(set(pypi.artifact_hashes(directory)), {wheel.name, second_wheel.name, source.name})
+        source.unlink()
+        with self.assertRaisesRegex(ValueError, "one sdist"):
+            pypi.artifact_hashes(directory)
+
+    def test_python_and_cargo_versions_match(self):
+        Path("pyproject.toml").write_text('[project]\nversion = "0.6.0rc1"\n', encoding="utf-8")
+        Path("Cargo.toml").write_text('[package]\nversion = "0.6.0-rc.1"\n', encoding="utf-8")
+        pypi.verify_versions(Path.cwd())
+        Path("Cargo.toml").write_text('[package]\nversion = "0.6.0"\n', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            pypi.verify_versions(Path.cwd())
 
     def test_publish_uploads_only_missing_artifact(self):
         directory, wheel, source = self.artifacts()

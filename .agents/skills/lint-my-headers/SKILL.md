@@ -1,13 +1,13 @@
 ---
-name: validate-python-headers
-description: Configure, run, troubleshoot, and safely integrate validate-python-headers (vph) in Python repositories. Use whenever a user wants to check or fix Python copyright or license headers, add [tool.validate-python-headers], install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret vph JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage non-Python headers.
+name: lint-my-headers
+description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python repositories. Use whenever a user wants to check or fix Python copyright or license headers, add [tool.lint-my-headers], install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage non-Python headers.
 license: Apache-2.0
-compatibility: Requires Python 3.11+ and vph 0.6.x for execution; setup guidance works without an installed CLI.
+compatibility: Requires the lmh 0.6.x Rust executable; PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
 ---
 
-# Validate Python headers
+# Lint My Headers
 
-Use `vph` as the deterministic implementation. Your job is to establish explicit policy, sequence read-only checks before authorized repairs, and explain the CLI's structured result without inventing legal facts.
+Use `lmh` as the deterministic implementation. Your job is to establish explicit policy, sequence read-only checks before authorized repairs, and explain the CLI's structured result without inventing legal facts.
 
 ## Boundaries
 
@@ -27,15 +27,15 @@ Read repository instructions, locate the repository root and nearest `pyproject.
 Probe the installed contract:
 
 ```console
-vph --version
-vph check --help
+lmh --version
+lmh check --help
 ```
 
-The workflow in this skill requires vph 0.6.x and JSON schema version 1. If `vph` is missing or incompatible, explain the pinned installation command and stop unless installation was explicitly requested.
+The workflow in this skill requires lmh 0.6.x and JSON schema version 1. If `lmh` is missing or incompatible, explain the pinned installation command and stop unless installation was explicitly requested.
 
 ### 2. Establish explicit policy
 
-Read `[tool.validate-python-headers]` from the nearest `pyproject.toml`. A runnable policy needs:
+Read `[tool.lint-my-headers]` from the nearest `pyproject.toml`. A runnable policy needs:
 
 - one exact `owner`;
 - one integer `starting-year`;
@@ -49,7 +49,7 @@ If a required value is missing, conflicting, or legally ambiguous, show the evid
 Run the narrowest applicable read-only command:
 
 ```console
-vph check --output-format json [PATH...]
+lmh check --output-format json [PATH...]
 ```
 
 Parse stdout as JSON. Require `schema_version == 1`; never scrape human stderr when structured output is available.
@@ -67,7 +67,7 @@ Do not claim that a clean result proves license compatibility or legal complianc
 Before `fix`, record the pre-existing diff so unrelated changes remain distinguishable. Scope the command to the requested paths whenever possible:
 
 ```console
-vph fix --output-format json [PATH...]
+lmh fix --output-format json [PATH...]
 ```
 
 The CLI may update only recognized stale years. It deliberately leaves missing, malformed, ambiguous, future-dated, wrong-owner, wrong-license, symlinked, reparse-point, and multi-link targets unresolved.
@@ -75,7 +75,7 @@ The CLI may update only recognized stale years. It deliberately leaves missing, 
 After `fix`:
 
 1. Read `changed` and `diagnostics` from JSON.
-2. Run the same `vph check --output-format json [PATH...]` command again.
+2. Run the same `lmh check --output-format json [PATH...]` command again.
 3. Inspect only the targeted diff.
 4. Verify that changed files match `changed`, unresolved files match diagnostics, and unrelated pre-existing changes remain untouched.
 5. Never commit or push unless the user separately asks.
@@ -83,10 +83,11 @@ After `fix`:
 ### 5. Configure integrations only when requested
 
 - Put policy in `pyproject.toml`; do not duplicate it in each integration.
-- Prefer the first-party `vph` pre-commit hook and a verified released tag or immutable SHA. Use an explicit placeholder when the release cannot be verified without unauthorized network access.
+- Prefer the README's wheel-only local `lmh` hook with an exact verified PyPI version. The first-party Rust hook is for source checkouts. Use explicit placeholders when publication cannot be verified without unauthorized network access.
 - Give pull-request checks read-only `contents` permission.
 - Treat annual year refresh as an optional project convention. Use a deterministic review branch and pull request, never a direct default-branch write.
 - Preserve existing Action inputs for compatibility, but omit overrides when repository config is authoritative.
+- The Action defaults to the exact package version declared by its ref, without source-build fallback. Use `version: source` explicitly for unreleased code; never infer that a checked-out package version has been published.
 
 ## Report format
 

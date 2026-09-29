@@ -1,1 +1,1 @@
-src/validate_headers/*license*.json -text
+src/lint_my_headers/*license*.json -text

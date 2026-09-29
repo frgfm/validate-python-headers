@@ -1,6 +1,7 @@
-- id: vph
-  name: vph
-  description: Keep Python files connected to their declared copyright owner and license.
-  entry: vph check
-  language: python
+- id: lmh
+  name: lmh
+  description: Check copyright and license headers in Python source files.
+  entry: lmh check
+  language: rust
+  language_version: "1.93.0"
   types: [python]

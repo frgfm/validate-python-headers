@@ -11,8 +11,16 @@ env:
   UV_VERSION: "0.12.5"
 
 jobs:
-  ruff:
+  quality:
+    name: ${{ matrix.check }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {check: ruff, target: lint-check}
+          - {check: ty, target: typing-check}
+          - {check: prek-hooks, target: prek}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -22,35 +30,6 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
-      - name: Run ruff
-        run: make lint-check
-
-  ty:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          architecture: x64
-      - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          version: ${{ env.UV_VERSION }}
-      - name: Run ty
-        run: make typing-check
-
-  prek-hooks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          architecture: x64
-      - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          version: ${{ env.UV_VERSION }}
-      - name: Run prek hooks
-        run: |
-          git checkout -b temp
-          make prek
+      - if: matrix.target == 'prek'
+        run: git checkout -b temp
+      - run: make "${{ matrix.target }}"

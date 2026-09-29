@@ -1,10 +1,10 @@
-name: publish release
+name: distributions
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+  pull_request:
+    branches: main
+  release:
+    types: [published]
 
 env:
   RELEASE_UV_VERSION: "0.12.5"
@@ -17,11 +17,14 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Check out the tagged source
+      - &checkout
+        name: Check out the tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install uv
+          ref: ${{ github.event.release.tag_name || github.sha }}
+      - &setup_uv
+        name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: false
@@ -29,56 +32,125 @@ jobs:
       - name: Verify tag and package versions
         id: version
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          package_version="$(uv version --short)"
-          if [[ "$version" != "$package_version" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match package version $package_version." >&2
+          version="$(uv version --short)"
+          if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "v$version" ]]; then
+            echo "Tag $RELEASE_TAG does not match package version $version." >&2
             exit 1
           fi
+          python .github/pypi_release.py versions
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Run optimized-mode unit tests
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: "1.93.0"
+      - name: Test Rust and release helpers
         env:
           PYTHONOPTIMIZE: "1"
-        run: python -m unittest discover -s src/tests -v
-      - name: Build wheel and source distribution
-        run: uv build --no-sources
-      - name: Smoke-test wheel
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-        run: uv run --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
-      - name: Smoke-test source distribution
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-        run: uv run --isolated --no-project --with dist/*.tar.gz .github/smoke_distribution.py
+        run: make test
+      - name: Build and smoke-test the source distribution
+        shell: bash
+        run: |
+          uv build --sdist --no-sources
+          EXPECTED_VERSION="$(uv version --short)" uv run --isolated --no-project --no-binary-package lint-my-headers --with dist/*.tar.gz .github/smoke_distribution.py
       - name: Retain exact release artifacts and publishing checks
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-artifacts
           if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
           path: |
             dist/
             .github/pypi_release.py
 
-  publish:
+  wheels:
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            manylinux: "2_28"
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: "2_28"
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            manylinux: musllinux_1_2
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            manylinux: musllinux_1_2
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - *checkout
+      - *setup_uv
+      - name: Build native wheel
+        uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8 # v1
+        with:
+          maturin-version: "1.15.0"
+          rust-toolchain: "1.93.0"
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux || 'auto' }}
+          args: --release --locked --out dist
+      - name: Smoke-test the installed wheel
+        if: ${{ !contains(matrix.target, 'musl') }}
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+        run: uv run --python 3.14 --isolated --no-project --with dist/*.whl .github/smoke_distribution.py
+      - name: Smoke-test musllinux wheel on Alpine
+        if: ${{ contains(matrix.target, 'musl') }}
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+        run: >-
+          docker run --rm -e EXPECTED_VERSION -v "$PWD:/io:ro" python:3.14-alpine
+          sh -c 'pip install --no-deps /io/dist/*.whl && python /io/.github/smoke_distribution.py'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-wheels-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: github.event_name == 'release'
+    needs: [build, wheels]
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/validate-python-headers
+      url: https://pypi.org/p/lint-my-headers
     permissions:
       id-token: write
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
-      - name: Download reviewed artifacts
+      - *setup_uv
+      - &download_source
+        name: Download reviewed artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-artifacts
           path: .
+      - &download_wheels
+        name: Download reviewed platform wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-wheels-*
+          merge-multiple: true
+          path: dist
       - name: Generate PEP 740 attestations
         uses: astral-sh/attest-action@f589a42a7efb6fe400b4f400de60b4bc90390027 # v0.0.6
       - name: Publish only missing byte-identical artifacts
@@ -91,16 +163,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
-          version: ${{ env.RELEASE_UV_VERSION }}
-      - name: Download reviewed artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-artifacts
-          path: .
+      - *setup_uv
+      - *download_source
+      - *download_wheels
       - name: Verify live PyPI filenames and hashes
         run: >-
           python .github/pypi_release.py verify dist
@@ -110,28 +175,8 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         shell: bash
         run: |
-          actual="$(uvx --refresh-package validate-python-headers --from "validate-python-headers==$VERSION" vph --version)"
-          if [[ "$actual" != "vph $VERSION" ]]; then
+          actual="$(uvx --refresh-package lint-my-headers --from "lint-my-headers==$VERSION" lmh --version)"
+          if [[ "$actual" != "lmh $VERSION" ]]; then
             echo "Unexpected installed version: $actual" >&2
             exit 1
           fi
-
-  github-release:
-    needs: [build, verify]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Create the immutable GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
-        shell: bash
-        run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "GitHub release $GITHUB_REF_NAME already exists."
-            exit 0
-          fi
-          args=(release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME")
-          if [[ "$VERSION" == *rc* ]]; then args+=(--prerelease); fi
-          gh "${args[@]}"

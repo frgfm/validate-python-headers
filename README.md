@@ -1,227 +1,81 @@
-# Validate Python headers
+# Lint My Headers
 
-<p align="center">
-  <a href="https://github.com/frgfm/validate-python-headers/actions/workflows/tests.yml">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/frgfm/validate-python-headers/tests.yml?branch=main&label=CI&logo=github&style=flat-square">
-  </a>
-  <img alt="PyPI" src="https://img.shields.io/pypi/v/validate-python-headers?style=flat-square">
-  <img alt="License" src="https://img.shields.io/github/license/frgfm/validate-python-headers?style=flat-square">
-</p>
-
-A dependency-free Python legal-header linter with a conservative copyright-year fixer.
-
-- **Check:** explain exactly why each selected Python file does not match one repository policy.
-- **Fix:** refresh only a recognized stale year for the configured owner.
-- **Integrate:** reuse the same `pyproject.toml` policy locally, in pre-commit or prek, in CI, and through the compatible GitHub Action.
-
-The tool does not choose a license, determine copyright ownership, provide legal advice, add missing headers, or rewrite ambiguous legal text. Use [REUSE](https://reuse.software/) when you need full multi-file SPDX compliance rather than this deliberately narrow Python workflow.
+A Rust CLI that checks Python copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
-### 1. Install the CLI from GitHub
+Install a published release, or build this checkout with Rust 1.93:
 
-Until v0.6.0 is published, install the current release-candidate snapshot directly from GitHub. The full commit SHA keeps the installation reproducible.
-
-With uv:
-
-```console
-uv tool install "git+https://github.com/frgfm/validate-python-headers.git@523b1c2fdd7857374999d664aeea9f8809cd497c"
+```shell
+uv tool install lint-my-headers
+# From source:
+cargo build --release --locked
 ```
 
-Or with pipx:
+PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust. Python 3.11+ is needed only for PyPI tooling and the optional launchers. `python -m lint_my_headers` replaces Python with the native process on Unix; Windows starts a child process. The callable `main(argv)` always returns the child's exit code. Checking and fixing run entirely in Rust.
 
-```console
-pipx install "git+https://github.com/frgfm/validate-python-headers.git@523b1c2fdd7857374999d664aeea9f8809cd497c"
-```
-
-Both install the primary `vph` command and the longer `validate-python-headers` compatibility alias. Python 3.11 or newer is required.
-
-### 2. Configure one policy
-
-Add this table to the nearest `pyproject.toml`:
+Declare the policy in `pyproject.toml`:
 
 ```toml
-[tool.validate-python-headers]
-owner = "YOUR NAME OR ORGANIZATION"
-starting-year = 2022
+[tool.lint-my-headers]
+owner = "Example Organization"
+starting-year = 2024
 license = "Apache-2.0"
 paths = ["src", "tests"]
-ignore-files = ["__init__.py"]
-ignore-folders = []
+ignore-files = ["version.py"]
+ignore-folders = ["src/generated"]
 ```
 
-The corresponding header is:
+```shell
+lmh check                              # Read-only; configured paths
+lmh check src/package tests/test_api.py # Explicit paths
+lmh fix                                # Safe stale-year repairs only
+lmh --version
+lmh check --help
+```
+
+A valid header in 2026:
 
 ```python
-# Copyright (C) 2022-2026, YOUR NAME OR ORGANIZATION.
+# Copyright (C) 2024-2026, Example Organization.
 
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 ```
 
-The actual end year is the current year. A file may retain its own start year as long as it is not earlier than `starting-year`.
-
-### 3. Check the repository
-
-```console
-vph check
-```
-
-Failures use stable, editor-friendly diagnostics:
+Diagnostics name the location, reason, and repair eligibility:
 
 ```text
-src/example.py:1:1: VPH004 copyright year ends at 2025; expected 2026 [fixable]
+src/example.py:1:1: LMH004 copyright year ends at 2025; expected 2026 [fixable]
 ```
 
-Apply only recognized stale-year repairs, then recheck:
+Exit codes: **0** clean, **1** unresolved findings, **2** invocation/configuration/I/O error. `fix` preserves the creation year and changes no other bytes. Unknown, missing, malformed, duplicate, wrong-owner, or future-dated headers require manual review.
 
-```console
-vph fix
-vph check
-```
+## Configuration and safety
 
-For example, assuming the current year is 2026, `vph fix` changes this recognized stale header:
+CLI policy options override configuration; `--config` selects another `pyproject.toml`. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
 
-```python
-# Copyright (C) 2022-2025, YOUR NAME OR ORGANIZATION.
+| Key / CLI option | Meaning and default |
+| --- | --- |
+| `owner` / `--owner` | Required exact single-line copyright owner. |
+| `starting-year` / `--starting-year` | Required earliest accepted file creation year. |
+| `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
+| `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
+| `paths` / positional paths | Selected files or directories; default `.`. |
+| `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
+| `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
-# This program is licensed under the Apache License 2.0.
-# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
+CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
+Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
-def greet():
-    return "hello"
-```
+Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
-into:
+The bundled SPDX snapshot is v3.28.0. All previously accepted v3.17 names/URLs remain valid, including the legacy `KiCad-libraries-exception`. Compound SPDX expressions and new exception semantics are unsupported.
 
-```python
-# Copyright (C) 2022-2026, YOUR NAME OR ORGANIZATION.
+## Agents and JSON
 
-# This program is licensed under the Apache License 2.0.
-# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
-
-
-def greet():
-    return "hello"
-```
-
-Only the recognized end year changes. Missing or ambiguous headers remain untouched and are reported for manual review.
-
-Pass files or directories to narrow one invocation:
-
-```console
-vph check src/changed.py tests/
-vph fix src/changed.py
-```
-
-## Pre-commit and prek
-
-The first-party hook uses the standard `.pre-commit-config.yaml` format and works with both [pre-commit](https://pre-commit.com/) and [prek](https://prek.j178.dev/):
-
-```yaml
-repos:
-  - repo: https://github.com/frgfm/validate-python-headers
-    rev: 523b1c2fdd7857374999d664aeea9f8809cd497c
-    hooks:
-      - id: vph
-```
-
-For example, with prek:
-
-```console
-uv tool install prek
-prek install
-prek run vph --all-files
-```
-
-After the initial baseline, the hook supplies only selected Python files to `vph`.
-
-After v0.6.0 is published, you can replace this snapshot SHA with the `v0.6.0` tag. Do not pin `main`.
-
-## Pull-request checks
-
-This workflow uses prek's changed-file selection so local and CI checks call the same hook:
-
-```yaml
-name: headers
-
-on:
-  pull_request:
-
-permissions:
-  contents: read
-
-jobs:
-  headers:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.0.1
-        with:
-          version: '0.12.5'
-      - name: Check changed Python files
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: uvx --from prek==0.4.14 prek run vph --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
-```
-
-Pin third-party Actions to immutable SHAs in security-sensitive repositories.
-
-## Annual review pull request
-
-The tested [annual workflow](.github/workflows/update-copyright-years.yml) can run every January 1 or on manual dispatch. It updates one deterministic branch, opens or refreshes one reviewable pull request, and does nothing when no recognized year is stale.
-
-An annual whole-repository year refresh is a project convention, not a universal license or REUSE requirement. Confirm that this policy matches your project before enabling the schedule; [REUSE documents several valid year policies](https://reuse.software/faq/#which-years-do-i-include-in-the-copyright-statement).
-
-## CLI and configuration reference
-
-```console
-vph --version
-vph check --help
-vph fix --help
-```
-
-CLI values override `pyproject.toml`. Configuration paths are relative to the configuration file; explicit command-line paths are relative to the invocation directory.
-
-| Setting / option | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `owner` / `--owner` | yes | — | Exact, single-line copyright owner. |
-| `starting-year` / `--starting-year` | yes | — | Earliest accepted file start year. |
-| `license` / `--license` | one license source | — | SPDX license identifier used to select the prose notice. |
-| `license-notice` / `--license-notice` | one license source | — | Path to an exact custom notice. |
-| `paths` / positional paths | no | `["."]` | Python files or directories to inspect. |
-| `ignore-files` / `--ignore-files` | no | `["__init__.py"]` | Exact basenames ignored everywhere, including explicit inputs. |
-| `ignore-folders` / `--ignore-folders` | no | `[".github"]` | Exact folder paths ignored, including explicit inputs. |
-| `--config` | no | nearest `pyproject.toml` | Select a specific configuration file. |
-| `--output-format` | no | `text` | `text` or versioned `json`. |
-
-The repository must contain `LICENSE` when `license` is used. The bundled SPDX License List is v3.28.0; notices previously accepted from the v3.17 snapshot remain valid. The removed `KiCad-libraries-exception` value remains accepted only for that legacy compatibility.
-
-### Diagnostics
-
-| Code | Meaning | Automatically fixable |
-| --- | --- | --- |
-| `VPH001` | Missing legal header | no |
-| `VPH002` | Owner mismatch | no |
-| `VPH003` | Invalid, reversed, future, or out-of-policy year | no |
-| `VPH004` | Otherwise-valid stale year | safe regular files only |
-| `VPH005` | Missing or mismatched license notice | no |
-| `VPH006` | Malformed, misplaced, duplicated, or ambiguous layout | no |
-| `VPH007` | Python source encoding failure | no |
-| `VPH008` | Unsafe repair target | no |
-
-Each invalid file produces one primary diagnostic in `check`. After `fix`, repaired files appear in `changed` and only unresolved files remain in `diagnostics`.
-
-### JSON output
-
-```console
-vph check --output-format json
-```
+Use `lmh check --output-format json`. Successfully parsed JSON-mode commands write only JSON to stdout; malformed CLI syntax remains a stderr usage error.
 
 ```json
 {
@@ -236,72 +90,83 @@ vph check --output-format json
       "path": "src/example.py",
       "line": 1,
       "column": 1,
-      "code": "VPH004",
+      "code": "LMH004",
       "message": "copyright year ends at 2025; expected 2026",
       "fixable": true
     }
   ],
-  "expected_header": "# Copyright (C) <FILE_CREATION_YEAR>-2026, YOUR NAME OR ORGANIZATION.\n...",
+  "expected_header": "# Copyright (C) <FILE_CREATION_YEAR>-2026, Example Organization.\n...",
   "error": null
 }
 ```
 
-JSON mode writes only JSON to stdout. Handled configuration, path, license, and I/O errors use the same envelope with `error.code` set to `VPH900`.
-
-| Exit code | Meaning |
+| Code | Meaning |
 | --- | --- |
-| `0` | Every selected file is valid. |
-| `1` | One or more policy findings remain. |
-| `2` | Invocation, configuration, path, license, or I/O error. |
+| `LMH001` | Missing header |
+| `LMH002` | Owner mismatch |
+| `LMH003` | Invalid, reversed, future, or out-of-policy year |
+| `LMH004` | Recognized stale year; repairable only when `fixable` is true |
+| `LMH005` | Missing/mismatched license notice |
+| `LMH006` | Malformed, misplaced, duplicated, or ambiguous layout |
+| `LMH007` | Unsupported encoding or invalid bytes |
+| `LMH008` | Unsafe or concurrently changed repair target |
+| `LMH900` | Command/configuration/I/O error, in `error` rather than `diagnostics` |
 
-## GitHub Action compatibility
-
-Existing Action workflows remain supported. A configured repository needs no duplicated policy inputs:
-
-```yaml
-- uses: actions/checkout@v7
-- uses: frgfm/validate-python-headers@v0.6.0
-```
-
-Every existing input remains available as an override. The Action exposes compact JSON arrays:
-
-- `issues`: unresolved paths, or `[]` on success and command errors;
-- `changed`: paths changed by `fix`, including changes completed before a later I/O error.
-
-## Conservative fix and Python preambles
-
-`fix` updates only one recognized copyright line for the configured owner. It preserves the original start year and changes a stale single year or range to `START-CURRENT`.
-
-The linter understands Python's leading structure: UTF BOM, an arbitrary `#!` shebang, and a valid PEP 263 encoding cookie in line one or two. Repairs preserve the exact preamble, encoding, newline style, file mode, license notice, and every non-year byte.
-
-Missing headers, malformed or duplicate notices, reversed or future years, owner mismatches, and unknown license text remain byte-for-byte unchanged. Repairs also refuse symlinks, reparse points, symlinked parents, multi-link files, and files that change between analysis and replacement.
-
-## AI-agent skill
-
-The repository includes an optional, instruction-only `validate-python-headers` skill. It teaches compatible coding agents to inspect policy, run structured checks, ask rather than infer legal facts, apply only explicitly requested safe fixes, and verify the resulting diff.
-
-For Codex, ask the built-in installer to install the skill from the released repository path:
+Copy this instruction into an agent task:
 
 ```text
-$skill-installer install the validate-python-headers skill from frgfm/validate-python-headers@v0.6.0
+Read the declared owner, starting year, license, and paths; ask if any are missing.
+Run lmh check --output-format json. Exit 1 means findings; exit 2 means stop.
+Only run lmh fix when source changes are authorized, then recheck and inspect the
+targeted diff. Never infer legal facts or install, commit, or push without permission.
 ```
 
-The CLI and JSON schema remain authoritative; the skill contains no second parser or formatter.
+The optional [agent skill](.agents/skills/lint-my-headers/SKILL.md) uses this same contract. Its retained model-evaluation results are historical Python-era evidence, not Rust evaluations.
 
-## Maintainer checks
+## Integrations
 
-```console
-make test
-make quality
-python scripts/update_spdx_licenses.py --help
+For pre-commit or [prek](https://github.com/j178/prek), install a published wheel in the hook's isolated Python 3.11+ environment. Replace `<RELEASE_VERSION>` with an exact published version; `--only-binary` prevents an unexpected Rust build:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: lmh
+        name: Lint My Headers
+        entry: lmh check
+        language: python
+        types: [python]
+        additional_dependencies:
+          - --only-binary=lint-my-headers
+          - lint-my-headers==<RELEASE_VERSION>
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the complete local workflow.
+To test an unreleased checkout instead, the first-party source hook remains available:
 
-## Migration from v0.5
+```yaml
+repos:
+  - repo: https://github.com/frgfm/lint-my-headers
+    rev: <TAG_OR_IMMUTABLE_SHA>
+    hooks:
+      - id: lmh
+```
 
-v0.6 replaces the Docker runtime with the packaged CLI and direct composite Action. Existing Action inputs remain supported. The undocumented GHCR image is no longer published; existing release tags remain unchanged.
+The source hook compiles Rust on first installation with the pinned toolchain. Pre-commit's Rust installer does not pass `--locked`; the Action's source mode does.
 
-## License
+Pull-request CI can run the same hook or the [GitHub Action](action.yml):
 
-Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE).
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: frgfm/lint-my-headers@<RELEASE_TAG_OR_SHA>
+```
+
+The Action reads repository policy; its documented inputs override it. By default it uses uv to install the exact PyPI version declared by the Action ref, with source builds disabled. `version: '0.6.0'` can select an exact published version; `version: source` explicitly builds the checked-out Action code using `Cargo.lock`. Floating versions, missing releases, and unavailable wheels fail rather than falling back to a compiler. Prefer immutable release SHAs. Until publication, use source mode for local/unreleased refs; the wheel recipes above are release-gated, not claims that v0.6 is already on PyPI.
+
+Action outputs are compact JSON arrays: `issues` contains unresolved paths; `changed` contains completed writes. On exit 2, `issues` stays `[]`, while `changed` retains any completed repairs.
+
+The optional [January 1 workflow](.github/workflows/update-copyright-years.yml) opens or updates one reviewable year-refresh PR. It never writes directly to protected `main`.
+
+## Maintenance
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks and [RELEASE_NOTES.md](RELEASE_NOTES.md) for the breaking rename and publication gates. Runtime logic is Rust; the Python package contains only launchers and source data. Licensed under [Apache-2.0](LICENSE).

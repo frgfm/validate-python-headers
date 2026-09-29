@@ -1,13 +1,14 @@
 [build-system]
-requires = ["uv_build>=0.12.5,<1.0.0"]
-build-backend = "uv_build"
+requires = ["maturin>=1.9.3,<2.0"]
+build-backend = "maturin"
 
 [project]
-name = "validate-python-headers"
+name = "lint-my-headers"
 version = "0.6.0rc1"
-description = "Python legal-header linter and conservative copyright-year fixer"
+description = "Agent-ready license-header linting for source code, starting with Python"
 requires-python = ">=3.11,<4.0"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 maintainers = [{ name = "François-Guillaume Fernandez", email = "fg-feedback@protonmail.com" }]
 readme = "README.md"
@@ -22,34 +23,33 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []
 
-[project.scripts]
-vph = "validate_headers.cli:main"
-validate-python-headers = "validate_headers.cli:main"
-
 [project.urls]
-Documentation = "https://github.com/frgfm/validate-python-headers#readme"
-Issues = "https://github.com/frgfm/validate-python-headers/issues"
-Changelog = "https://github.com/frgfm/validate-python-headers/releases"
-Repository = "https://github.com/frgfm/validate-python-headers"
+Documentation = "https://github.com/frgfm/lint-my-headers#readme"
+Issues = "https://github.com/frgfm/lint-my-headers/issues"
+Changelog = "https://github.com/frgfm/lint-my-headers/releases"
+Repository = "https://github.com/frgfm/lint-my-headers"
 
-[tool.setuptools.package-data]
-validate_headers = ["supported-licenses.json", "legacy-license-notices.json"]
+[tool.maturin]
+bindings = "bin"
+module-name = "lint_my_headers"
+python-source = "src"
+locked = true
+strip = true
+exclude = ["src/tests/**", "**/__pycache__/**", "**/*.pyc"]
+include = [{ path = "src/lint_my_headers/*.json", format = "sdist" }]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["validate_headers*"]
-
-[tool.validate-python-headers]
+[tool.lint-my-headers]
 owner = "François-Guillaume Fernandez"
 starting-year = 2022
 license = "Apache-2.0"
-paths = ["src", ".github"]
+paths = ["src", ".github", "scripts"]
 ignore-files = ["version.py", "__init__.py", "collect_env.py"]
-ignore-folders = [".agents/skills/validate-python-headers/evals/files"]
+ignore-folders = [".agents/skills/lint-my-headers/evals/files"]
 
 [dependency-groups]
 build = ["uv>=0.12.5"]
@@ -58,9 +58,6 @@ quality = [
     "ty==0.0.84",
     "prek==0.5.3",
 ]
-
-[tool.uv.build-backend]
-module-name = "validate_headers"
 
 [tool.ruff]
 line-length = 120
@@ -121,7 +118,7 @@ ignore = [
     "ISC001",  # implicit string concatenation (handled by format)
     "G004",  # logging-fstring-interpolation
 ]
-exclude = [".git", ".agents/skills/validate-python-headers/evals/files/**"]
+exclude = [".git", ".agents/skills/lint-my-headers/evals/files/**"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"

@@ -22,11 +22,11 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          version: '0.12.5'
       - name: Refresh existing copyright years
-        run: uvx --python 3.11 --from validate-python-headers==0.6.0 vph fix
+        uses: ./
+        with:
+          version: source
+          mode: fix
       - name: Open or update the annual pull request
         shell: bash
         env:

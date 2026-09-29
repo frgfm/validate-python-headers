@@ -1,4 +1,6 @@
-# validate-python-headers skill evaluation
+# lint-my-headers skill evaluation
+
+Historical evaluation of the Python implementation, retained from upstream. Names have been migrated; these results have not been rerun for the Rust implementation.
 
 Reference environment: Codex CLI 0.149.0, `gpt-5.6-sol`, medium reasoning, fresh Git fixture and process per run. Each workflow ran once with the skill and once without it; timing and token figures therefore describe these observed runs, not repeated-sample confidence.
 
@@ -21,7 +23,7 @@ Across the five runs:
 
 The strongest differences were safety contracts:
 
-- missing policy: the skill did not infer an earliest year from Git and reported schema 1, exit 2, and `VPH900`;
+- missing policy: the skill did not infer an earliest year from Git and reported schema 1, exit 2, and `LMH900`;
 - invalid policy: the skill used JSON and stopped on the command error;
 - integration setup: the skill used `<RELEASE_TAG_OR_SHA>` and reported the open gate instead of inventing a released `v0.6.0` ref;
 - conservative repair: the skill used JSON check before JSON fix and verified the targeted diff.

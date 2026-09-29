@@ -4,19 +4,19 @@
     "should_trigger": true
   },
   {
-    "query": "Can you add validate-python-headers to this repo's pre-commit setup and make CI check only changed .py files?",
+    "query": "Can you add lint-my-headers to this repo's pre-commit setup and make CI check only changed .py files?",
     "should_trigger": true
   },
   {
-    "query": "vph check exits 1 with VPH002 and VPH005 in three files; explain those findings without changing anything.",
+    "query": "lmh check exits 1 with LMH002 and LMH005 in three files; explain those findings without changing anything.",
     "should_trigger": true
   },
   {
-    "query": "Set up [tool.validate-python-headers] for this library, then run a JSON check. Ask me if the legal policy is not explicit.",
+    "query": "Set up [tool.lint-my-headers] for this library, then run a JSON check. Ask me if the legal policy is not explicit.",
     "should_trigger": true
   },
   {
-    "query": "Our annual Python header workflow keeps opening duplicate PRs. Fix the integration but preserve the vph policy and least permissions.",
+    "query": "Our annual Python header workflow keeps opening duplicate PRs. Fix the integration but preserve the lmh policy and least permissions.",
     "should_trigger": true
   },
   {
@@ -24,19 +24,19 @@
     "should_trigger": true
   },
   {
-    "query": "Safely run vph fix on these two files, recheck them, and verify no unrelated dirty file changed.",
+    "query": "Safely run lmh fix on these two files, recheck them, and verify no unrelated dirty file changed.",
     "should_trigger": true
   },
   {
-    "query": "Migrate our old validate-python-headers GitHub Action inputs to config-first v0.6 without changing the header policy.",
+    "query": "Migrate our old lint-my-headers GitHub Action inputs to config-first v0.6 without changing the header policy.",
     "should_trigger": true
   },
   {
-    "query": "The vph hook works locally but fails in GitHub Actions with exit 2. Diagnose the structured error and stop before mutation.",
+    "query": "The lmh hook works locally but fails in GitHub Actions with exit 2. Diagnose the structured error and stop before mutation.",
     "should_trigger": true
   },
   {
-    "query": "Install the released validate-python-headers CLI and configure its optional agent skill for this Python repo.",
+    "query": "Install the released lint-my-headers CLI and configure its optional agent skill for this Python repo.",
     "should_trigger": true
   },
   {

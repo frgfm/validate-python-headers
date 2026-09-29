@@ -3,3 +3,6 @@ requirements.txt
 build/
 dist/
 *.egg-info/
+target/
+__pycache__/
+.ruff_cache/
