@@ -59,6 +59,53 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 }
 
 #[test]
+fn go_files_use_standalone_policy_and_include_tests_and_platform_variants() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::remove_file(root.join("pyproject.toml")).unwrap();
+    write(root, "go.mod", "module example.com/project\n\ngo 1.22\n");
+    let config = CONFIG.strip_prefix("[tool.lint-my-headers]\n").unwrap();
+    write(root, ".lmh.toml", format!("{config}languages = ['go']\n"));
+    let original = header(year() - 2)
+        .replace("# ", "// ")
+        .replace("value = 'café'", "package example\nconst value = \"café\"");
+    for name in ["main.go", "main_test.go", "main_windows.go"] {
+        write(root, &format!("src/{name}"), &original);
+    }
+    write(root, "src/example.py", header(year()));
+    let checked = json_run(root, &["check"], 1);
+    assert_eq!(checked["config_path"], ".lmh.toml");
+    assert_eq!(checked["checked"], 3);
+    assert_eq!(
+        fs::read_to_string(root.join("src/main.go")).unwrap(),
+        original
+    );
+    let fixed = json_run(root, &["fix"], 0);
+    assert_eq!(fixed["changed"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        fs::read_to_string(root.join("src/main.go")).unwrap(),
+        original.replacen(
+            &(year() - 2).to_string(),
+            &format!("{}-{}", year() - 2, year()),
+            1
+        )
+    );
+    assert_eq!(json_run(root, &["fix"], 0)["changed"], json!([]));
+    assert_eq!(
+        json_run(root, &["check", "--languages", "python", "src/main.go"], 0)["checked"],
+        0
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &["check", "--ignore-files", "main.go", "src/main.go"],
+            0
+        )["checked"],
+        0
+    );
+}
+
+#[test]
 fn rust_check_and_fix_use_cargo_package_or_workspace_policy() {
     let dir = workspace();
     let root = dir.path();

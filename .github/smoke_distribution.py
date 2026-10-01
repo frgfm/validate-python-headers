@@ -84,7 +84,7 @@ def main() -> int:
             """owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust"]
+languages = ["python", "javascript", "typescript", "rust", "go"]
 paths = ["src"]
 ignore-files = []
 ignore-folders = []
@@ -92,10 +92,18 @@ ignore-folders = []
             encoding="utf-8",
         )
         year = datetime.now().year
-        for checked, (extension, marker) in enumerate((("py", "#"), ("js", "//"), ("tsx", "//"), ("rs", "//")), 1):
+        for checked, (extension, marker, body) in enumerate(
+            (
+                ("py", "#", "value = 1"),
+                ("js", "//", "value = 1"),
+                ("tsx", "//", "value = 1"),
+                ("rs", "//", "const VALUE: i32 = 1;"),
+                ("go", "//", "package example\nconst value = 1"),
+            ),
+            1,
+        ):
             source = root / f"src/example.{extension}"
             source.parent.mkdir(exist_ok=True)
-            body = "const VALUE: i32 = 1;" if extension == "rs" else "value = 1"
             source.write_text(
                 f"""{marker} Copyright (C) {year}, Example Owner.
 

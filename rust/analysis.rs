@@ -247,7 +247,18 @@ fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
     } else {
         0
     };
-    let end = shebang.max(cookie_end);
+    let end = if language == Language::Go {
+        lines
+            .iter()
+            .take_while(|line| {
+                line.strip_prefix("//go:build")
+                    .or_else(|| line.strip_prefix("// +build"))
+                    .is_some_and(|tail| tail.starts_with([' ', '\t', '\r', '\n']))
+            })
+            .count()
+    } else {
+        shebang.max(cookie_end)
+    };
     if end == 0 {
         return (0, true);
     }
@@ -289,6 +300,7 @@ fn copyright_comments(
             Language::Javascript => tree_sitter_javascript::LANGUAGE,
             Language::Typescript if path.ends_with(".tsx") => tree_sitter_typescript::LANGUAGE_TSX,
             Language::Rust => tree_sitter_rust::LANGUAGE,
+            Language::Go => tree_sitter_go::LANGUAGE,
             _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
         };
         let mut parser = tree_sitter::Parser::new();
@@ -565,6 +577,77 @@ mod tests {
 
     fn inspect(source: impl AsRef<[u8]>) -> ContentAnalysis {
         analyze(source.as_ref(), &policy(), "x.py")
+    }
+
+    #[test]
+    fn go_comments_literals_build_tags_and_byte_preserving_repairs() {
+        let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
+        for body in [
+            "package example\nconst value = \"// Copyright (C) 2024, Other.\"\n",
+            "package example\nconst value = `\n// Copyright (C) 2024, Other.\n`\n",
+            "package example\nconst slash = '/'\nconst quote = '\\''\n",
+            "package example\nfunc identity[T any](value T) T { return value }\n",
+            "//go:generate echo example\npackage example\n/* cgo flags */\nimport \"C\"\n",
+        ] {
+            for preamble in [
+                "",
+                "//go:build linux\n// +build linux\n\n",
+                "//go:build\tlinux\n\n",
+            ] {
+                let raw = format!("\u{feff}{preamble}{header}{body}").replace('\n', "\r\n");
+                let fixed = analyze(raw.as_bytes(), &policy(), "x.go")
+                    .replacement
+                    .unwrap();
+                assert_eq!(
+                    fixed,
+                    raw.replacen("2024", "2024-2030", 1).as_bytes(),
+                    "{body}"
+                );
+                assert!(analyze(&fixed, &policy(), "x.go").diagnostic.is_none());
+            }
+        }
+        assert!(
+            analyze(
+                format!("{header}//go:build linux\n\npackage example\n").as_bytes(),
+                &policy(),
+                "x.go"
+            )
+            .replacement
+            .is_some()
+        );
+        for body in [
+            "// Copyright (C) 2024, Other.\npackage example\n",
+            "/* Copyright (C) 2024, Other. */\npackage example\n",
+            "package example\nconst value = `unterminated\n",
+            "package example\n/* unterminated\n",
+        ] {
+            let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.go");
+            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
+            assert!(result.replacement.is_none());
+        }
+        let no_separator = format!("//go:build linux\n{header}package example\n");
+        assert_eq!(
+            analyze(no_separator.as_bytes(), &policy(), "x.go")
+                .diagnostic
+                .unwrap()
+                .code,
+            "LMH006"
+        );
+        assert_eq!(
+            analyze(b"\xff", &policy(), "x.go").diagnostic.unwrap().code,
+            "LMH007"
+        );
+        assert_eq!(
+            analyze(
+                b"package example\nconst value = `// Copyright (C) 2030, Example Owner.`\n",
+                &policy(),
+                "x.go"
+            )
+            .diagnostic
+            .unwrap()
+            .code,
+            "LMH001"
+        );
     }
 
     #[test]
