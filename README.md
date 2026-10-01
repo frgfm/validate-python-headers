@@ -1,6 +1,6 @@
 # Lint My Headers
 
-A Rust CLI that checks Python, JavaScript, TypeScript, Rust, and Go copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
+A Rust CLI that checks Python, JavaScript, TypeScript, Rust, Go, and Swift copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
@@ -20,7 +20,7 @@ Declare the policy in `.lmh.toml`:
 owner = "Example Organization"
 starting-year = 2024
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust", "go"]
+languages = ["python", "javascript", "typescript", "rust", "go", "swift"]
 paths = ["src", "tests"]
 ignore-files = ["version.py"]
 ignore-folders = ["src/generated"]
@@ -44,7 +44,7 @@ A valid header in 2026:
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 ```
 
-JavaScript, TypeScript, Rust, and Go use the exact same text and blank lines with `//` in place of `#`. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
+JavaScript, TypeScript, Rust, Go, and Swift use the exact same text and blank lines with `//` in place of `#`. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
 
 Diagnostics name the location, reason, and repair eligibility:
 
@@ -67,13 +67,13 @@ Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.to
 | `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
 | `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
 | `paths` / positional paths | Selected files or directories; default `.`. |
-| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`, `go`; default `["python"]`. CLI values are comma-separated and replace the configured list. |
+| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`, `go`, `swift`; default `["python"]`. CLI values are comma-separated and replace the configured list. |
 | `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
 | `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
 CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
-Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`; Go `.go`, including `_test.go` and platform-specific files. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, `vendor`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
+Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`; Go `.go`, including `_test.go` and platform-specific files; Swift `.swift`, including `Package.swift`. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, `vendor`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
 
 Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
@@ -109,6 +109,21 @@ ignore-folders = [".git", "vendor"]
 ```
 
 Run `lmh check`, `lmh fix`, or `lmh check --languages go`. Policy is explicit; it is not read from `go.mod` or `go.work`, and no Go toolchain is needed to run the installed CLI.
+
+Swift shares UTF-8, BOM/CRLF preservation, `//` rendering, and year-only repairs. Its grammar distinguishes comments from ordinary/raw/multiline strings and parses string interpolation and nested block comments. Copyright-bearing block/doc comments and parse errors refuse repair. Shebangs and a leading `// swift-tools-version:` directive are preserved before the legal header, with a blank separator; this keeps `Package.swift`'s tools-version line first.
+
+For SwiftPM or Xcode projects, put header policy in `.lmh.toml`:
+
+```toml
+owner = "Example Organization"
+starting-year = 2024
+license = "Apache-2.0"
+languages = ["swift"]
+paths = ["Sources", "Tests", "Package.swift"]
+ignore-folders = [".build"]
+```
+
+Set paths to the source folders that exist in your project. Run `lmh check`, `lmh fix`, or `lmh check --languages swift`. `Package.swift` is checked as source; it is not executed to obtain header policy. The installed CLI requires no Swift toolchain.
 
 Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 

@@ -63,6 +63,66 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 }
 
 #[test]
+fn swift_sources_tests_and_package_manifest_use_standalone_policy() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::remove_file(root.join("pyproject.toml")).unwrap();
+    let config = CONFIG
+        .strip_prefix("[tool.lint-my-headers]\n")
+        .unwrap()
+        .replace("paths = ['src']", "paths = ['.']");
+    write(
+        root,
+        ".lmh.toml",
+        format!("{config}languages = ['swift']\n"),
+    );
+    let original = header(year() - 2)
+        .replace("# ", "// ")
+        .replace("value = 'café'", "let value = \"café\"");
+    write(root, "Sources/Example/Example.swift", &original);
+    write(root, "Tests/ExampleTests/ExampleTests.swift", &original);
+    let manifest = format!(
+        "// swift-tools-version: 5.9\n\n{}",
+        original.replace(
+            "let value = \"café\"",
+            "import PackageDescription\nlet package = Package(name: \"Example\")"
+        )
+    );
+    write(root, "Package.swift", &manifest);
+    let checked = json_run(root, &["check"], 1);
+    assert_eq!(checked["config_path"], ".lmh.toml");
+    assert_eq!(checked["checked"], 3);
+    assert_eq!(
+        fs::read_to_string(root.join("Package.swift")).unwrap(),
+        manifest
+    );
+    assert_eq!(
+        json_run(root, &["fix"], 0)["changed"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("Package.swift")).unwrap(),
+        manifest.replacen(
+            &(year() - 2).to_string(),
+            &format!("{}-{}", year() - 2, year()),
+            1
+        )
+    );
+    assert_eq!(json_run(root, &["fix"], 0)["changed"], json!([]));
+    assert_eq!(
+        json_run(
+            root,
+            &["check", "--languages", "python", "Package.swift"],
+            0
+        )["checked"],
+        0
+    );
+}
+
+#[test]
 fn go_files_use_standalone_policy_and_include_tests_and_platform_variants() {
     let dir = workspace();
     let root = dir.path();

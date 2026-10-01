@@ -1,8 +1,8 @@
 - id: lmh
   name: lmh
-  description: Check headers in the configured languages (Python, JavaScript, TypeScript, Rust, Go; default Python).
+  description: Check headers in the configured languages (Python, JavaScript, TypeScript, Rust, Go, Swift; default Python).
   entry: lmh check
   language: rust
   language_version: "1.93.0"
   types: [file]
-  files: '\.(py|js|jsx|mjs|cjs|ts|tsx|mts|cts|rs|go)$'
+  files: '\.(py|js|jsx|mjs|cjs|ts|tsx|mts|cts|rs|go|swift)$'
