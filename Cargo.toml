@@ -4,7 +4,7 @@ version = "0.6.0"
 edition = "2024"
 rust-version = "1.93"
 license = "Apache-2.0"
-description = "Agent-ready license-header linting for source code, starting with Python"
+description = "Agent-ready license-header linting for Python, JavaScript, and TypeScript"
 repository = "https://github.com/frgfm/lint-my-headers"
 
 [lib]
@@ -29,6 +29,9 @@ rustpython-parser = { version = "0.4", default-features = false, features = ["fu
 tempfile = "3"
 sha2 = "0.10"
 pathdiff = "0.2"
+tree-sitter = "0.27"
+tree-sitter-javascript = "0.25"
+tree-sitter-typescript = "0.23"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1"

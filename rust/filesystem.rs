@@ -1,4 +1,4 @@
-use crate::model::Settings;
+use crate::model::{Language, Settings};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::{self, File, Metadata, Permissions};
@@ -28,11 +28,7 @@ fn walk(root: &Path, candidates: &mut Vec<PathBuf>) -> io::Result<()> {
         }
         if metadata.is_dir() {
             walk(&path, candidates)?;
-        } else if metadata.is_file()
-            && path
-                .file_name()
-                .is_some_and(|name| name.to_string_lossy().ends_with(".py"))
-        {
+        } else if metadata.is_file() && Language::from_path(&path).is_some() {
             candidates.push(path);
         }
     }
@@ -75,6 +71,11 @@ pub fn discover(settings: &Settings) -> Result<Vec<PathBuf>, String> {
             return Err(format!("Invalid path: {}", path.display()));
         }
         for candidate in candidates {
+            if Language::from_path(&candidate)
+                .is_none_or(|language| !settings.languages.contains(&language))
+            {
+                continue;
+            }
             let key = absolute_key(&candidate).map_err(|error| error.to_string())?;
             if candidate.file_name().is_some_and(|name| {
                 settings
@@ -341,6 +342,7 @@ mod tests {
             license_notice: None,
             license_path: root.join("LICENSE"),
             paths: vec![root.to_path_buf()],
+            languages: vec![Language::Python],
             ignore_files: vec!["ignored.py".into()],
             ignore_folders: vec![root.join("skip")],
             project_root: root.to_path_buf(),

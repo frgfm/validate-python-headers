@@ -1,6 +1,6 @@
 name: Lint My Headers
 author: frgfm
-description: Lint Python legal headers and conservatively refresh recognized copyright years
+description: Lint source legal headers and conservatively refresh recognized copyright years
 branding:
   icon: check-square
   color: blue
@@ -11,32 +11,32 @@ inputs:
     required: false
     default: ''
   owner:
-    description: 'Name of the copyright owner; overrides pyproject.toml'
+    description: 'Name of the copyright owner; overrides project configuration'
     required: false
     default: '__from_config__'
   starting-year:
-    description: 'Earliest accepted file start year; overrides pyproject.toml'
+    description: 'Earliest accepted file start year; overrides project configuration'
     required: false
     default: '__from_config__'
   license:
     # https://spdx.org/licenses/
-    description: 'SPDX license identifier; overrides pyproject.toml'
+    description: 'SPDX license identifier; overrides project configuration'
     required: false
     default: '__from_config__'
   folders:
-    description: 'Folders to inspect; overrides pyproject.toml'
+    description: 'Folders to inspect; overrides project configuration'
     required: false
     default: '__from_config__'
   ignore-files:
-    description: 'Files to ignore; overrides pyproject.toml'
+    description: 'Files to ignore; overrides project configuration'
     required: false
     default: '__from_config__'
   ignore-folders:
-    description: 'Folders to ignore; overrides pyproject.toml'
+    description: 'Folders to ignore; overrides project configuration'
     required: false
     default: '__from_config__'
   license-notice:
-    description: 'Custom license notice; overrides pyproject.toml'
+    description: 'Custom license notice; overrides project configuration'
     required: false
     default: '__from_config__'
   mode:

@@ -1,10 +1,10 @@
 # Lint My Headers
 
-A Rust CLI that checks Python copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
+A Rust CLI that checks Python, JavaScript, and TypeScript copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
-Install a published release, or build this checkout with Rust 1.93:
+Install a published release, or build this checkout with Rust 1.93 and a C compiler. Multilingual support requires this checkout until a release includes it:
 
 ```shell
 uv tool install lint-my-headers
@@ -12,15 +12,15 @@ uv tool install lint-my-headers
 cargo build --release --locked
 ```
 
-PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust. Python 3.11+ is needed only for PyPI tooling and the optional launchers. `python -m lint_my_headers` replaces Python with the native process on Unix; Windows starts a child process. The callable `main(argv)` always returns the child's exit code. Checking and fixing run entirely in Rust.
+PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust and a C compiler for the bundled Tree-sitter grammars. Python 3.11+ is needed only for PyPI tooling and the optional launchers. `python -m lint_my_headers` replaces Python with the native process on Unix; Windows starts a child process. The callable `main(argv)` always returns the child's exit code. No Node.js runtime is needed.
 
-Declare the policy in `pyproject.toml`:
+Declare the policy in `.lmh.toml`:
 
 ```toml
-[tool.lint-my-headers]
 owner = "Example Organization"
 starting-year = 2024
 license = "Apache-2.0"
+languages = ["python", "javascript", "typescript"]
 paths = ["src", "tests"]
 ignore-files = ["version.py"]
 ignore-folders = ["src/generated"]
@@ -30,6 +30,7 @@ ignore-folders = ["src/generated"]
 lmh check                              # Read-only; configured paths
 lmh check src/package tests/test_api.py # Explicit paths
 lmh fix                                # Safe stale-year repairs only
+lmh check --languages typescript       # Override the configured language list
 lmh --version
 lmh check --help
 ```
@@ -43,6 +44,8 @@ A valid header in 2026:
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 ```
 
+JavaScript and TypeScript use the exact same text and blank lines with `//` in place of `#`. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
+
 Diagnostics name the location, reason, and repair eligibility:
 
 ```text
@@ -53,7 +56,9 @@ Exit codes: **0** clean, **1** unresolved findings, **2** invocation/configurati
 
 ## Configuration and safety
 
-CLI policy options override configuration; `--config` selects another `pyproject.toml`. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
+CLI policy options override configuration; `--config` selects an exact file. Otherwise discovery searches upward from the invocation directory, choosing the nearest applicable configuration. In each directory, priority is `.lmh.toml`, `pyproject.toml`, `Cargo.toml`, then `package.json`. Manifests without LMH settings are skipped. Invalid configurations fail; configurations are never merged.
+
+Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.toml`, `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]` in `Cargo.toml` (package settings take precedence), or a `"lint-my-headers"` object in `package.json`. The same keys and explicit policy apply in every container. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
 
 | Key / CLI option | Meaning and default |
 | --- | --- |
@@ -62,12 +67,17 @@ CLI policy options override configuration; `--config` selects another `pyproject
 | `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
 | `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
 | `paths` / positional paths | Selected files or directories; default `.`. |
+| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`; default `["python"]`. CLI values are comma-separated and replace the configured list. |
 | `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
 | `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
 CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
+Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants. Other files are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, and `.build`. Unknown language names and empty language lists fail.
+
 Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
+
+JavaScript/TypeScript support UTF-8 and `//` headers, preserving BOMs, shebangs, CRLF, and the body. Tree-sitter distinguishes real comments from strings, templates, regex literals, and JSX. Parse errors and copyright-bearing block comments fail closed. Preambles require a blank separator; bare CR headers are refused.
 
 Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
@@ -76,6 +86,8 @@ The bundled SPDX snapshot is v3.28.0. All previously accepted v3.17 names/URLs r
 ## Agents and JSON
 
 Use `lmh check --output-format json`. Successfully parsed JSON-mode commands write only JSON to stdout; malformed CLI syntax remains a stderr usage error.
+
+The schema remains version 1. `expected_header` uses the first enabled language's comment marker; its text and blank lines are shared across all languages.
 
 ```json
 {
@@ -135,7 +147,8 @@ repos:
         name: Lint My Headers
         entry: lmh check
         language: python
-        types: [python]
+        types: [file]
+        files: '\.(py|js|jsx|mjs|cjs|ts|tsx|mts|cts)$'
         additional_dependencies:
           - --only-binary=lint-my-headers
           - lint-my-headers==0.6.0

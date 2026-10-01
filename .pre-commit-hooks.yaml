@@ -1,7 +1,8 @@
 - id: lmh
   name: lmh
-  description: Check copyright and license headers in Python source files.
+  description: Check copyright and license headers in Python, JavaScript, and TypeScript source files.
   entry: lmh check
   language: rust
   language_version: "1.93.0"
-  types: [python]
+  types: [file]
+  files: '\.(py|js|jsx|mjs|cjs|ts|tsx|mts|cts)$'
