@@ -7,6 +7,7 @@ pub enum Language {
     Javascript,
     Typescript,
     Rust,
+    Go,
 }
 
 impl Language {
@@ -17,6 +18,7 @@ impl Language {
             "js" | "jsx" | "mjs" | "cjs" => Some(Self::Javascript),
             "ts" | "tsx" | "mts" | "cts" => Some(Self::Typescript),
             "rs" => Some(Self::Rust),
+            "go" => Some(Self::Go),
             _ => None,
         }
     }
@@ -24,7 +26,7 @@ impl Language {
     pub fn comment(self) -> &'static str {
         match self {
             Self::Python => "#",
-            Self::Javascript | Self::Typescript | Self::Rust => "//",
+            Self::Javascript | Self::Typescript | Self::Rust | Self::Go => "//",
         }
     }
 }

@@ -161,8 +161,15 @@ fn write_action_outputs(result: &CommandResult) -> io::Result<()> {
     };
     issues.sort_unstable();
     issues.dedup();
-    writeln!(file, "issues={}", serde_json::to_string(&issues)?)?;
-    writeln!(file, "changed={}", serde_json::to_string(&result.changed)?)
+    // Hook runners may launch several CLI processes sharing the same output file.
+    file.write_all(
+        format!(
+            "issues={}\nchanged={}\n",
+            serde_json::to_string(&issues)?,
+            serde_json::to_string(&result.changed)?
+        )
+        .as_bytes(),
+    )
 }
 
 fn render(result: &CommandResult, format: OutputFormat) -> io::Result<()> {

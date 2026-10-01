@@ -1,6 +1,10 @@
 use chrono::{Datelike, Local};
 use serde_json::{Value, json};
-use std::{fs, path::Path, process::Command};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Stdio},
+};
 use tempfile::{TempDir, tempdir};
 
 const OWNER: &str = "Example Owner";
@@ -56,6 +60,53 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
     let output = run(root, &args, exit);
     assert!(output.stderr.is_empty(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()
+}
+
+#[test]
+fn go_files_use_standalone_policy_and_include_tests_and_platform_variants() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::remove_file(root.join("pyproject.toml")).unwrap();
+    write(root, "go.mod", "module example.com/project\n\ngo 1.22\n");
+    let config = CONFIG.strip_prefix("[tool.lint-my-headers]\n").unwrap();
+    write(root, ".lmh.toml", format!("{config}languages = ['go']\n"));
+    let original = header(year() - 2)
+        .replace("# ", "// ")
+        .replace("value = 'café'", "package example\nconst value = \"café\"");
+    for name in ["main.go", "main_test.go", "main_windows.go"] {
+        write(root, &format!("src/{name}"), &original);
+    }
+    write(root, "src/example.py", header(year()));
+    let checked = json_run(root, &["check"], 1);
+    assert_eq!(checked["config_path"], ".lmh.toml");
+    assert_eq!(checked["checked"], 3);
+    assert_eq!(
+        fs::read_to_string(root.join("src/main.go")).unwrap(),
+        original
+    );
+    let fixed = json_run(root, &["fix"], 0);
+    assert_eq!(fixed["changed"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        fs::read_to_string(root.join("src/main.go")).unwrap(),
+        original.replacen(
+            &(year() - 2).to_string(),
+            &format!("{}-{}", year() - 2, year()),
+            1
+        )
+    );
+    assert_eq!(json_run(root, &["fix"], 0)["changed"], json!([]));
+    assert_eq!(
+        json_run(root, &["check", "--languages", "python", "src/main.go"], 0)["checked"],
+        0
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &["check", "--ignore-files", "main.go", "src/main.go"],
+            0
+        )["checked"],
+        0
+    );
 }
 
 #[test]
@@ -417,6 +468,35 @@ fn check_json_is_ordered_complete_and_read_only() {
             .modified()
             .unwrap(),
         before
+    );
+}
+
+#[test]
+fn concurrent_hook_processes_append_complete_action_output_records() {
+    let dir = workspace();
+    let root = dir.path();
+    write(root, "src/clean.py", header(year()));
+    let output_path = root.join("github-output.txt");
+    let children: Vec<_> = (0..32)
+        .map(|_| {
+            Command::new(env!("CARGO_BIN_EXE_lmh"))
+                .current_dir(root)
+                .env("PATH", "")
+                .env("GITHUB_OUTPUT", &output_path)
+                .args(["check", "--output-format", "json"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap()
+        })
+        .collect();
+    for child in children {
+        let result = child.wait_with_output().unwrap();
+        assert!(result.status.success(), "{result:?}");
+    }
+    assert_eq!(
+        fs::read_to_string(output_path).unwrap(),
+        "issues=[]\nchanged=[]\n".repeat(32)
     );
 }
 
