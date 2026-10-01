@@ -1,6 +1,6 @@
 ---
 name: lint-my-headers
-description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python, JavaScript, and TypeScript repositories. Use when a user wants to check or fix copyright or license headers, configure LMH policy, install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage unsupported languages.
+description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python, JavaScript, TypeScript, and Rust repositories. Use when a user wants to check or fix copyright or license headers, configure LMH policy, install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage unsupported languages.
 license: Apache-2.0
 compatibility: Requires lmh with JSON schema version 1; multilingual support requires --languages. PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
 ---
@@ -40,7 +40,7 @@ Use `--config` when given; otherwise search upward from the invocation directory
 - one exact `owner`;
 - one integer `starting-year`;
 - exactly one `license` or `license-notice`;
-- optional paths, exclusions, and a `languages` allowlist (`python`, `javascript`, `typescript`; default Python only).
+- optional paths, exclusions, and a `languages` allowlist (`python`, `javascript`, `typescript`, `rust`; default Python only).
 
 If a required value is missing, conflicting, or legally ambiguous, show the evidence and ask for that decision. Do not write configuration yet unless the user asked for setup or modification.
 
@@ -82,7 +82,7 @@ After `fix`:
 
 ### 5. Configure integrations only when requested
 
-- Put policy in one supported project configuration; do not duplicate it in each integration. Header wording and blank lines are shared; Python uses `#`, JavaScript/TypeScript use `//`. Prefer plain-text custom license notices.
+- Put policy in one supported project configuration; do not duplicate it in each integration. Header wording and blank lines are shared; Python uses `#`, JavaScript/TypeScript/Rust use `//`. Prefer plain-text custom license notices. Rust packages may use `[package.metadata.lint-my-headers]` and virtual workspaces `[workspace.metadata.lint-my-headers]` in `Cargo.toml`, with `languages = ["rust"]`.
 - Prefer the README's wheel-only local `lmh` hook with an exact verified PyPI version. The first-party Rust hook is for source checkouts. Use explicit placeholders when publication cannot be verified without unauthorized network access.
 - Give pull-request checks read-only `contents` permission.
 - Treat annual year refresh as an optional project convention. Use a deterministic review branch and pull request, never a direct default-branch write.

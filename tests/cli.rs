@@ -59,6 +59,72 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 }
 
 #[test]
+fn rust_check_and_fix_use_cargo_package_or_workspace_policy() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::remove_file(root.join("pyproject.toml")).unwrap();
+    let original = header(year() - 2)
+        .replace("# ", "// ")
+        .replace("value = 'café'", "const VALUE: &str = \"café\";");
+    write(root, "src/example.py", header(year()));
+    let table = CONFIG.strip_prefix("[tool.lint-my-headers]\n").unwrap();
+    for section in ["package.metadata", "workspace.metadata"] {
+        let manifest = if section == "package.metadata" {
+            "[package]\nname = 'example'\nversion = '0.1.0'\nedition = '2024'\n"
+        } else {
+            "[workspace]\nmembers = []\n"
+        };
+        write(
+            root,
+            "Cargo.toml",
+            format!("{manifest}[{section}.lint-my-headers]\n{table}languages = ['rust']\n"),
+        );
+        write(root, "src/lib.rs", &original);
+        let checked = json_run(root, &["check"], 1);
+        assert_eq!(checked["config_path"], "Cargo.toml");
+        assert_eq!(checked["checked"], 1);
+        assert_eq!(checked["diagnostics"][0]["code"], "LMH004");
+        assert!(
+            checked["expected_header"]
+                .as_str()
+                .unwrap()
+                .starts_with("// Copyright")
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
+            original
+        );
+        assert_eq!(
+            json_run(root, &["fix"], 0)["changed"],
+            json!(["src/lib.rs"])
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
+            original.replacen(
+                &(year() - 2).to_string(),
+                &format!("{}-{}", year() - 2, year()),
+                1
+            )
+        );
+        assert_eq!(json_run(root, &["fix"], 0)["changed"], json!([]));
+        assert_eq!(
+            json_run(root, &["check", "--languages", "python", "src/lib.rs"], 0)["checked"],
+            0
+        );
+    }
+    write(
+        root,
+        ".lmh.toml",
+        format!("{table}languages = ['python']\n"),
+    );
+    assert_eq!(json_run(root, &["check"], 0)["config_path"], ".lmh.toml");
+    assert_eq!(
+        json_run(root, &["check", "--config", "Cargo.toml"], 0)["checked"],
+        1
+    );
+}
+
+#[test]
 fn language_selection_and_shared_notices_work_for_every_extension() {
     let dir = workspace();
     let root = dir.path();

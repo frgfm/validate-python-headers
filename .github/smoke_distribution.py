@@ -84,7 +84,7 @@ def main() -> int:
             """owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript"]
+languages = ["python", "javascript", "typescript", "rust"]
 paths = ["src"]
 ignore-files = []
 ignore-folders = []
@@ -92,16 +92,17 @@ ignore-folders = []
             encoding="utf-8",
         )
         year = datetime.now().year
-        for checked, (extension, marker) in enumerate((("py", "#"), ("js", "//"), ("tsx", "//")), 1):
+        for checked, (extension, marker) in enumerate((("py", "#"), ("js", "//"), ("tsx", "//"), ("rs", "//")), 1):
             source = root / f"src/example.{extension}"
             source.parent.mkdir(exist_ok=True)
+            body = "const VALUE: i32 = 1;" if extension == "rs" else "value = 1"
             source.write_text(
                 f"""{marker} Copyright (C) {year}, Example Owner.
 
 {marker} This program is licensed under the Apache License 2.0.
 {marker} See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
-value = 1
+{body}
 """,
                 encoding="utf-8",
             )

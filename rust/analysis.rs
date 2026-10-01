@@ -227,9 +227,18 @@ fn decode_source(raw: &[u8]) -> Result<String, String> {
         .collect())
 }
 
-fn preamble(lines: &[&str], python: bool) -> (usize, bool) {
-    let shebang = usize::from(lines.first().is_some_and(|line| line.starts_with("#!")));
-    let cookie_end = if !python {
+fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
+    let shebang = usize::from(lines.first().is_some_and(|line| {
+        let Some(tail) = line.strip_prefix("#!") else {
+            return false;
+        };
+        // ponytail: refuse comment-prefixed Rust #! forms; tokenize if those scripts are needed.
+        language != Language::Rust
+            || !["[", "//", "/*"]
+                .iter()
+                .any(|prefix| tail.trim_start().starts_with(prefix))
+    }));
+    let cookie_end = if language != Language::Python {
         0
     } else if lines.first().is_some_and(|line| CODING.is_match(line)) {
         1
@@ -279,6 +288,7 @@ fn copyright_comments(
         let grammar = match language {
             Language::Javascript => tree_sitter_javascript::LANGUAGE,
             Language::Typescript if path.ends_with(".tsx") => tree_sitter_typescript::LANGUAGE_TSX,
+            Language::Rust => tree_sitter_rust::LANGUAGE,
             _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
         };
         let mut parser = tree_sitter::Parser::new();
@@ -289,9 +299,16 @@ fn copyright_comments(
         let mut cursor = tree.walk();
         loop {
             let node = cursor.node();
-            if node.kind() == "comment" {
+            if matches!(node.kind(), "comment" | "line_comment" | "block_comment") {
                 let comment = &source[node.byte_range()];
                 if comment.starts_with("// Copyright")
+                    || (language == Language::Rust
+                        && comment.starts_with("//")
+                        && comment
+                            .trim_start_matches('/')
+                            .trim_start_matches('!')
+                            .trim_start()
+                            .starts_with("Copyright"))
                     || (comment.starts_with("/*") && comment.contains("Copyright"))
                 {
                     comments.push((
@@ -381,7 +398,7 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
         });
     let source = normalize_newlines(&source);
     let lines: Vec<&str> = source.split_inclusive('\n').collect();
-    let (header_index, separator_valid) = preamble(&lines, language == Language::Python);
+    let (header_index, separator_valid) = preamble(&lines, language);
     let (comments, ambiguous_tail) = copyright_comments(&source, language, display_path);
     let matches: Vec<_> = comments
         .iter()
@@ -548,6 +565,76 @@ mod tests {
 
     fn inspect(source: impl AsRef<[u8]>) -> ContentAnalysis {
         analyze(source.as_ref(), &policy(), "x.py")
+    }
+
+    #[test]
+    fn rust_comments_literals_attributes_and_byte_preserving_repairs() {
+        let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
+        for body in [
+            "#![allow(dead_code)]\nconst VALUE: &str = \"café\";\n",
+            "const VALUE: &str = r###\"\n// Copyright (C) 2024, Other.\n\"###;\n",
+            "const VALUE: &[u8] = br##\"// Copyright (C) 2024, Other.\"##;\n",
+            "const VALUE: &std::ffi::CStr = c\"// Copyright (C) 2024, Other.\";\n",
+            "const VALUE: &std::ffi::CStr = cr#\"// Copyright (C) 2024, Other.\"#;\n",
+            "#[doc = \"// Copyright (C) 2024, Other.\"]\nfn example() {}\n",
+            "fn borrow<'a>(value: &'a str) -> &'a str { let slash = '/'; value }\n",
+            "/* outer /* nested */ comment */\nfn main() {}\n",
+            "macro_rules! value { ($v:expr) => { $v }; }\nfn main() { value!(\"// Copyright (C) 2024, Other.\"); }\n",
+        ] {
+            for preamble in ["", "#!/usr/bin/env rust-script\n\n"] {
+                let raw = format!("\u{feff}{preamble}{header}{body}").replace('\n', "\r\n");
+                let fixed = analyze(raw.as_bytes(), &policy(), "x.rs")
+                    .replacement
+                    .unwrap();
+                assert_eq!(
+                    fixed,
+                    raw.replacen("2024", "2024-2030", 1).as_bytes(),
+                    "{body}"
+                );
+                assert!(analyze(&fixed, &policy(), "x.rs").diagnostic.is_none());
+            }
+        }
+        for body in [
+            "// Copyright (C) 2024, Other.\nfn main() {}\n",
+            "/* outer /* Copyright (C) 2024, Other. */ comment */\nfn main() {}\n",
+            "//! Copyright (C) 2024, Other.\nfn main() {}\n",
+            "/// Copyright (C) 2024, Other.\nfn main() {}\n",
+            "macro_rules! value { () => { // Copyright (C) 2024, Other.\n1 }; }\n",
+            "const VALUE: &str = r##\"unterminated;\n",
+        ] {
+            let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.rs");
+            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
+            assert!(result.replacement.is_none());
+        }
+        for attribute in [
+            "#![allow(dead_code)]",
+            "#! [allow(dead_code)]",
+            "#!/* comment */[allow(dead_code)]",
+        ] {
+            let raw = format!("{attribute}\n\n{header}fn main() {{}}\n");
+            assert_eq!(
+                analyze(raw.as_bytes(), &policy(), "x.rs")
+                    .diagnostic
+                    .unwrap()
+                    .code,
+                "LMH006"
+            );
+        }
+        assert_eq!(
+            analyze(b"\xff", &policy(), "x.rs").diagnostic.unwrap().code,
+            "LMH007"
+        );
+        assert_eq!(
+            analyze(
+                b"const EXAMPLE: &str = \"// Copyright (C) 2030, Example Owner.\";",
+                &policy(),
+                "x.rs"
+            )
+            .diagnostic
+            .unwrap()
+            .code,
+            "LMH001"
+        );
     }
 
     #[test]

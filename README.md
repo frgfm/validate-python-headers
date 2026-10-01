@@ -1,6 +1,6 @@
 # Lint My Headers
 
-A Rust CLI that checks Python, JavaScript, and TypeScript copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
+A Rust CLI that checks Python, JavaScript, TypeScript, and Rust copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
@@ -20,7 +20,7 @@ Declare the policy in `.lmh.toml`:
 owner = "Example Organization"
 starting-year = 2024
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript"]
+languages = ["python", "javascript", "typescript", "rust"]
 paths = ["src", "tests"]
 ignore-files = ["version.py"]
 ignore-folders = ["src/generated"]
@@ -44,7 +44,7 @@ A valid header in 2026:
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 ```
 
-JavaScript and TypeScript use the exact same text and blank lines with `//` in place of `#`. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
+JavaScript, TypeScript, and Rust use the exact same text and blank lines with `//` in place of `#`. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
 
 Diagnostics name the location, reason, and repair eligibility:
 
@@ -67,17 +67,33 @@ Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.to
 | `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
 | `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
 | `paths` / positional paths | Selected files or directories; default `.`. |
-| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`; default `["python"]`. CLI values are comma-separated and replace the configured list. |
+| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`; default `["python"]`. CLI values are comma-separated and replace the configured list. |
 | `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
 | `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
 CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
-Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
+Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
 
 Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
 JavaScript/TypeScript support UTF-8 and `//` headers, preserving BOMs, shebangs, CRLF, and the body. Tree-sitter distinguishes real comments from strings, templates, regex literals, and JSX. Parse errors and copyright-bearing block comments fail closed. A shebang must be followed by a blank line before the header; bare CR headers are refused.
+
+Rust uses the same UTF-8, BOM, newline, and year-only repair rules. Its grammar distinguishes comments from raw/byte strings, character literals, lifetimes, macros, and nested block comments. Use ordinary `//` headers; copyright-bearing block/doc comments and parse errors refuse repair. Crate attributes such as `#![allow(...)]` belong after the header. Shebangs require a blank separator; ambiguous comment-prefixed `#!` forms are refused.
+
+For a Rust package, put the policy in `Cargo.toml`:
+
+```toml
+[package.metadata.lint-my-headers]
+owner = "Example Organization"
+starting-year = 2024
+license = "Apache-2.0"
+languages = ["rust"]
+paths = ["src", "tests"]
+ignore-folders = ["target"]
+```
+
+For a virtual workspace, use `[workspace.metadata.lint-my-headers]` instead, with paths relative to the workspace manifest. Run `lmh check` or `lmh fix`; `--config Cargo.toml` selects that policy explicitly when a higher-priority configuration is present. Package metadata takes precedence over workspace metadata in the same manifest; policy is never inferred from Cargo's package author/license fields.
 
 Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
@@ -270,7 +286,7 @@ jobs:
             --body "Annual refresh of recognized Python copyright years using the declared header policy."
 ```
 
-The external UV environment keeps installed dependency files outside the scan and PR. Repairs follow `[tool.lint-my-headers]` paths/exclusions and update only recognized stale years for its declared owner in supported Python files. They preserve creation years and all other bytes/modes. Missing, ambiguous, unsafe, or wrong-owner notices require manual review; a failed repair stops before any branch or PR is published. To cover more Python source files, extend the declared paths while preserving generated/vendor exclusions; other source languages are unsupported.
+The external UV environment keeps installed dependency files outside the scan and PR. Repairs follow `[tool.lint-my-headers]` paths/exclusions and update only recognized stale years for its declared owner in supported Python files. They preserve creation years and all other bytes/modes. Missing, ambiguous, unsafe, or wrong-owner notices require manual review; a failed repair stops before any branch or PR is published. To cover more Python source files, extend the declared paths while preserving generated/vendor exclusions. This annual workflow stages Python changes only.
 
 Each year gets one `automation/update-copyright-years-YYYY` branch. Existing PRs, including closed PRs, are left untouched; reopen the existing PR if it was closed by mistake. If a push succeeded but PR creation failed, rerunning resumes PR creation from that branch without overwriting it. If repairs make no changes and no annual branch already exists, no PR is created. Only tracked Python changes are committed; generated untracked files are excluded. Pushes never target the default branch or force-update an existing branch.
 
