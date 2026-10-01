@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "lint-my-headers"
-version = "0.6.0rc1"
+version = "0.6.0"
 description = "Agent-ready license-header linting for source code, starting with Python"
 requires-python = ">=3.11,<4.0"
 license = "Apache-2.0"
