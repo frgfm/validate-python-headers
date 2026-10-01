@@ -63,7 +63,10 @@ pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResu
         .map(|p| display_path(p, &settings.project_root));
     let outcome: Result<(), (String, Option<String>)> = (|| {
         let policy = analysis::build_policy(settings, current_year).map_err(|e| (e, None))?;
-        result.expected_header = Some(policy.expected_header.clone());
+        result.expected_header = Some(analysis::render_header(
+            &policy.expected_header,
+            settings.languages[0],
+        ));
         let mut paths = filesystem::discover(settings).map_err(|e| (e, None))?;
         paths.sort_by_key(|p| display_path(p, &settings.project_root));
         let read = |path: &Path| {

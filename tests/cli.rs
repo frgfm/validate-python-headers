@@ -59,6 +59,206 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 }
 
 #[test]
+fn language_selection_and_shared_notices_work_for_every_extension() {
+    let dir = workspace();
+    let root = dir.path();
+    write(root, "notice.txt", "Proprietary.\n\nAll rights reserved.\n");
+    let extensions = [
+        "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "d.ts", "d.mts", "d.cts",
+    ];
+    let original = source(
+        year() - 2,
+        OWNER,
+        "# Proprietary.\n\n# All rights reserved.\n",
+    );
+    write(root, "src/example.py", &original);
+    for extension in extensions {
+        write(
+            root,
+            &format!("src/example.{extension}"),
+            original.replace("# ", "// "),
+        );
+    }
+    write(root, "src/unsupported.rs", "unrecognized source\n");
+    assert_eq!(
+        json_run(root, &["check", "--license-notice", "notice.txt"], 1)["checked"],
+        1
+    );
+    let args = [
+        "--languages",
+        "python,javascript,typescript",
+        "--license-notice",
+        "notice.txt",
+    ];
+    let checked = json_run(root, &[&["check"], &args[..]].concat(), 1);
+    assert_eq!(checked["checked"], extensions.len() + 1);
+    assert_eq!(
+        fs::read_to_string(root.join("src/example.ts")).unwrap(),
+        original.replace("# ", "// ")
+    );
+    let fixed = json_run(root, &[&["fix"], &args[..]].concat(), 0);
+    assert_eq!(
+        fixed["changed"].as_array().unwrap().len(),
+        extensions.len() + 1
+    );
+    for extension in extensions {
+        assert_eq!(
+            fs::read_to_string(root.join(format!("src/example.{extension}"))).unwrap(),
+            original.replace("# ", "// ").replacen(
+                &(year() - 2).to_string(),
+                &format!("{}-{}", year() - 2, year()),
+                1
+            )
+        );
+    }
+    assert_eq!(
+        json_run(root, &[&["fix"], &args[..]].concat(), 0)["changed"],
+        json!([])
+    );
+    assert_eq!(
+        json_run(root, &["check", "src/example.ts", "src/unsupported.rs"], 0)["checked"],
+        0
+    );
+    let selected = json_run(
+        root,
+        &[
+            "check",
+            "--languages",
+            "typescript",
+            "--license-notice",
+            "notice.txt",
+            "src/example.ts",
+        ],
+        0,
+    );
+    assert!(
+        selected["expected_header"]
+            .as_str()
+            .unwrap()
+            .starts_with("// Copyright")
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &[
+                "check",
+                "--languages",
+                "typescript",
+                "--license-notice",
+                "notice.txt",
+                "--ignore-files",
+                "example.ts",
+                "src/example.ts"
+            ],
+            0
+        )["checked"],
+        0
+    );
+}
+
+#[test]
+fn project_configuration_fallbacks_precedence_and_explicit_selection() {
+    let dir = workspace();
+    let root = dir.path();
+    write(root, "src/example.ts", header(year()).replace("# ", "// "));
+    let table = CONFIG.strip_prefix("[tool.lint-my-headers]\n").unwrap();
+    let configs = [
+        (".lmh.toml", format!("{table}languages = ['typescript']\n")),
+        (
+            "pyproject.toml",
+            format!("{CONFIG}languages = ['typescript']\n"),
+        ),
+        (
+            "Cargo.toml",
+            format!("[workspace.metadata.lint-my-headers]\n{table}languages = ['typescript']\n"),
+        ),
+        (
+            "package.json",
+            json!({"name": "example", "lint-my-headers": {
+                "owner": OWNER, "starting-year": 2022, "license": "Apache-2.0",
+                "paths": ["src"], "languages": ["typescript"]
+            }})
+            .to_string(),
+        ),
+    ];
+    for (name, contents) in &configs {
+        write(root, name, contents);
+    }
+    fs::create_dir(root.join("nested")).unwrap();
+    assert_eq!(
+        json_run(root, &["check", "--config", "package.json"], 0)["config_path"],
+        "package.json"
+    );
+    for (name, _) in &configs {
+        let result = json_run(&root.join("nested"), &["check"], 0);
+        assert_eq!(result["config_path"], *name);
+        assert_eq!(result["checked"], 1);
+        fs::remove_file(root.join(name)).unwrap();
+    }
+    write(
+        root,
+        "Cargo.toml",
+        configs[2]
+            .1
+            .replace("workspace.metadata", "package.metadata"),
+    );
+    write(root, "pyproject.toml", "[project]\nname = 'unrelated'\n");
+    assert_eq!(json_run(root, &["check"], 0)["config_path"], "Cargo.toml");
+    write(root, ".lmh.toml", &configs[0].1);
+    write(root, "nested/LICENSE", "Apache-2.0\n");
+    write(
+        root,
+        "nested/package.json",
+        configs[3].1.replace("\"src\"", "\"../src\""),
+    );
+    assert_eq!(
+        json_run(&root.join("nested"), &["check"], 0)["config_path"],
+        "package.json"
+    );
+    write(root, "nested/.lmh.toml", "languages = []\n");
+    assert_eq!(
+        json_run(&root.join("nested"), &["fix"], 2)["changed"],
+        json!([])
+    );
+    for invalid in [
+        "lint-my-headers = null",
+        "{\"lint-my-headers\": []}",
+        "{\"lint-my-headers\": {\"languages\": [\"typo\"]}}",
+    ] {
+        write(root, "package.json", invalid);
+        assert_eq!(
+            json_run(root, &["fix", "--config", "package.json"], 2)["changed"],
+            json!([])
+        );
+    }
+    write(root, "custom.toml", "[tool.ruff]\nline-length = 100\n");
+    let result = json_run(
+        root,
+        &[
+            "check",
+            "--config",
+            "custom.toml",
+            "--owner",
+            OWNER,
+            "--starting-year",
+            "2022",
+            "--license",
+            "Apache-2.0",
+            "--languages",
+            "typescript",
+            "src/example.ts",
+        ],
+        0,
+    );
+    assert_eq!(result["checked"], 1);
+    write(root, "custom.toml", &configs[1].1);
+    assert_eq!(
+        json_run(root, &["check", "--config", "custom.toml"], 0)["checked"],
+        1
+    );
+}
+
+#[test]
 fn native_commands_help_version_and_legacy_names() {
     let dir = workspace();
     let root = dir.path();
@@ -448,6 +648,9 @@ fn invalid_config_is_rejected_before_any_write() {
         ("paths", "[]"),
         ("paths", "['']"),
         ("paths", "'src'"),
+        ("languages", "[]"),
+        ("languages", "['typo']"),
+        ("languages", "'typescript'"),
         ("ignore-files", "[42]"),
         ("ignore-folders", "true"),
         ("unknown-key", "true"),

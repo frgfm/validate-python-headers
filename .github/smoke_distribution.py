@@ -80,44 +80,45 @@ def main() -> int:
     with TemporaryDirectory() as temporary_directory:
         root = Path(temporary_directory)
         root.joinpath("LICENSE").write_text("Apache-2.0\n", encoding="utf-8")
-        root.joinpath("pyproject.toml").write_text(
-            """[tool.lint-my-headers]
-owner = "Example Owner"
+        root.joinpath(".lmh.toml").write_text(
+            """owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
+languages = ["python", "javascript", "typescript"]
 paths = ["src"]
 ignore-files = []
 ignore-folders = []
 """,
             encoding="utf-8",
         )
-        source = root / "src/example.py"
-        source.parent.mkdir()
         year = datetime.now().year
-        source.write_text(
-            f"""# Copyright (C) {year}, Example Owner.
+        for checked, (extension, marker) in enumerate((("py", "#"), ("js", "//"), ("tsx", "//")), 1):
+            source = root / f"src/example.{extension}"
+            source.parent.mkdir(exist_ok=True)
+            source.write_text(
+                f"""{marker} Copyright (C) {year}, Example Owner.
 
-# This program is licensed under the Apache License 2.0.
-# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
+{marker} This program is licensed under the Apache License 2.0.
+{marker} See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 
 value = 1
 """,
-            encoding="utf-8",
-        )
-        result = run([require_command("lmh"), "check", "--output-format", "json"], root)
-        if result.returncode != 0:
-            fail(f"Installed check failed: {result.stdout}{result.stderr}")
-        payload = json.loads(result.stdout)
-        if payload["checked"] != 1 or payload["diagnostics"] or payload["error"] is not None:
-            fail(f"Unexpected installed check result: {payload}")
-        stale = source.read_bytes().replace(str(year).encode(), str(year - 1).encode(), 1)
-        source.write_bytes(stale)
-        result = run([require_command("lmh"), "fix", "--output-format", "json"], root)
-        if result.returncode != 0 or json.loads(result.stdout)["changed"] != ["src/example.py"]:
-            fail(f"Installed fix failed: {result.stdout}{result.stderr}")
-        repaired = stale.replace(str(year - 1).encode(), f"{year - 1}-{year}".encode(), 1)
-        if source.read_bytes() != repaired:
-            fail("Installed fix changed unexpected bytes")
+                encoding="utf-8",
+            )
+            result = run([require_command("lmh"), "check", "--output-format", "json"], root)
+            if result.returncode != 0:
+                fail(f"Installed check failed: {result.stdout}{result.stderr}")
+            payload = json.loads(result.stdout)
+            if (payload["checked"], payload["diagnostics"], payload["error"]) != (checked, [], None):
+                fail(f"Unexpected installed check result: {payload}")
+            stale = source.read_bytes().replace(str(year).encode(), str(year - 1).encode(), 1)
+            source.write_bytes(stale)
+            result = run([require_command("lmh"), "fix", "--output-format", "json"], root)
+            if result.returncode != 0 or json.loads(result.stdout)["changed"] != [f"src/example.{extension}"]:
+                fail(f"Installed fix failed: {result.stdout}{result.stderr}")
+            repaired = stale.replace(str(year - 1).encode(), f"{year - 1}-{year}".encode(), 1)
+            if source.read_bytes() != repaired:
+                fail("Installed fix changed unexpected bytes")
 
     sys.stdout.write(f"Distribution smoke passed for {PACKAGE} {expected}.\n")
     return 0

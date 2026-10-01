@@ -1,8 +1,8 @@
 ---
 name: lint-my-headers
-description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python repositories. Use whenever a user wants to check or fix Python copyright or license headers, add [tool.lint-my-headers], install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage non-Python headers.
+description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python, JavaScript, and TypeScript repositories. Use when a user wants to check or fix copyright or license headers, configure LMH policy, install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage unsupported languages.
 license: Apache-2.0
-compatibility: Requires the lmh 0.6.x Rust executable; PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
+compatibility: Requires lmh with JSON schema version 1; multilingual support requires --languages. PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
 ---
 
 # Lint My Headers
@@ -22,7 +22,7 @@ Use `lmh` as the deterministic implementation. Your job is to establish explicit
 
 ### 1. Ground in the repository
 
-Read repository instructions, locate the repository root and nearest `pyproject.toml`, and inspect the existing working-tree state. Preserve unrelated changes.
+Read repository instructions, locate the repository root and nearest applicable configuration, and inspect the existing working-tree state. Preserve unrelated changes.
 
 Probe the installed contract:
 
@@ -31,16 +31,16 @@ lmh --version
 lmh check --help
 ```
 
-The workflow in this skill requires lmh 0.6.x and JSON schema version 1. If `lmh` is missing or incompatible, explain the pinned installation command and stop unless installation was explicitly requested.
+The workflow requires JSON schema version 1. Confirm multilingual availability through `lmh check --help` (`--languages`); do not assume a published 0.6.x release includes it. If `lmh` is missing or incompatible, explain the pinned installation command and stop unless installation was explicitly requested.
 
 ### 2. Establish explicit policy
 
-Read `[tool.lint-my-headers]` from the nearest `pyproject.toml`. A runnable policy needs:
+Use `--config` when given; otherwise search upward from the invocation directory. Within each directory, priority is `.lmh.toml`, `pyproject.toml`, `Cargo.toml`, then `package.json`. Skip manifests without LMH settings; never merge configurations. Read top-level TOML, `[tool.lint-my-headers]`, package/workspace `metadata.lint-my-headers` (package first), or the `lint-my-headers` JSON object respectively. A runnable policy needs:
 
 - one exact `owner`;
 - one integer `starting-year`;
 - exactly one `license` or `license-notice`;
-- optional paths and exclusions.
+- optional paths, exclusions, and a `languages` allowlist (`python`, `javascript`, `typescript`; default Python only).
 
 If a required value is missing, conflicting, or legally ambiguous, show the evidence and ask for that decision. Do not write configuration yet unless the user asked for setup or modification.
 
@@ -60,7 +60,7 @@ Interpret the result exactly:
 - exit `1`: report each diagnostic path, code, message, and `fixable` flag;
 - exit `2`: report `error.code`, `error.message`, and `error.path`, then stop.
 
-Do not claim that a clean result proves license compatibility or legal compliance. It proves only that selected Python files match the configured header policy.
+Do not claim that a clean result proves license compatibility or legal compliance. It proves only that checked files match the configured header policy. Unsupported and disabled extensions are skipped even when explicitly supplied.
 
 ### 4. Repair only when explicitly requested
 
@@ -82,7 +82,7 @@ After `fix`:
 
 ### 5. Configure integrations only when requested
 
-- Put policy in `pyproject.toml`; do not duplicate it in each integration.
+- Put policy in one supported project configuration; do not duplicate it in each integration. Header wording and blank lines are shared; Python uses `#`, JavaScript/TypeScript use `//`. Prefer plain-text custom license notices.
 - Prefer the README's wheel-only local `lmh` hook with an exact verified PyPI version. The first-party Rust hook is for source checkouts. Use explicit placeholders when publication cannot be verified without unauthorized network access.
 - Give pull-request checks read-only `contents` permission.
 - Treat annual year refresh as an optional project convention. Use a deterministic review branch and pull request, never a direct default-branch write.

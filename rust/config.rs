@@ -1,4 +1,4 @@
-use crate::model::Settings;
+use crate::model::{Language, Settings};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::{Path, PathBuf};
 use toml::{Table, Value};
@@ -8,7 +8,7 @@ const SECTION: &str = "[tool.lint-my-headers]";
 #[derive(Parser, Debug)]
 #[command(
     name = "lmh",
-    about = "Lint Python copyright and license headers and conservatively refresh recognized years."
+    about = "Lint source copyright and license headers and conservatively refresh recognized years."
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -46,8 +46,13 @@ pub enum OutputFormat {
 
 #[derive(Args, Debug, Default)]
 pub struct Options {
-    #[arg(long, help = "Path to pyproject.toml; defaults to the nearest one")]
+    #[arg(
+        long,
+        help = "Configuration file; defaults to the nearest project configuration"
+    )]
     pub config: Option<PathBuf>,
+    #[arg(long, value_enum, value_delimiter = ',')]
+    pub languages: Option<Vec<Language>>,
     #[arg(long)]
     pub owner: Option<String>,
     #[arg(long, allow_negative_numbers = true)]
@@ -68,40 +73,82 @@ pub struct Options {
     pub paths: Vec<PathBuf>,
 }
 
-fn find_config(explicit: Option<&Path>, cwd: &Path) -> Result<Option<PathBuf>, String> {
+fn find_config(explicit: Option<&Path>, cwd: &Path) -> Result<(Option<PathBuf>, Table), String> {
     if let Some(path) = explicit {
         if !path.is_file() {
             return Err(format!("Invalid configuration path: {}", path.display()));
         }
-        return path.canonicalize().map(Some).map_err(|e| e.to_string());
+        return Ok((
+            Some(path.canonicalize().map_err(|e| e.to_string())?),
+            config_table(path)?.unwrap_or_default(),
+        ));
     }
     for parent in cwd.ancestors() {
-        let candidate = parent.join("pyproject.toml");
-        if candidate.is_file() {
-            return candidate
-                .canonicalize()
-                .map(Some)
-                .map_err(|e| e.to_string());
+        for name in [".lmh.toml", "pyproject.toml", "Cargo.toml", "package.json"] {
+            let candidate = parent.join(name);
+            if candidate.is_file()
+                && let Some(table) = config_table(&candidate)?
+            {
+                return Ok((
+                    Some(candidate.canonicalize().map_err(|e| e.to_string())?),
+                    table,
+                ));
+            }
         }
     }
-    Ok(None)
+    Ok((None, Table::new()))
 }
 
-fn config_table(path: &Path) -> Result<Table, String> {
+fn config_table(path: &Path) -> Result<Option<Table>, String> {
     let content = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let doc: Table = toml::from_str(&content).map_err(|e| e.to_string())?;
-    let Some(tool) = doc.get("tool") else {
-        return Ok(Table::new());
+    let name = path.file_name().and_then(|name| name.to_str());
+    let doc: Value = if name == Some("package.json") {
+        let doc: serde_json::Value =
+            serde_json::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+        let Some(config) = doc.get("lint-my-headers") else {
+            return Ok(None);
+        };
+        Value::try_from(config).map_err(|e| format!("{}: {e}", path.display()))?
+    } else {
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?
     };
-    let tool = tool
-        .as_table()
-        .ok_or_else(|| format!("Invalid [tool]: expected a table in {}", path.display()))?;
-    let Some(config) = tool.get("lint-my-headers") else {
-        return Ok(Table::new());
+    let (config, section) = match name {
+        Some("pyproject.toml") => (
+            doc.get("tool").and_then(|v| v.get("lint-my-headers")),
+            SECTION,
+        ),
+        Some("Cargo.toml") => (
+            doc.get("package")
+                .and_then(|v| v.get("metadata"))
+                .and_then(|v| v.get("lint-my-headers"))
+                .or_else(|| {
+                    doc.get("workspace")?
+                        .get("metadata")?
+                        .get("lint-my-headers")
+                }),
+            "metadata.lint-my-headers",
+        ),
+        Some("package.json") => (Some(&doc), "lint-my-headers"),
+        Some(".lmh.toml") => (
+            Some(
+                doc.get("tool")
+                    .and_then(|v| v.get("lint-my-headers"))
+                    .unwrap_or(&doc),
+            ),
+            "lint-my-headers",
+        ),
+        // Explicit custom TOML paths retain the existing [tool.lint-my-headers] form.
+        _ => (
+            doc.get("tool").and_then(|v| v.get("lint-my-headers")),
+            SECTION,
+        ),
+    };
+    let Some(config) = config else {
+        return Ok(None);
     };
     let config = config
         .as_table()
-        .ok_or_else(|| format!("Invalid {SECTION}: expected a table in {}", path.display()))?;
+        .ok_or_else(|| format!("Invalid {section}: expected a table in {}", path.display()))?;
     for (key, value) in config {
         let reason = match key.as_str() {
             "owner" | "license" | "license-notice" => value
@@ -112,13 +159,24 @@ fn config_table(path: &Path) -> Result<Table, String> {
                 .as_integer()
                 .is_none_or(|v| !(1000..=9999).contains(&v))
                 .then_some("expected a four-digit integer"),
-            "paths" | "ignore-files" | "ignore-folders" => match value.as_array() {
+            "paths" | "languages" | "ignore-files" | "ignore-folders" => match value.as_array() {
                 Some(items)
                     if items
                         .iter()
                         .all(|v| v.as_str().is_some_and(|s| !s.is_empty())) =>
                 {
-                    (key == "paths" && items.is_empty()).then_some("expected at least one path")
+                    if matches!(key.as_str(), "paths" | "languages") && items.is_empty() {
+                        Some("expected at least one value")
+                    } else if key == "languages"
+                        && items.iter().any(|v| {
+                            Language::from_str(v.as_str().expect("validated string"), false)
+                                .is_err()
+                        })
+                    {
+                        Some("expected python, javascript, or typescript")
+                    } else {
+                        None
+                    }
                 }
                 _ => Some("expected an array of non-empty strings"),
             },
@@ -126,12 +184,12 @@ fn config_table(path: &Path) -> Result<Table, String> {
         };
         if let Some(reason) = reason {
             return Err(format!(
-                "Invalid {SECTION}.{key}: {reason} in {}",
+                "Invalid {section}.{key}: {reason} in {}",
                 path.display()
             ));
         }
     }
-    Ok(config.clone())
+    Ok(Some(config.clone()))
 }
 
 fn strings(table: &Table, key: &str, default: &[&str]) -> Vec<String> {
@@ -159,19 +217,16 @@ fn split_values(value: &str) -> Vec<String> {
 
 pub fn resolve(options: &Options) -> Result<Settings, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    let config_path = find_config(options.config.as_deref(), &cwd)?;
-    let table = match &config_path {
-        Some(path) => config_table(path)?,
-        None => Table::new(),
-    };
+    let (config_path, table) = find_config(options.config.as_deref(), &cwd)?;
     let root = config_path
         .as_ref()
         .and_then(|p| p.parent())
         .unwrap_or(&cwd)
         .to_path_buf();
     let string = |key| table.get(key).and_then(Value::as_str).map(str::to_owned);
-    let missing =
-        |key| format!("Missing {SECTION}.{key}; set it in pyproject.toml or pass --{key}");
+    let missing = |key| {
+        format!("Missing lint-my-headers.{key}; set it in project configuration or pass --{key}")
+    };
     let owner = options
         .owner
         .clone()
@@ -198,9 +253,7 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
     let license = license.filter(|s| !s.is_empty());
     let notice = notice.filter(|p| !p.as_os_str().is_empty());
     if license.is_some() == notice.is_some() {
-        return Err(format!(
-            "Configure exactly one of {SECTION}.license or {SECTION}.license-notice, or pass one matching CLI option"
-        ));
+        return Err("Configure exactly one of lint-my-headers.license or lint-my-headers.license-notice, or pass one matching CLI option".into());
     }
     if !options.paths.is_empty() && options.folders.is_some() {
         return Err("Pass explicit paths or --folders, not both".into());
@@ -216,9 +269,7 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
             .collect()
     };
     if paths.is_empty() {
-        return Err(format!(
-            "Invalid {SECTION}.paths: expected at least one path"
-        ));
+        return Err("Invalid lint-my-headers.paths: expected at least one path".into());
     }
     let ignore_files = options
         .ignore_files
@@ -242,6 +293,12 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
         license_notice: notice,
         license_path: root.join("LICENSE"),
         paths,
+        languages: options.languages.clone().unwrap_or_else(|| {
+            strings(&table, "languages", &["python"])
+                .iter()
+                .map(|name| Language::from_str(name, false).expect("validated language"))
+                .collect()
+        }),
         ignore_files,
         ignore_folders,
         project_root: root,

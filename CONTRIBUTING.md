@@ -14,7 +14,7 @@ Follow the [code of conduct](CODE_OF_CONDUCT.md), [runtime contracts](README.md)
 
 ## Local development
 
-Use the Rust toolchain pinned in `rust-toolchain.toml`, Python 3.11+, and uv. Work on a feature branch.
+Use the Rust toolchain pinned in `rust-toolchain.toml`, a C compiler for Tree-sitter, Python 3.11+, and uv. Work on a feature branch.
 
 ```shell
 make install-quality

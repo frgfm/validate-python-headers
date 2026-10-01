@@ -1,6 +1,32 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Language {
+    Python,
+    Javascript,
+    Typescript,
+}
+
+impl Language {
+    pub fn from_path(path: &std::path::Path) -> Option<Self> {
+        let name = path.file_name()?.to_string_lossy();
+        match name.rsplit_once('.')?.1 {
+            "py" => Some(Self::Python),
+            "js" | "jsx" | "mjs" | "cjs" => Some(Self::Javascript),
+            "ts" | "tsx" | "mts" | "cts" => Some(Self::Typescript),
+            _ => None,
+        }
+    }
+
+    pub fn comment(self) -> &'static str {
+        match self {
+            Self::Python => "#",
+            Self::Javascript | Self::Typescript => "//",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Settings {
     pub owner: String,
@@ -9,6 +35,7 @@ pub struct Settings {
     pub license_notice: Option<PathBuf>,
     pub license_path: PathBuf,
     pub paths: Vec<PathBuf>,
+    pub languages: Vec<Language>,
     pub ignore_files: Vec<String>,
     pub ignore_folders: Vec<PathBuf>,
     pub project_root: PathBuf,
