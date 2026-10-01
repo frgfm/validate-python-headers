@@ -177,7 +177,113 @@ The Action reads repository policy; its documented inputs override it. By defaul
 
 Action outputs are compact JSON arrays: `issues` contains unresolved paths; `changed` contains completed writes. On exit 2, `issues` stays `[]`, while `changed` retains any completed repairs.
 
-The optional [January 1 workflow](.github/workflows/update-copyright-years.yml) opens or updates one reviewable year-refresh PR. It never writes directly to protected `main`.
+### Annual copyright refresh
+
+Schedule a review PR for January 1 at **00:01 Europe/Paris**. The scheduler and job use the same timezone so the repair year is January 1's year even while UTC is still December 31. GitHub schedules run from the default branch and can be delayed or dropped under high load; the scheduled minute is not an execution-time guarantee.
+
+First, declare LMH in your project's quality dependencies, then add a `headers-fix` Make target using the same environment as your header check in CI. For a quality dependency group, append the package to the existing group in `pyproject.toml`:
+
+```toml
+[dependency-groups]
+quality = ["lint-my-headers==0.6.0"]
+```
+
+Run `uv lock` and commit the updated `uv.lock`, then add:
+
+```makefile
+headers-fix:
+	uv run --locked --group quality lmh fix
+```
+
+For a quality extra, add the package to `quality` in `[project.optional-dependencies]` and use `uv run --extra quality lmh fix` instead; retain `--locked` when the repository commits its uv lockfile. The target must install/synchronize its environment because scheduled runners start fresh. A global `uv tool install` does not install LMH in the runner's project environment. The LMH version stays in `pyproject.toml`, without a second pin in the workflow.
+
+Save this consumer template as `.github/workflows/update-copyright-years.yml`. This repository's [own workflow](.github/workflows/update-copyright-years.yml) builds its locked Rust source instead of installing a published package; the publication scripts match:
+
+```yaml
+name: update copyright years
+
+on:
+  schedule:
+    - cron: "1 0 1 1 *"
+      timezone: Europe/Paris
+
+permissions:
+  contents: read
+
+concurrency:
+  group: annual-copyright-years
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      TZ: Europe/Paris
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/lmh-annual-env
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+      - name: Create the annual pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          copyright_year="$(date +%Y)"
+          branch_name="automation/update-copyright-years-$copyright_year"
+          test "$branch_name" != "$BASE_BRANCH"
+
+          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$branch_name" --state all --json number --jq '.[0].number // empty')"
+          if test -n "$pr_number"; then
+            echo "Annual pull request #$pr_number already exists."
+            exit 0
+          fi
+
+          remote_sha="$(git ls-remote --heads origin "$branch_name" | cut -f1)"
+          if test -z "$remote_sha"; then
+            make headers-fix
+            if git diff --quiet -- ':(glob)**/*.py'; then
+              echo "Copyright years are already current."
+              exit 0
+            fi
+
+            git switch -c "$branch_name"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -u -- ':(glob)**/*.py'
+            git commit -m "chore: update copyright years for $copyright_year"
+            git push --set-upstream origin "$branch_name"
+          fi
+
+          gh pr create --base "$BASE_BRANCH" --head "$branch_name" \
+            --title "chore: update copyright years for $copyright_year" \
+            --body "Annual refresh of recognized Python copyright years using the declared header policy."
+```
+
+The external UV environment keeps installed dependency files outside the scan and PR. Repairs follow `[tool.lint-my-headers]` paths/exclusions and update only recognized stale years for its declared owner in supported Python files. They preserve creation years and all other bytes/modes. Missing, ambiguous, unsafe, or wrong-owner notices require manual review; a failed repair stops before any branch or PR is published. To cover more Python source files, extend the declared paths while preserving generated/vendor exclusions; other source languages are unsupported.
+
+Each year gets one `automation/update-copyright-years-YYYY` branch. Existing PRs, including closed PRs, are left untouched; reopen the existing PR if it was closed by mistake. If a push succeeded but PR creation failed, rerunning resumes PR creation from that branch without overwriting it. If repairs make no changes and no annual branch already exists, no PR is created. Only tracked Python changes are committed; generated untracked files are excluded. Pushes never target the default branch or force-update an existing branch.
+
+Repository setup:
+
+- Merge the policy, Make target and workflow into the default branch. The workflow has only a schedule trigger, so it does not run on pushes, PRs or manual dispatch.
+- Enable **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. The job requests only `contents: write` and `pull-requests: write`; it does not approve or merge its PR.
+- PR workflows triggered by `GITHUB_TOKEN` require a writer to click **Approve workflows to run** before their CI starts. Use an existing GitHub App installation token if unattended PR checks are required.
+- GitHub disables schedules in public repositories after 60 days without activity; verify the schedule remains enabled before the annual run.
+
+See GitHub's [schedule behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) and [workflow-token triggering rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow).
+
+For a failed scheduled run, fix the cause and use **Actions → Re-run failed jobs** within [30 days of the original run](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs). If no run was created or that window has expired, re-enable a disabled schedule for future runs, then run `make headers-fix` on a fresh branch from the default branch, inspect the diff, and open a manual PR. The workflow has no manual dispatch trigger.
 
 ## Maintenance
 

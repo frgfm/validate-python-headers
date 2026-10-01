@@ -34,6 +34,9 @@ spdx-check: scripts/update_spdx_licenses.py
 
 quality: lint-check typing-check deps-check
 
+headers-fix: Cargo.toml Cargo.lock ${PYPROJECT_FILE}
+	cargo run --locked --quiet --bin lmh -- fix
+
 quality-env:
 	uv sync --group quality --no-install-project
 
