@@ -1,58 +1,68 @@
 name: update copyright years
 
 on:
-  workflow_dispatch:
   schedule:
     - cron: "1 0 1 1 *"
       timezone: Europe/Paris
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: annual-copyright-years
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       TZ: Europe/Paris
-      BRANCH_NAME: automation/update-copyright-years
       BASE_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      - name: Refresh existing copyright years
-        uses: ./
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
-          version: source
-          mode: fix
-      - name: Open or update the annual pull request
+          toolchain: "1.93.0"
+      - name: Create the annual pull request
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- ':(glob)**/*.py'; then
-            echo "Copyright years are already current."
+          set -euo pipefail
+
+          copyright_year="$(date +%Y)"
+          branch_name="automation/update-copyright-years-$copyright_year"
+          test "$branch_name" != "$BASE_BRANCH"
+
+          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$branch_name" --state all --json number --jq '.[0].number // empty')"
+          if test -n "$pr_number"; then
+            echo "Annual pull request #$pr_number already exists."
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          expected_sha="$(git ls-remote --heads origin "$BRANCH_NAME" | cut -f1)"
-          git switch -C "$BRANCH_NAME"
-          git add -- ':(glob)**/*.py'
-          git commit -m "chore: update copyright years for $(date +%Y)"
+          remote_sha="$(git ls-remote --heads origin "$branch_name" | cut -f1)"
+          if test -z "$remote_sha"; then
+            make headers-fix
+            if git diff --quiet -- ':(glob)**/*.py'; then
+              echo "Copyright years are already current."
+              exit 0
+            fi
 
-          if test -n "$expected_sha"; then
-            git push --force-with-lease="refs/heads/$BRANCH_NAME:$expected_sha" origin "HEAD:refs/heads/$BRANCH_NAME"
-          else
-            git push --set-upstream origin "$BRANCH_NAME"
+            git switch -c "$branch_name"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- ':(glob)**/*.py'
+            git commit -m "chore: update copyright years for $copyright_year"
+            git push --set-upstream origin "$branch_name"
           fi
 
-          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
-          if test -n "$pr_number"; then
-            gh pr edit "$pr_number" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
-          else
-            gh pr create --base "$BASE_BRANCH" --head "$BRANCH_NAME" --title "chore: update copyright years" --body "Automated annual refresh of recognized Python copyright years."
-          fi
+          gh pr create --base "$BASE_BRANCH" --head "$branch_name" \
+            --title "chore: update copyright years for $copyright_year" \
+            --body "Annual refresh of recognized Python copyright years using the declared header policy."
