@@ -19,7 +19,11 @@ fn linked(metadata: &Metadata) -> bool {
     metadata.file_type().is_symlink()
 }
 
-fn walk(root: &Path, candidates: &mut Vec<PathBuf>) -> io::Result<()> {
+fn walk(root: &Path, candidates: &mut Vec<PathBuf>, ignored: &[PathBuf]) -> io::Result<()> {
+    let key = absolute_key(root)?;
+    if ignored.iter().any(|folder| key.starts_with(folder)) {
+        return Ok(());
+    }
     for entry in fs::read_dir(root)? {
         let path = entry?.path();
         let metadata = fs::symlink_metadata(&path)?;
@@ -27,7 +31,7 @@ fn walk(root: &Path, candidates: &mut Vec<PathBuf>) -> io::Result<()> {
             continue;
         }
         if metadata.is_dir() {
-            walk(&path, candidates)?;
+            walk(&path, candidates, ignored)?;
         } else if metadata.is_file() && Language::from_path(&path).is_some() {
             candidates.push(path);
         }
@@ -64,7 +68,7 @@ pub fn discover(settings: &Settings) -> Result<Vec<PathBuf>, String> {
                     path.display()
                 ));
             }
-            walk(path, &mut candidates).map_err(|error| error.to_string())?;
+            walk(path, &mut candidates, &ignored_folders).map_err(|error| error.to_string())?;
         } else if metadata.is_file() {
             candidates.push(path.clone());
         } else {
@@ -366,8 +370,19 @@ mod tests {
         }
         let mut settings = settings(root.path());
         settings.paths.push(root.path().join("./a.py"));
+        #[cfg(unix)]
+        let blocked = {
+            use std::os::unix::fs::PermissionsExt;
+            let path = root.path().join("skip");
+            let permissions = fs::metadata(&path).unwrap().permissions();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o0)).unwrap();
+            (path, permissions)
+        };
+        let found = discover(&settings);
+        #[cfg(unix)]
+        fs::set_permissions(blocked.0, blocked.1).unwrap();
         assert_eq!(
-            discover(&settings).unwrap(),
+            found.unwrap(),
             vec![
                 root.path().join(".py"),
                 root.path().join("a.py"),

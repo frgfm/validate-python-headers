@@ -231,6 +231,31 @@ fn project_configuration_fallbacks_precedence_and_explicit_selection() {
             json!([])
         );
     }
+    write(root, "custom.toml", "[tool.ruff]\nline-length = 100\n");
+    let result = json_run(
+        root,
+        &[
+            "check",
+            "--config",
+            "custom.toml",
+            "--owner",
+            OWNER,
+            "--starting-year",
+            "2022",
+            "--license",
+            "Apache-2.0",
+            "--languages",
+            "typescript",
+            "src/example.ts",
+        ],
+        0,
+    );
+    assert_eq!(result["checked"], 1);
+    write(root, "custom.toml", &configs[1].1);
+    assert_eq!(
+        json_run(root, &["check", "--config", "custom.toml"], 0)["checked"],
+        1
+    );
 }
 
 #[test]

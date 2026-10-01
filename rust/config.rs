@@ -129,14 +129,18 @@ fn config_table(path: &Path) -> Result<Option<Table>, String> {
             "metadata.lint-my-headers",
         ),
         Some("package.json") => (Some(&doc), "lint-my-headers"),
-        // Explicit custom TOML paths also retain the existing [tool.lint-my-headers] form.
-        _ => (
+        Some(".lmh.toml") => (
             Some(
                 doc.get("tool")
                     .and_then(|v| v.get("lint-my-headers"))
                     .unwrap_or(&doc),
             ),
             "lint-my-headers",
+        ),
+        // Explicit custom TOML paths retain the existing [tool.lint-my-headers] form.
+        _ => (
+            doc.get("tool").and_then(|v| v.get("lint-my-headers")),
+            SECTION,
         ),
     };
     let Some(config) = config else {
@@ -249,9 +253,7 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
     let license = license.filter(|s| !s.is_empty());
     let notice = notice.filter(|p| !p.as_os_str().is_empty());
     if license.is_some() == notice.is_some() {
-        return Err(format!(
-            "Configure exactly one of {SECTION}.license or {SECTION}.license-notice, or pass one matching CLI option"
-        ));
+        return Err("Configure exactly one of lint-my-headers.license or lint-my-headers.license-notice, or pass one matching CLI option".into());
     }
     if !options.paths.is_empty() && options.folders.is_some() {
         return Err("Pass explicit paths or --folders, not both".into());
@@ -267,9 +269,7 @@ pub fn resolve(options: &Options) -> Result<Settings, String> {
             .collect()
     };
     if paths.is_empty() {
-        return Err(format!(
-            "Invalid {SECTION}.paths: expected at least one path"
-        ));
+        return Err("Invalid lint-my-headers.paths: expected at least one path".into());
     }
     let ignore_files = options
         .ignore_files

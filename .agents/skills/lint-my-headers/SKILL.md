@@ -2,7 +2,7 @@
 name: lint-my-headers
 description: Configure, run, troubleshoot, and safely integrate lint-my-headers (lmh) in Python, JavaScript, and TypeScript repositories. Use when a user wants to check or fix copyright or license headers, configure LMH policy, install its pre-commit or prek hook, configure its GitHub Action or annual review pull request, or interpret lmh JSON diagnostics. Do not use to choose a license, determine copyright ownership, provide legal advice, or manage unsupported languages.
 license: Apache-2.0
-compatibility: Requires the lmh 0.6.x Rust executable; PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
+compatibility: Requires lmh with JSON schema version 1; multilingual support requires --languages. PyPI installation and the optional Python launcher require Python 3.11+. Setup guidance works without an installed CLI.
 ---
 
 # Lint My Headers

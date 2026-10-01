@@ -58,7 +58,7 @@ Exit codes: **0** clean, **1** unresolved findings, **2** invocation/configurati
 
 CLI policy options override configuration; `--config` selects an exact file. Otherwise discovery searches upward from the invocation directory, choosing the nearest applicable configuration. In each directory, priority is `.lmh.toml`, `pyproject.toml`, `Cargo.toml`, then `package.json`. Manifests without LMH settings are skipped. Invalid configurations fail; configurations are never merged.
 
-Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.toml`, `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]` in `Cargo.toml` (package settings take precedence), or a `"lint-my-headers"` object in `package.json`. The same keys and explicit policy apply in every container. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
+Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.toml`, `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]` in `Cargo.toml` (package settings take precedence), or a `"lint-my-headers"` object in `package.json`. Other explicit TOML filenames use the `[tool.lint-my-headers]` form. The same keys and explicit policy apply in every container. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
 
 | Key / CLI option | Meaning and default |
 | --- | --- |
@@ -73,11 +73,11 @@ Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.to
 
 CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
-Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants. Other files are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, and `.build`. Unknown language names and empty language lists fail.
+Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
 
 Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
-JavaScript/TypeScript support UTF-8 and `//` headers, preserving BOMs, shebangs, CRLF, and the body. Tree-sitter distinguishes real comments from strings, templates, regex literals, and JSX. Parse errors and copyright-bearing block comments fail closed. Preambles require a blank separator; bare CR headers are refused.
+JavaScript/TypeScript support UTF-8 and `//` headers, preserving BOMs, shebangs, CRLF, and the body. Tree-sitter distinguishes real comments from strings, templates, regex literals, and JSX. Parse errors and copyright-bearing block comments fail closed. A shebang must be followed by a blank line before the header; bare CR headers are refused.
 
 Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
@@ -137,7 +137,7 @@ The optional [agent skill](.agents/skills/lint-my-headers/SKILL.md) uses this sa
 
 ## Integrations
 
-For pre-commit or [prek](https://github.com/j178/prek), install the release wheel in the hook's isolated Python 3.11+ environment. `--only-binary` prevents an unexpected Rust build:
+For pre-commit or [prek](https://github.com/j178/prek), the published 0.6.0 wheel supports Python and policy in `pyproject.toml`. Install it in the hook's isolated Python 3.11+ environment; `--only-binary` prevents an unexpected Rust build. Use the source hook below for multilingual support until a release includes it:
 
 ```yaml
 repos:
@@ -147,8 +147,7 @@ repos:
         name: Lint My Headers
         entry: lmh check
         language: python
-        types: [file]
-        files: '\.(py|js|jsx|mjs|cjs|ts|tsx|mts|cts)$'
+        types: [python]
         additional_dependencies:
           - --only-binary=lint-my-headers
           - lint-my-headers==0.6.0
