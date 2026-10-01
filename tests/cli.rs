@@ -1,6 +1,10 @@
 use chrono::{Datelike, Local};
 use serde_json::{Value, json};
-use std::{fs, path::Path, process::Command};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Stdio},
+};
 use tempfile::{TempDir, tempdir};
 
 const OWNER: &str = "Example Owner";
@@ -464,6 +468,35 @@ fn check_json_is_ordered_complete_and_read_only() {
             .modified()
             .unwrap(),
         before
+    );
+}
+
+#[test]
+fn concurrent_hook_processes_append_complete_action_output_records() {
+    let dir = workspace();
+    let root = dir.path();
+    write(root, "src/clean.py", header(year()));
+    let output_path = root.join("github-output.txt");
+    let children: Vec<_> = (0..32)
+        .map(|_| {
+            Command::new(env!("CARGO_BIN_EXE_lmh"))
+                .current_dir(root)
+                .env("PATH", "")
+                .env("GITHUB_OUTPUT", &output_path)
+                .args(["check", "--output-format", "json"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap()
+        })
+        .collect();
+    for child in children {
+        let result = child.wait_with_output().unwrap();
+        assert!(result.status.success(), "{result:?}");
+    }
+    assert_eq!(
+        fs::read_to_string(output_path).unwrap(),
+        "issues=[]\nchanged=[]\n".repeat(32)
     );
 }
 
