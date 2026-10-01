@@ -167,18 +167,25 @@ Action outputs are compact JSON arrays: `issues` contains unresolved paths; `cha
 
 ### Annual copyright refresh
 
-Schedule a review PR for January 1 at **00:01 Europe/Paris**. The scheduler and job use the same timezone so the repair year is January 1's year even while UTC is still December 31. GitHub schedules run from the default branch and can be delayed; the scheduled minute is not an execution-time guarantee.
+Schedule a review PR for January 1 at **00:01 Europe/Paris**. The scheduler and job use the same timezone so the repair year is January 1's year even while UTC is still December 31. GitHub schedules run from the default branch and can be delayed or dropped under high load; the scheduled minute is not an execution-time guarantee.
 
-First, add a `headers-fix` Make target using the same quality dependency as `headers-check`. For a quality dependency group:
+First, declare LMH in your project's quality dependencies, then add a `headers-fix` Make target using the same environment as your header check in CI. For a quality dependency group, append the package to the existing group in `pyproject.toml`:
+
+```toml
+[dependency-groups]
+quality = ["lint-my-headers==0.6.0"]
+```
+
+Run `uv lock` and commit the updated `uv.lock`, then add:
 
 ```makefile
 headers-fix:
 	uv run --locked --group quality lmh fix
 ```
 
-For a quality extra, use `uv run --extra quality lmh fix` instead; retain `--locked` when the repository commits its uv lockfile. The target must install/synchronize its environment because scheduled runners start fresh. The LMH version stays in `pyproject.toml`, without a second pin in the workflow.
+For a quality extra, add the package to `quality` in `[project.optional-dependencies]` and use `uv run --extra quality lmh fix` instead; retain `--locked` when the repository commits its uv lockfile. The target must install/synchronize its environment because scheduled runners start fresh. A global `uv tool install` does not install LMH in the runner's project environment. The LMH version stays in `pyproject.toml`, without a second pin in the workflow.
 
-Save this as `.github/workflows/update-copyright-years.yml`:
+Save this consumer template as `.github/workflows/update-copyright-years.yml`. This repository's [own workflow](.github/workflows/update-copyright-years.yml) builds its locked Rust source instead of installing a published package; the publication scripts match:
 
 ```yaml
 name: update copyright years
@@ -241,7 +248,7 @@ jobs:
             git switch -c "$branch_name"
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -- ':(glob)**/*.py'
+            git add -u -- ':(glob)**/*.py'
             git commit -m "chore: update copyright years for $copyright_year"
             git push --set-upstream origin "$branch_name"
           fi
@@ -253,19 +260,18 @@ jobs:
 
 The external UV environment keeps installed dependency files outside the scan and PR. Repairs follow `[tool.lint-my-headers]` paths/exclusions and update only recognized stale years for its declared owner in supported Python files. They preserve creation years and all other bytes/modes. Missing, ambiguous, unsafe, or wrong-owner notices require manual review; a failed repair stops before any branch or PR is published. To cover more Python source files, extend the declared paths while preserving generated/vendor exclusions; other source languages are unsupported.
 
-Each year gets one `automation/update-copyright-years-YYYY` branch. Existing PRs, including closed PRs, are left untouched. If a push succeeded but PR creation failed, rerunning resumes PR creation from that branch without overwriting it. No changes means no PR. Only Python changes are committed; pushes never target the default branch or force-update an existing branch.
+Each year gets one `automation/update-copyright-years-YYYY` branch. Existing PRs, including closed PRs, are left untouched; reopen the existing PR if it was closed by mistake. If a push succeeded but PR creation failed, rerunning resumes PR creation from that branch without overwriting it. If repairs make no changes and no annual branch already exists, no PR is created. Only tracked Python changes are committed; generated untracked files are excluded. Pushes never target the default branch or force-update an existing branch.
 
 Repository setup:
 
 - Merge the policy, Make target and workflow into the default branch. The workflow has only a schedule trigger, so it does not run on pushes, PRs or manual dispatch.
 - Enable **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. The job requests only `contents: write` and `pull-requests: write`; it does not approve or merge its PR.
-- PRs created with `GITHUB_TOKEN` can require a writer to click **Approve workflows to run** before their CI starts. Use an existing GitHub App installation token if unattended PR checks are required.
+- PR workflows triggered by `GITHUB_TOKEN` require a writer to click **Approve workflows to run** before their CI starts. Use an existing GitHub App installation token if unattended PR checks are required.
 - GitHub disables schedules in public repositories after 60 days without activity; verify the schedule remains enabled before the annual run.
 
 See GitHub's [schedule behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) and [workflow-token triggering rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow).
 
-This repository's [annual workflow](.github/workflows/update-copyright-years.yml) uses `make headers-fix` to build and run its own locked Rust source, rather than depending on a published copy of itself.
-
+For a failed scheduled run, fix the cause and use **Actions → Re-run failed jobs** within [30 days of the original run](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs). If no run was created or that window has expired, re-enable a disabled schedule for future runs, then run `make headers-fix` on a fresh branch from the default branch, inspect the diff, and open a manual PR. The workflow has no manual dispatch trigger.
 
 ## Maintenance
 

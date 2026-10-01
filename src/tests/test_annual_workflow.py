@@ -63,6 +63,7 @@ class AnnualWorkflowTestCase(unittest.TestCase):
                     if test "$FIX_MODE" = noop; then exit 0; fi
                     printf '# updated fixture\\n' > sample.py
                     printf 'unrelated change\\n' > notes.txt
+                    printf 'generated fixture\\n' > generated.py
                     exit "$FIX_MODE"
                 """),
                 "gh": "#!/bin/sh\n"
