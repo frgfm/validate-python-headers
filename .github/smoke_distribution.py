@@ -92,10 +92,9 @@ ignore-folders = []
             encoding="utf-8",
         )
         year = datetime.now().year
-        for checked, extension in enumerate(("py", "js", "tsx"), 1):
+        for checked, (extension, marker) in enumerate((("py", "#"), ("js", "//"), ("tsx", "//")), 1):
             source = root / f"src/example.{extension}"
             source.parent.mkdir(exist_ok=True)
-            marker = "#" if extension == "py" else "//"
             source.write_text(
                 f"""{marker} Copyright (C) {year}, Example Owner.
 
@@ -110,7 +109,7 @@ value = 1
             if result.returncode != 0:
                 fail(f"Installed check failed: {result.stdout}{result.stderr}")
             payload = json.loads(result.stdout)
-            if payload["checked"] != checked or payload["diagnostics"] or payload["error"] is not None:
+            if (payload["checked"], payload["diagnostics"], payload["error"]) != (checked, [], None):
                 fail(f"Unexpected installed check result: {payload}")
             stale = source.read_bytes().replace(str(year).encode(), str(year - 1).encode(), 1)
             source.write_bytes(stale)
