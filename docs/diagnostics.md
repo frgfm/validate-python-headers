@@ -1,4 +1,6 @@
 ---
+section: Reference
+order: "04"
 description: Interpret Lint My Headers diagnostics and exit codes, consume JSON schema version 1, and use the CLI safely in coding-agent tasks.
 ---
 

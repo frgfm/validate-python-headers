@@ -17,6 +17,7 @@ nav = [
 [project.theme]
 variant = "classic"
 custom_dir = "overrides"
+favicon = "assets/favicon.svg"
 language = "en"
 font = false
 features = [
@@ -24,8 +25,6 @@ features = [
   "content.code.copy",
   "content.tabs.link",
   "navigation.footer",
-  "navigation.tabs",
-  "navigation.tabs.sticky",
   "navigation.top",
   "search.highlight",
 ]

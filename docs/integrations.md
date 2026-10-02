@@ -1,4 +1,6 @@
 ---
+section: Workflow
+order: "03"
 description: Run Lint My Headers with pre-commit, prek, the GitHub Action, and an annual copyright refresh workflow.
 ---
 

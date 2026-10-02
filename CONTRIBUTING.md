@@ -34,10 +34,12 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 
 The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
-familiar to Material for MkDocs users. The site uses Zensical's classic theme,
-with a dark header, cyan accents, and a small stylesheet in
-`docs/stylesheets/extra.css`. `overrides/main.html` supplies the shared development
-notice. The pinned `docs` dependency group is separate from runtime dependencies.
+familiar to Material for MkDocs users. The site uses Zensical's classic foundation
+with custom header, navigation, and footer templates in `overrides/`. The visual
+system in `docs/stylesheets/extra.css` pairs Manrope headings with IBM Plex Sans
+text and IBM Plex Mono code, warm paper surfaces, and deep green accents. Fonts
+are self-hosted in `docs/assets/fonts/`; source versions and original OFL notices
+are included there. The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:
 
 ```shell
@@ -59,7 +61,7 @@ Cloudflare account, API token, or Worker code to maintain.
 
 | Consideration | GitHub Pages | Cloudflare Workers static assets |
 | --- | --- | --- |
-| Performance | Static hosting is sufficient for this small documentation site. The theme uses system fonts and local assets. | Assets are distributed and cached across Cloudflare's network; offers more control over cache/response headers and routing. |
+| Performance | Static hosting is sufficient for this small documentation site. Font files total about 85 KB and all assets are served locally. | Assets are distributed and cached across Cloudflare's network; offers more control over cache/response headers and routing. |
 | Operations | Native GitHub Actions deployment and no additional deployment secret. | Requires a Cloudflare account and deployment setup; static-only assets do not require Worker code. |
 | SEO and generative-engine discoverability | Serves the complete page HTML, titles, descriptions, canonical URLs, and sitemap. | Can serve the same HTML and metadata. Hosting provider alone gives no guaranteed ranking or citation advantage. |
 

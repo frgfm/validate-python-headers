@@ -7,9 +7,9 @@ hide:
 
 <section class="lmh-hero" aria-labelledby="lint-my-headers">
   <div class="lmh-hero__copy">
-    <span class="lmh-eyebrow">Copyright &amp; license header checks</span>
-    <h1 id="lint-my-headers">Lint My Headers</h1>
-    <p class="lmh-hero__lead">Consistent headers.<br>Conservative repairs.</p>
+    <span class="lmh-eyebrow">LINT MY HEADERS / DOCUMENTATION</span>
+    <h1 id="lint-my-headers">Clean headers.<br><span>Small diffs.</span></h1>
+    <p class="lmh-hero__lead">A clear policy. A careful repair.</p>
     <p>Check source headers across nine languages. Declare your policy, find issues, and refresh recognized stale years while preserving everything else.</p>
     <p class="lmh-hero__actions"><a href="getting-started/" class="md-button md-button--primary">Get started</a><a href="https://github.com/frgfm/lint-my-headers" class="md-button">View on GitHub</a></p>
   </div>
@@ -35,9 +35,9 @@ hide:
 ## From policy to pull request
 
 <div class="lmh-workflow">
-  <div><span class="lmh-step">1</span><h3>Declare your policy</h3><p>Set the owner, earliest creation year, license notice, and source paths.</p></div>
-  <div><span class="lmh-step">2</span><h3>Run a check</h3><p>Use <code>lmh check</code> locally, in CI, or from a coding agent. Review each finding.</p></div>
-  <div><span class="lmh-step">3</span><h3>Review the diff</h3><p>Run <code>lmh fix</code> for eligible stale years, recheck, and inspect the changes.</p></div>
+  <div><span class="lmh-step">01</span><h3>Declare your policy</h3><p>Set the owner, earliest creation year, license notice, and source paths.</p></div>
+  <div><span class="lmh-step">02</span><h3>Run a check</h3><p>Use <code>lmh check</code> locally, in CI, or from a coding agent. Review each finding.</p></div>
+  <div><span class="lmh-step">03</span><h3>Review the diff</h3><p>Run <code>lmh fix</code> for eligible stale years, recheck, and inspect the changes.</p></div>
 </div>
 
 ## Choose your next step

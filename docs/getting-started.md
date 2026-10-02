@@ -1,4 +1,6 @@
 ---
+section: Getting started
+order: "01"
 description: Install Lint My Headers, declare a header policy, and run your first read-only check and safe year refresh.
 ---
 

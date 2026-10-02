@@ -1,4 +1,6 @@
 ---
+section: Reference
+order: "02"
 description: Configure explicit ownership and license policies, select languages and paths, and understand supported header layouts.
 ---
 
