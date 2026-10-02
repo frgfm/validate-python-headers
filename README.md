@@ -124,6 +124,14 @@ Only the end year changes. `check` never writes source files. Missing headers an
 findings stay available for manual review. See the
 [getting-started guide](docs/getting-started.md) for a complete header example.
 
+## Benchmarks
+
+Run `uv run scripts/benchmark.py` from a checkout on Linux or macOS (Windows: WSL), with uv, Python 3.11+, Git, the pinned Rust toolchain, a C compiler and GNU time (`apt install time` / `brew install gnu-time`). uv installs the pinned plotting dependency automatically. The script builds the locked release binary and checks nine languages plus a mixed tree at 1, 100, 1,000 and 10,000 files. Each case measures clean checks, checks with stale-year findings, and stale-year repairs five times after a warmup; fixtures are restored and results verified outside timing.
+
+`target/bench/` contains `results.csv`, individual runs in `measurements.csv`, latency/throughput/peak-RSS charts in SVG and PNG, and reports with a table, machine/binary provenance and methodology. Open `report.html` in a browser: its charts are embedded, so it works as a standalone file. `report.md` references the PNGs for Markdown viewers; keep those files together. Results use warm filesystem caches and synthetic 1 KiB sources; they measure absolute performance, not competitor speedups. Separate invocations measure timing and RSS, excluding profiling overhead from latency and harness/build memory from RSS. Mixed cases below nine files are skipped.
+
+Use `--files 1 100 --runs 3` for a quick run, `--bytes 16384` for larger bodies, or `--binary /path/to/lmh --output target/other` to measure another native build. `--help` lists options. The manual [benchmark workflow](.github/workflows/benchmark.yml) uploads a GitHub Actions artifact; its optional `release` tag checks out that tag and attaches the bundle as public release assets. For a local run, use `gh release upload TAG target/bench/*`. Keep the Markdown and PNGs together when copying them into documentation.
+
 ## Configuration and safety
 
 Keep the policy in the file your project already uses:
