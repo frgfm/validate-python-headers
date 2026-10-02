@@ -1081,6 +1081,63 @@ fn configured_custom_notice_is_relative_to_the_config() {
 }
 
 #[test]
+fn custom_notices_require_text_and_match_complete_lines() {
+    let dir = workspace();
+    let root = dir.path();
+    let target = root.join("src/stale.py");
+    let old_year = year() - 2;
+    write(
+        root,
+        "pyproject.toml",
+        CONFIG.replace("license = 'Apache-2.0'", "license-notice = 'notice.txt'"),
+    );
+    let stale = source(old_year, OWNER, "");
+    fs::write(&target, &stale).unwrap();
+    for notice in ["", " \t\r\n", "#\n# \r\n\n"] {
+        write(root, "notice.txt", notice);
+        for command in ["check", "fix"] {
+            let result = json_run(root, &[command], 2);
+            assert_eq!(result["error"]["code"], "LMH900");
+            assert!(message(&result).contains("non-empty"));
+            assert_eq!(result["checked"], 0);
+            assert_eq!(result["changed"], json!([]));
+            assert_eq!(fs::read_to_string(&target).unwrap(), stale);
+        }
+    }
+    for (notice, accepted) in [
+        ("Proprietary.", "# Proprietary.\n"),
+        ("# Terms.\n# Proprietary.", "# Terms.\n# Proprietary."),
+        ("Proprietary.\r\n", "# Proprietary.\r\n"),
+    ] {
+        write(root, "notice.txt", notice);
+        let mismatch = accepted.replace("Proprietary.", "Proprietary. Different terms.");
+        let mismatched = source(old_year, OWNER, &mismatch);
+        fs::write(&target, &mismatched).unwrap();
+        for command in ["check", "fix"] {
+            let result = json_run(root, &[command], 1);
+            assert_eq!(result["diagnostics"][0]["code"], "LMH005");
+            assert_eq!(result["diagnostics"][0]["fixable"], false);
+            assert_eq!(result["changed"], json!([]));
+            assert_eq!(fs::read_to_string(&target).unwrap(), mismatched);
+        }
+        let valid = format!("# Copyright (C) {old_year}, {OWNER}.\n\n{accepted}");
+        fs::write(&target, &valid).unwrap();
+        assert_eq!(
+            json_run(root, &["check"], 1)["diagnostics"][0]["code"],
+            "LMH004"
+        );
+        assert_eq!(
+            json_run(root, &["fix"], 0)["changed"],
+            json!(["src/stale.py"])
+        );
+        assert_eq!(
+            fs::read_to_string(&target).unwrap(),
+            valid.replacen(&old_year.to_string(), &format!("{old_year}-{}", year()), 1)
+        );
+    }
+}
+
+#[test]
 fn invalid_config_is_rejected_before_any_write() {
     let dir = workspace();
     let root = dir.path();

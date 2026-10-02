@@ -101,12 +101,14 @@ pub fn build_policy(settings: &Settings, current_year: i32) -> Result<HeaderPoli
         }
         let notice = normalize_newlines(&fs::read_to_string(path).map_err(|e| e.to_string())?);
         // Existing Python-commented notices remain usable alongside plain-text notices.
-        notices.push(
-            notice
-                .split_inclusive('\n')
-                .map(|line| uncomment(line, "#").unwrap_or(line))
-                .collect(),
-        );
+        let notice: String = notice
+            .split_inclusive('\n')
+            .map(|line| uncomment(line, "#").unwrap_or(line))
+            .collect();
+        if notice.trim().is_empty() {
+            return Err("Custom license notice must contain non-empty text.".into());
+        }
+        notices.push(notice);
     } else {
         return Err(
             "One of the following args needs to be specified: 'license', 'license-notice'".into(),
@@ -494,8 +496,9 @@ pub(crate) fn inspect(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> 
             .iter()
             .map_while(|line| uncomment(line, language.comment()))
         {
-            if part.starts_with(expected) {
-                return true;
+            if let Some(tail) = part.strip_prefix(expected) {
+                // A notice without a final newline must still match a complete source line.
+                return expected.ends_with('\n') || tail.is_empty() || tail.starts_with('\n');
             }
             let Some(rest) = expected.strip_prefix(part) else {
                 return false;
