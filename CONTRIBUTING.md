@@ -40,7 +40,7 @@ CSS changes font families: `docs/stylesheets/fonts.css` applies Manrope to
 headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
 sheet limited to font definitions and families. Fonts are self-hosted in the
 generated site. `make docs` and `make docs-serve` download the pinned Fontsource
-files from jsDelivr using `.github/prepare_docs_fonts.py`, verify SHA-256 hashes,
+files from jsDelivr using `.github/prepare_docs_fonts.sh`, verify SHA-256 hashes,
 and reuse valid local copies. A fresh build needs network access; cached copies
 allow subsequent builds offline. Font binaries are ignored by Git; source
 versions and original OFL notices remain in `docs/assets/fonts/`.
@@ -59,6 +59,10 @@ make docs-serve  # http://localhost:8000
 make docs       # strict production build in site/
 make docs-cloudflare  # build and stage .docs-site/lint-my-headers/
 ```
+
+The build helpers use Bash, curl, and either `sha256sum` or `shasum` (Linux and
+macOS; on Windows use Git Bash or WSL). Zensical itself still uses Python through
+the pinned `docs` dependency group.
 
 Keep examples aligned with the CLI and distinguish the published 0.6.0 Python
 release from multilingual features on `main`. Check links and preview each page

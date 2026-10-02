@@ -12,3 +12,4 @@ site/
 .cache/
 .github/docs-preview/
 /docs/assets/fonts/*.woff2
+/docs/assets/fonts/.download.*

@@ -51,7 +51,7 @@ lock-check: ${PYPROJECT_FILE}
 	uv lock --check
 
 docs-fonts:
-	uv run --no-project python .github/prepare_docs_fonts.py
+	bash .github/prepare_docs_fonts.sh
 
 docs: docs-fonts
 	uv run --locked --only-group docs zensical build --strict
@@ -60,7 +60,7 @@ docs-serve: docs-fonts
 	uv run --locked --only-group docs zensical serve
 
 docs-cloudflare: docs
-	python .github/prepare_docs_assets.py
+	bash .github/prepare_docs_assets.sh
 
 test:
 	cargo test --locked
