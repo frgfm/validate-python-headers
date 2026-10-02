@@ -1,0 +1,53 @@
+[project]
+site_name = "Lint My Headers"
+site_description = "Check source copyright and license headers, safely refresh stale years, and integrate Lint My Headers with CI and coding agents."
+site_url = "https://frgfm.github.io/lint-my-headers/"
+repo_url = "https://github.com/frgfm/lint-my-headers"
+repo_name = "frgfm/lint-my-headers"
+edit_uri = "edit/main/docs/"
+nav = [
+  { "Overview" = "index.md" },
+  { "Getting started" = "getting-started.md" },
+  { "Configuration" = "configuration.md" },
+  { "Integrations" = "integrations.md" },
+  { "Diagnostics & agents" = "diagnostics.md" },
+]
+
+[project.theme]
+language = "en"
+font = false
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.top",
+  "search.highlight",
+]
+
+[project.theme.icon]
+logo = "lucide/file-check-2"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+pymdownx.details = {}
+pymdownx.highlight = {}
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+toc.permalink = true

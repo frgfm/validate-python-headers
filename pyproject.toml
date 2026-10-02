@@ -29,7 +29,7 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Documentation = "https://github.com/frgfm/lint-my-headers#readme"
+Documentation = "https://frgfm.github.io/lint-my-headers/"
 Issues = "https://github.com/frgfm/lint-my-headers/issues"
 Changelog = "https://github.com/frgfm/lint-my-headers/releases"
 Repository = "https://github.com/frgfm/lint-my-headers"
@@ -53,6 +53,7 @@ ignore-folders = [".agents/skills/lint-my-headers/evals/files"]
 
 [dependency-groups]
 build = ["uv>=0.12.20"]
+docs = ["zensical==0.0.67"]
 quality = [
     "ruff==0.16.9",
     "ty==0.0.84",

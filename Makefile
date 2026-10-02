@@ -1,5 +1,7 @@
 PYPROJECT_FILE = ./pyproject.toml
 
+.PHONY: docs docs-serve
+
 install-quality: ${PYPROJECT_FILE}
 	uv sync --group quality --no-install-project
 	uv run --no-sync --group quality prek install
@@ -47,6 +49,12 @@ lock: ${PYPROJECT_FILE}
 
 lock-check: ${PYPROJECT_FILE}
 	uv lock --check
+
+docs:
+	uv run --locked --only-group docs zensical build --strict
+
+docs-serve:
+	uv run --locked --only-group docs zensical serve
 
 test:
 	cargo test --locked
