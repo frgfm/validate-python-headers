@@ -61,6 +61,11 @@ release from multilingual features on `main`. Check links and preview each page
 at desktop and mobile widths. Use the README for the maintained annual workflow
 template rather than duplicating it across documentation pages.
 
+Keep review screenshots outside Git history. Upload captures through the GitHub
+pull request editor and embed the returned GitHub asset URLs in the PR description.
+`.github/docs-preview/` is ignored for local captures; the site's logo and font
+assets remain normal versioned project files.
+
 ### Hosting decision: Cloudflare Workers static assets
 
 Publish the generated static HTML at

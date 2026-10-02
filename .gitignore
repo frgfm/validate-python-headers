@@ -10,3 +10,4 @@ site/
 .docs-site/
 .wrangler/
 .cache/
+.github/docs-preview/
