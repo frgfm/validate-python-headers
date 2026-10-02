@@ -48,8 +48,8 @@ the release binary measured:
 
 | Check | Median time |
 | --- | ---: |
-| All headers current | **274 ms** |
-| 1,000 stale-year findings, with JSON output | **543 ms** |
+| All headers current | **249 ms** |
+| 1,000 stale-year findings, with JSON output | **518 ms** |
 
 Seven measured runs per case, after one warm-up, on a shared Linux x86_64 runner.
 Each run starts a fresh CLI process with a warm filesystem cache. See

@@ -11,8 +11,8 @@ using `cargo build --release --locked --bin lmh` and the pinned Rust 1.93 toolch
 
 | Case | Median (ms) | Minimum (ms) | Maximum (ms) |
 | --- | ---: | ---: | ---: |
-| clean | 273.516 | 252.656 | 286.557 |
-| stale | 542.864 | 493.884 | 565.319 |
+| clean | 249 | 248 | 286 |
+| stale | 518 | 496 | 559 |
 
 - Environment: `Linux-6.18.44-x86_64-with-glibc2.41`; AMD EPYC 9V74 80-Core Processor. The runner is shared.
 - Fixture: 1,000 UTF-8 files, 1,845,381 source bytes, all nine languages
@@ -26,7 +26,8 @@ using `cargo build --release --locked --bin lmh` and the pinned Rust 1.93 toolch
 - Sampling: one discarded warm-up and seven measured runs per case. Each sample
   launches a new process. Filesystem pages are warm; there is no persistent LMH cache.
 - Timing includes CLI startup, discovery, source reads, analysis, and JSON output
-  captured through a pipe. Python fixture generation, Rust compilation, and validation
+  captured through a pipe, using Bash's built-in `time` at millisecond precision.
+  Fixture generation, Rust compilation, and validation
   of the captured JSON are outside the timed interval.
 - Release binary SHA-256: `6098d5519b829b4e687461e15ee476585814dacdb64c224a0d01a717ab3ba894`.
 
@@ -35,16 +36,19 @@ language mix, and machine load affect timings.
 
 ## Reproduce
 
-From a checkout with the pinned Rust toolchain, a C compiler, and Python 3.11+:
+From a checkout with the pinned Rust toolchain, a C compiler, Bash, jq, and
+either `sha256sum` or `shasum` (on Windows use Git Bash or WSL):
 
 ```shell
 cargo build --release --locked --bin lmh
-python scripts/benchmark_headers.py --files 1000 --runs 7
+bash scripts/benchmark_headers.sh --files 1000 --runs 7
 ```
 
 The driver creates its files in a temporary directory, verifies checked counts,
 exit codes, and diagnostic eligibility, and removes the fixture afterward. It prints
-individual samples and medians as JSON. Use `--binary` for a different native binary
+individual samples and medians as JSON. Timing uses Bash's built-in `time` with
+millisecond precision; jq validates results and calculates medians outside the
+timed interval. Use `--binary` for a different native binary
 or `--files` and `--runs` to vary the fixture and sample count.
 
 <details>
@@ -53,27 +57,27 @@ or `--files` and `--runs` to vary the fixture and sample count.
 ```json
 {
   "clean": {
-    "median_ms": 273.516,
+    "median_ms": 249,
     "samples_ms": [
-      264.695,
-      281.643,
-      252.656,
-      273.516,
-      276.006,
-      269.236,
-      286.557
+      252,
+      256,
+      286,
+      249,
+      248,
+      249,
+      249
     ]
   },
   "stale": {
-    "median_ms": 542.864,
+    "median_ms": 518,
     "samples_ms": [
-      541.345,
-      545.386,
-      542.864,
-      514.155,
-      565.319,
-      493.884,
-      553.408
+      552,
+      517,
+      559,
+      518,
+      496,
+      503,
+      526
     ]
   }
 }
