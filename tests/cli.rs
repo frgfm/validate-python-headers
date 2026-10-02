@@ -63,6 +63,115 @@ fn json_run(root: &Path, args: &[&str], exit: i32) -> Value {
 }
 
 #[test]
+fn shell_selection_aliases_and_year_only_repairs_work_without_a_shell_runtime() {
+    let dir = workspace();
+    let root = dir.path();
+    let original = header(year() - 2).replace("value = 'café'", "value='café'");
+    let script = format!("\u{feff}#!/usr/bin/env bash\n\n{original}").replace('\n', "\r\n");
+    for name in [
+        "example.sh",
+        "example.bash",
+        "unsupported.zsh",
+        "extensionless",
+    ] {
+        write(root, &format!("src/{name}"), &script);
+    }
+    write(root, "src/example.py", header(year()));
+    assert_eq!(
+        json_run(root, &["check", "src/example.sh"], 0)["checked"],
+        0
+    );
+    for language in ["bash", "shell"] {
+        write(
+            root,
+            "pyproject.toml",
+            format!("{CONFIG}languages = ['{language}']\n"),
+        );
+        let checked = json_run(root, &["check"], 1);
+        assert_eq!(checked["checked"], 2);
+        assert_eq!(checked["diagnostics"][0]["code"], "LMH004");
+        assert!(
+            checked["expected_header"]
+                .as_str()
+                .unwrap()
+                .starts_with("# Copyright")
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("src/example.sh")).unwrap(),
+            script
+        );
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(
+            root.join("src/example.sh"),
+            fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+    }
+    let fixed = json_run(root, &["fix", "--languages", "bash"], 0);
+    assert_eq!(
+        fixed["changed"],
+        json!(["src/example.bash", "src/example.sh"])
+    );
+    let repaired = script.replacen(
+        &(year() - 2).to_string(),
+        &format!("{}-{}", year() - 2, year()),
+        1,
+    );
+    for name in ["example.sh", "example.bash"] {
+        assert_eq!(
+            fs::read_to_string(root.join(format!("src/{name}"))).unwrap(),
+            repaired
+        );
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(root.join("src/example.sh"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o755
+        );
+    }
+    assert_eq!(
+        json_run(root, &["fix", "--languages", "shell"], 0)["changed"],
+        json!([])
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &["check", "--languages", "python", "src/example.sh"],
+            0
+        )["checked"],
+        0
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &[
+                "check",
+                "--languages",
+                "shell",
+                "--ignore-files",
+                "example.sh",
+                "src/example.sh"
+            ],
+            0
+        )["checked"],
+        0
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("src/extensionless")).unwrap(),
+        script
+    );
+}
+
+#[test]
 fn swift_sources_tests_and_package_manifest_use_standalone_policy() {
     let dir = workspace();
     let root = dir.path();
