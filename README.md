@@ -54,7 +54,7 @@ On **10,000 mixed-language files** (1 KiB/file), the release CLI measured:
 Five timing trials after warmup on the same shared Linux runner. Both tools receive
 the same CPU budget; LMH uses up to four available workers for large trees.
 
-![Native check latency](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/check.png)
+![Native check latency](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/check.png)
 
 See the [performance guide](docs/benchmarks.md) for repair time, peak memory,
 all nine languages, CSVs, methodology and reproduction. These are synthetic,

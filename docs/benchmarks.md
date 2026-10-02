@@ -9,9 +9,12 @@ refresh takes the repair time below when every selected file has an eligible
 stale header. Missing or conflicting headers still need review. Select a chart
 to view it at full size.
 
+Each panel has its own vertical scale starting at zero. Bar heights show the
+relative gap at that codebase size; labels show median time in milliseconds.
+
 ## How much waiting does a check add?
 
-[![Native check latency across codebase sizes](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/check.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/check.png)
+[![Native check latency across codebase sizes](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/check.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/check.png)
 
 For **10,000 mixed-language files**, a routine check adds **36 ms** in this run: **0.36%** on top of a 10-second serial workflow. A check reporting 10,000 stale headers takes **62 ms**.
 
@@ -27,7 +30,7 @@ Installation, hook orchestration and CI queueing are outside these measurements.
 
 ## How long will an entire codebase take to fix?
 
-[![Time to repair stale years across a codebase](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/fix.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/fix.png)
+[![Time to repair stale years across a codebase](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/fix.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/fix.png)
 
 Repairing stale years in all **10,000 files** takes **147 ms**, down from **428 ms** in the previous LMH. HawkEye takes **125 ms**: LMH wins the two check cases here; its repair median remains **17.6% slower**.
 
@@ -47,7 +50,7 @@ audit uses five timings and three RSS runs after warmup. See the
 
 ## How much memory does it need?
 
-[![Peak native process memory across languages](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/memory.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/memory.png)
+[![Peak native process memory across languages](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/memory.png)](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/memory.png)
 
 Memory is peak native-process RSS, excluding the benchmark driver and compilation.
 Worker threads increase check memory; planning edits before allocating replacement

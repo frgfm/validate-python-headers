@@ -65,5 +65,5 @@
   "lmh_version": "lmh 0.6.0",
   "harness_source": "working-tree Bash driver (uncommitted during measurement)",
   "fixture_filesystem": "tmpfs",
-  "published_driver_sha256": "65276e28208fad6f23da1a57d1038115affc384f4a63a36e699d780cac7bb675"
+  "published_driver_sha256": "3a9068c55facf07cec8d9a35a3138de234e71871f3ae4510296dafe28da0cda2"
 }

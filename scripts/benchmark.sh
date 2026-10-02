@@ -190,12 +190,11 @@ else
 fi
 for chart in check fix; do
     workload=clean; [[ $chart != fix ]] || workload=fix
-    jq -r --arg w "$workload" 'group_by(.files)[] | . as $g | [$g[0].files,
-        ([$g[]|select(.tool=="lmh" and .language=="mixed" and .workload==$w)|.median_ms][0]//"NaN"),
-        ([$g[]|select(.tool=="hawkeye" and .workload==$w)|.median_ms][0]//"NaN"),
-        ([$g[]|select(.tool=="before" and .workload==$w)|.median_ms][0]//"NaN"),
-        ([$g[]|select(.tool=="lmh" and .language!="mixed" and .workload==$w)|.median_ms]|min//"NaN"),
-        ([$g[]|select(.tool=="lmh" and .language!="mixed" and .workload==$w)|.median_ms]|max//"NaN")] | @tsv' "$work/results.json" > "$work/$chart.dat"
+    jq -r --arg w "$workload" 'map(select(.workload==$w))
+        | if any(.language=="mixed") then map(select(.language=="mixed")) else map(select(.tool=="lmh")) end
+        | group_by(.files) | map(sort_by({lmh:1,hawkeye:2,before:3}[.tool]))
+        | map(map([.files,(if .language=="mixed" then {lmh:"LMH",hawkeye:"HawkEye",before:"LMH before"}[.tool] else .language end),
+            .median_ms,{lmh:1,hawkeye:2,before:3}[.tool]] | @tsv) | join("\n")) | join("\n\n\n")' "$work/results.json" > "$work/$chart.dat"
 done
 jq -r 'map(select(.tool=="lmh")) | (map(.files)|max) as $n | map(select(.files==$n)) | group_by(.language)[]
     | [.[0].language,([.[]|select(.workload=="clean")|.peak_rss_mib][0]),([.[]|select(.workload=="findings")|.peak_rss_mib][0]),([.[]|select(.workload=="fix")|.peak_rss_mib][0])] | @tsv' "$work/results.json" > "$work/memory.dat"
