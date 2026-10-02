@@ -34,8 +34,8 @@ same explicit policy.
   required to run the installed binary.
 - **Nine languages, one policy.** Python, JavaScript, TypeScript, Rust, Go, Swift, Bash,
   C, and C++ in the current source CLI.
-- **Syntax-aware checks.** Recognizes real comments and keeps header-like text inside
-  strings, templates, and other language syntax out of repairs.
+- **Leading-header checks.** Recognizes the opening comment region and requires notices
+  before code, keeping header-like text in program bodies out of repairs.
 - **Precise, reviewable fixes.** Refreshes recognized stale years while preserving the
   creation year, owner, all other bytes, and file permissions.
 - **Fits your workflow.** First-party pre-commit/prek hook, GitHub Action, and stable JSON

@@ -345,11 +345,11 @@ def write_results(args: argparse.Namespace, binary: Path, samples: list[dict], r
         metadata.append(
             f"Competitor: {run_tool(str(competitor), '--version').strip()} · SHA-256: {hashlib.sha256(competitor.read_bytes()).hexdigest()}"
         )
-        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. LMH scans whole-source comments, preserves accepted creation years and guards year-only writes; HawkEye validates/formats the leading template. This measures these tasks rather than equivalent tool features."
+        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. LMH validates leading headers, preserves accepted creation years and guards year-only writes; HawkEye validates/formats the leading template. This measures these tasks rather than equivalent tool features."
     methodology = (
         f"Deterministic synthetic sources, {args.bytes:,} bytes/file; mixed cycles through all nine languages. "
         f"{args.runs} timing/RSS pairs per case after one untimed warmup pair. Warm filesystem cache; no LMH result cache. "
-        "Elapsed time includes launching/waiting for the native CLI, discovery, parsing, JSON output and (for fix) writes/revalidation. "
+        "Elapsed time includes launching/waiting for the native CLI, discovery, header analysis, JSON output and (for fix) writes/revalidation. "
         "Generation, fixture restoration and output validation are outside timing. "
         "RSS uses separate GNU time invocations on restored fixtures, excluding profiling overhead from latency and harness/build memory from RSS. "
         "Peak RSS is the maximum across repetitions. Range is slowest minus fastest time. Every run verifies exit status, file count, findings and exact final bytes. "

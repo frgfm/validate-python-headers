@@ -1,6 +1,5 @@
 use crate::model::{Diagnostic, HeaderPolicy, Language, Settings};
 use regex::Regex;
-use rustpython_parser::{Mode, Tok, lexer};
 use serde_json::Value;
 use std::{fs, sync::LazyLock};
 
@@ -233,7 +232,7 @@ fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
         let Some(tail) = line.strip_prefix("#!") else {
             return false;
         };
-        // ponytail: refuse comment-prefixed Rust #! forms; tokenize if those scripts are needed.
+        // Crate attributes and comment-prefixed Rust #! forms are not shebangs.
         language != Language::Rust
             || !["[", "//", "/*"]
                 .iter()
@@ -276,155 +275,74 @@ fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
     (end + usize::from(separator), separator)
 }
 
-fn expression_may_contain_copyright(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    let mut depth = 0usize;
-    let mut index = 0;
-    while index < bytes.len() {
-        if depth == 0 && (bytes[index..].starts_with(b"{{") || bytes[index..].starts_with(b"}}")) {
-            index += 2;
-            continue;
-        }
-        match bytes[index] {
-            b'{' => depth += 1,
-            b'}' => depth = depth.saturating_sub(1),
-            // Do not mistake a brace inside an expression's string or comment for its end.
-            b'\'' | b'"' | b'#' if depth > 0 => return value[index..].contains("# Copyright"),
-            _ => {}
-        }
-        index += 1;
-    }
-    false
-}
-
-fn copyright_comments(
-    source: &str,
-    language: Language,
-    path: &str,
-) -> (Vec<(usize, String)>, bool) {
+// Inspect only the leading comment region; the first code token ends header validation.
+fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, String)>, bool) {
+    let mut remaining = source;
     let mut comments = Vec::new();
-    if language != Language::Python {
-        let grammar = match language {
-            Language::Javascript => tree_sitter_javascript::LANGUAGE,
-            Language::Typescript if path.ends_with(".tsx") => tree_sitter_typescript::LANGUAGE_TSX,
-            Language::Rust => tree_sitter_rust::LANGUAGE,
-            Language::Go => tree_sitter_go::LANGUAGE,
-            Language::Swift => tree_sitter_swift::LANGUAGE,
-            Language::Bash => tree_sitter_bash::LANGUAGE,
-            Language::C => tree_sitter_c::LANGUAGE,
-            Language::Cpp => tree_sitter_cpp::LANGUAGE,
-            _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
-        };
-        let mut parser = tree_sitter::Parser::new();
-        parser
-            .set_language(&grammar.into())
-            .expect("bundled grammar");
-        let mut tree = parser.parse(source, None).expect("uncancelled parse");
-        // .h is shared by C and C++; accept C++ syntax when the C grammar cannot parse it.
-        if language == Language::C
-            && Language::is_shared_header(std::path::Path::new(path))
-            && tree.root_node().has_error()
-        {
-            parser
-                .set_language(&tree_sitter_cpp::LANGUAGE.into())
-                .expect("bundled grammar");
-            tree = parser.parse(source, None).expect("uncancelled parse");
-        }
-        // Parse all syntax, but visit only subtrees that can contain a copyright comment.
-        let offsets: Vec<_> = source
-            .match_indices("Copyright")
-            .map(|(index, _)| index)
-            .collect();
-        let mut cursor = tree.walk();
-        loop {
-            let node = cursor.node();
-            let start = node.start_byte();
-            let relevant = offsets
-                .get(offsets.partition_point(|&offset| offset < start))
-                .is_some_and(|&offset| offset < node.end_byte());
-            if relevant
-                && matches!(
-                    node.kind(),
-                    "comment" | "line_comment" | "block_comment" | "multiline_comment"
-                )
-            {
-                let comment = &source[node.byte_range()];
-                if comment
-                    .strip_prefix(language.comment())
-                    .is_some_and(|tail| tail.starts_with(" Copyright"))
-                    || (matches!(
-                        language,
-                        Language::Rust | Language::Swift | Language::C | Language::Cpp
-                    ) && comment.starts_with("//")
-                        && comment
+    let mut line = 0;
+    loop {
+        let trimmed = remaining.trim_start_matches([' ', '\t', '\x0c', '\r', '\n']);
+        line += remaining[..remaining.len() - trimmed.len()]
+            .bytes()
+            .filter(|&b| b == b'\n')
+            .count();
+        remaining = trimmed;
+        let offset = source.len() - remaining.len();
+        let shebang = offset == 0
+            && remaining.strip_prefix("#!").is_some_and(|tail| {
+                language != Language::Rust
+                    || !["[", "//", "/*"]
+                        .iter()
+                        .any(|p| tail.trim_start().starts_with(p))
+            });
+        let end = if shebang || remaining.starts_with(language.comment()) {
+            let end = remaining.find('\n').map_or(remaining.len(), |i| i + 1);
+            let text = remaining[..end].trim_end_matches(['\r', '\n']);
+            if !shebang {
+                let tail = &text[language.comment().len()..];
+                if tail.starts_with(" Copyright")
+                    || (language.comment() == "//"
+                        && tail
                             .trim_start_matches('/')
                             .trim_start_matches('!')
                             .trim_start()
                             .starts_with("Copyright"))
-                    || (comment.starts_with("/*") && comment.contains("Copyright"))
                 {
-                    comments.push((
-                        node.start_position().row,
-                        comment
-                            .strip_prefix(language.comment())
-                            .and_then(|tail| tail.strip_prefix(' '))
-                            .unwrap_or(comment)
-                            .into(),
-                    ));
+                    comments.push((line, tail.strip_prefix(' ').unwrap_or(text).into()));
                 }
             }
-            if relevant && cursor.goto_first_child() {
-                continue;
-            }
-            while !cursor.goto_next_sibling() {
-                if !cursor.goto_parent() {
-                    return (comments, tree.root_node().has_error());
+            end
+        } else if language.comment() == "//" && remaining.starts_with("/*") {
+            let mut end = 2;
+            let mut depth = 1;
+            while depth > 0 {
+                let tail = &remaining[end..];
+                let close = tail.find("*/").unwrap_or(tail.len());
+                let open = if matches!(language, Language::Rust | Language::Swift) {
+                    tail[..close].find("/*").unwrap_or(close)
+                } else {
+                    close
+                };
+                if open < close {
+                    depth += 1;
+                    end += open + 2;
+                } else if close < tail.len() {
+                    depth -= 1;
+                    end += close + 2;
+                } else {
+                    return (source.len(), comments, true);
                 }
             }
-        }
-    }
-    let mut offset = 0;
-    let mut line_index = 0;
-    let mut ambiguous_tail = false;
-    let mut template_prefix_end = None;
-    for token in lexer::lex(source, Mode::Module) {
-        let (token, range) = match token {
-            Ok(token) => token,
-            Err(error) => {
-                // An incomplete scan cannot establish that later copyright text is harmless.
-                ambiguous_tail |= source
-                    .get(usize::from(error.location)..)
-                    .unwrap_or(source)
-                    .contains("# Copyright");
-                break;
+            if remaining[..end].contains("Copyright") {
+                comments.push((line, remaining[..end].into()));
             }
+            end
+        } else {
+            return (offset, comments, false);
         };
-        let start: usize = range.start().into();
-        if let Tok::String { value, kind, .. } = &token {
-            // Older lexers hide PEP 701/750 expression comments inside string tokens.
-            ambiguous_tail |= (kind.is_any_fstring() || template_prefix_end == Some(start))
-                && expression_may_contain_copyright(value);
-        }
-        template_prefix_end = match &token {
-            Tok::Name { name }
-                if matches!(name.to_ascii_lowercase().as_str(), "t" | "tr" | "rt") =>
-            {
-                Some(usize::from(range.end()))
-            }
-            _ => None,
-        };
-        if let Tok::Comment(comment) = token {
-            line_index += source[offset..start]
-                .bytes()
-                .filter(|byte| *byte == b'\n')
-                .count();
-            offset = start;
-            if comment.starts_with("# Copyright") {
-                comments.push((line_index, comment[2..].into()));
-            }
-        }
+        line += remaining[..end].bytes().filter(|&b| b == b'\n').count();
+        remaining = &remaining[end..];
     }
-    (comments, ambiguous_tail)
 }
 
 pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> ContentAnalysis {
@@ -447,15 +365,16 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
             );
         }
     };
+    let (end, comments, ambiguous_header) = leading_comments(&source, language);
+    let source = &source[..end];
     // Normalizing bare CR could turn an ambiguous header into an authorized repair.
     let bare_cr =
         source.as_bytes().iter().enumerate().any(|(index, byte)| {
             *byte == b'\r' && source.as_bytes().get(index + 1) != Some(&b'\n')
         });
-    let source = normalize_newlines(&source);
+    let source = normalize_newlines(source);
     let lines: Vec<&str> = source.split_inclusive('\n').collect();
     let (header_index, separator_valid) = preamble(&lines, language);
-    let (comments, ambiguous_tail) = copyright_comments(&source, language, display_path);
     let matches: Vec<_> = comments
         .iter()
         .filter(|(_, text)| COPYRIGHT.is_match(text))
@@ -469,7 +388,7 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
         );
     }
     if bare_cr
-        || ambiguous_tail
+        || ambiguous_header
         || !separator_valid
         || comments.len() != 1
         || matches.len() != 1
@@ -564,7 +483,10 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
         language.comment(),
         &captures["years"]
     );
-    let raw_lines: Vec<&[u8]> = raw.split_inclusive(|byte| *byte == b'\n').collect();
+    let raw_lines: Vec<&[u8]> = raw
+        .split_inclusive(|byte| *byte == b'\n')
+        .take(*line_index + 1)
+        .collect();
     if let Some(raw_line) = raw_lines.get(*line_index) {
         let offsets: Vec<usize> = raw_line
             .windows(needle.len())
@@ -651,16 +573,22 @@ mod tests {
                 }
             }
         }
-        for body in [
-            "# Copyright (C) 2024, Other.\necho ok\n",
-            "value=$(\n# Copyright (C) 2024, Other.\nprintf ok\n)\n",
-            "value=`\n# Copyright (C) 2024, Other.\nprintf ok\n`\n",
-            "value='unterminated\n",
-            "if true; then echo ok\n",
+        for (body, code) in [
+            ("# Copyright (C) 2024, Other.\necho ok\n", "LMH006"),
+            (
+                "value=$(\n# Copyright (C) 2024, Other.\nprintf ok\n)\n",
+                "LMH004",
+            ),
+            (
+                "value=`\n# Copyright (C) 2024, Other.\nprintf ok\n`\n",
+                "LMH004",
+            ),
+            ("value='unterminated\n", "LMH004"),
+            ("if true; then echo ok\n", "LMH004"),
         ] {
             let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.bash");
-            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
-            assert!(result.replacement.is_none());
+            assert_eq!(result.diagnostic.unwrap().code, code, "{body}");
+            assert_eq!(result.replacement.is_some(), code == "LMH004");
         }
         for (source, code) in [
             (header.replace("Example Owner", "Other"), "LMH002"),
@@ -747,24 +675,27 @@ mod tests {
             }
         }
         for path in ["x.c", "x.cpp", "x.h"] {
-            for body in [
-                "// Copyright (C) 2024, Other.\nint value = 1;\n",
-                "/// Copyright (C) 2024, Other.\nint value = 1;\n",
-                "/*! Copyright (C) 2024, Other. */\nint value = 1;\n",
-                "#if 0\n// Copyright (C) 2024, Other.\n#endif\n",
-                "const char *value = \"unterminated;\n",
-                "/* unterminated\n",
-                "int value( {\n",
+            for (body, code) in [
+                ("// Copyright (C) 2024, Other.\nint value = 1;\n", "LMH006"),
+                ("/// Copyright (C) 2024, Other.\nint value = 1;\n", "LMH006"),
+                (
+                    "/*! Copyright (C) 2024, Other. */\nint value = 1;\n",
+                    "LMH006",
+                ),
+                ("#if 0\n// Copyright (C) 2024, Other.\n#endif\n", "LMH004"),
+                ("const char *value = \"unterminated;\n", "LMH004"),
+                ("/* unterminated\n", "LMH006"),
+                ("int value( {\n", "LMH004"),
             ] {
                 let result = analyze(format!("{header}{body}").as_bytes(), &policy(), path);
-                assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{path}: {body}");
-                assert!(result.replacement.is_none());
+                assert_eq!(result.diagnostic.unwrap().code, code, "{path}: {body}");
+                assert_eq!(result.replacement.is_some(), code == "LMH004");
             }
             for (source, code) in [
                 (header.replace("Example Owner", "Other"), "LMH002"),
                 (header.replace("2024", "2031"), "LMH003"),
                 (header.replace("License notice.", "Wrong."), "LMH005"),
-                (format!("#pragma once\n\n{header}"), "LMH006"),
+                (format!("#pragma once\n\n{header}"), "LMH001"),
                 (header.replace('\n', "\r"), "LMH006"),
                 (
                     "/* Copyright (C) 2024, Example Owner. */\n\n// License notice.\n".into(),
@@ -818,16 +749,22 @@ mod tests {
                 assert!(analyze(&fixed, &policy(), "x.swift").diagnostic.is_none());
             }
         }
-        for body in [
-            "// Copyright (C) 2024, Other.\nlet value = 1\n",
-            "/// Copyright (C) 2024, Other.\nlet value = 1\n",
-            "/* outer /* Copyright (C) 2024, Other. */ comment */\nlet value = 1\n",
-            "let value = \"\\(1 /* Copyright (C) 2024, Other. */)\"\n",
-            "let value = #\"unterminated\n",
+        for (body, code) in [
+            ("// Copyright (C) 2024, Other.\nlet value = 1\n", "LMH006"),
+            ("/// Copyright (C) 2024, Other.\nlet value = 1\n", "LMH006"),
+            (
+                "/* outer /* Copyright (C) 2024, Other. */ comment */\nlet value = 1\n",
+                "LMH006",
+            ),
+            (
+                "let value = \"\\(1 /* Copyright (C) 2024, Other. */)\"\n",
+                "LMH004",
+            ),
+            ("let value = #\"unterminated\n", "LMH004"),
         ] {
             let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.swift");
-            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
-            assert!(result.replacement.is_none());
+            assert_eq!(result.diagnostic.unwrap().code, code, "{body}");
+            assert_eq!(result.replacement.is_some(), code == "LMH004");
         }
         let no_separator = format!("// swift-tools-version: 5.9\n{header}let value = 1\n");
         assert_eq!(
@@ -893,15 +830,18 @@ mod tests {
             .replacement
             .is_some()
         );
-        for body in [
-            "// Copyright (C) 2024, Other.\npackage example\n",
-            "/* Copyright (C) 2024, Other. */\npackage example\n",
-            "package example\nconst value = `unterminated\n",
-            "package example\n/* unterminated\n",
+        for (body, code) in [
+            ("// Copyright (C) 2024, Other.\npackage example\n", "LMH006"),
+            (
+                "/* Copyright (C) 2024, Other. */\npackage example\n",
+                "LMH006",
+            ),
+            ("package example\nconst value = `unterminated\n", "LMH004"),
+            ("package example\n/* unterminated\n", "LMH004"),
         ] {
             let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.go");
-            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
-            assert!(result.replacement.is_none());
+            assert_eq!(result.diagnostic.unwrap().code, code, "{body}");
+            assert_eq!(result.replacement.is_some(), code == "LMH004");
         }
         let no_separator = format!("//go:build linux\n{header}package example\n");
         assert_eq!(
@@ -955,17 +895,23 @@ mod tests {
                 assert!(analyze(&fixed, &policy(), "x.rs").diagnostic.is_none());
             }
         }
-        for body in [
-            "// Copyright (C) 2024, Other.\nfn main() {}\n",
-            "/* outer /* Copyright (C) 2024, Other. */ comment */\nfn main() {}\n",
-            "//! Copyright (C) 2024, Other.\nfn main() {}\n",
-            "/// Copyright (C) 2024, Other.\nfn main() {}\n",
-            "macro_rules! value { () => { // Copyright (C) 2024, Other.\n1 }; }\n",
-            "const VALUE: &str = r##\"unterminated;\n",
+        for (body, code) in [
+            ("// Copyright (C) 2024, Other.\nfn main() {}\n", "LMH006"),
+            (
+                "/* outer /* Copyright (C) 2024, Other. */ comment */\nfn main() {}\n",
+                "LMH006",
+            ),
+            ("//! Copyright (C) 2024, Other.\nfn main() {}\n", "LMH006"),
+            ("/// Copyright (C) 2024, Other.\nfn main() {}\n", "LMH006"),
+            (
+                "macro_rules! value { () => { // Copyright (C) 2024, Other.\n1 }; }\n",
+                "LMH004",
+            ),
+            ("const VALUE: &str = r##\"unterminated;\n", "LMH004"),
         ] {
             let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.rs");
-            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
-            assert!(result.replacement.is_none());
+            assert_eq!(result.diagnostic.unwrap().code, code, "{body}");
+            assert_eq!(result.replacement.is_some(), code == "LMH004");
         }
         for attribute in [
             "#![allow(dead_code)]",
@@ -978,7 +924,7 @@ mod tests {
                     .diagnostic
                     .unwrap()
                     .code,
-                "LMH006"
+                "LMH001"
             );
         }
         assert_eq!(
@@ -999,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn javascript_typescript_and_jsx_only_count_real_comments() {
+    fn javascript_typescript_and_jsx_headers_preserve_the_body() {
         let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
         for (path, body) in [
             (
@@ -1032,21 +978,24 @@ mod tests {
             );
             assert!(analyze(&fixed, &policy(), path).diagnostic.is_none());
         }
-        for body in [
-            "// Copyright (C) 2024, Other.\n",
-            "/* Copyright (C) 2024, Other. */\n",
-            "const s = `${(\n// Copyright (C) 2024, Other.\n1)}`;\n",
-            "const broken = `unterminated;\n",
+        for (body, code) in [
+            ("// Copyright (C) 2024, Other.\n", "LMH006"),
+            ("/* Copyright (C) 2024, Other. */\n", "LMH006"),
+            (
+                "const s = `${(\n// Copyright (C) 2024, Other.\n1)}`;\n",
+                "LMH004",
+            ),
+            ("const broken = `unterminated;\n", "LMH004"),
         ] {
             let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.tsx");
-            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
-            assert!(result.replacement.is_none());
+            assert_eq!(result.diagnostic.unwrap().code, code, "{body}");
+            assert_eq!(result.replacement.is_some(), code == "LMH004");
         }
         for (raw, code) in [
             (header.replace("Example Owner", "Other"), "LMH002"),
             (header.replace("2024", "2031"), "LMH003"),
             (header.replace("License notice.", "Wrong."), "LMH005"),
-            (format!("const value = 1; {header}"), "LMH006"),
+            (format!("const value = 1; {header}"), "LMH001"),
             (format!("#!/usr/bin/env node\n{header}"), "LMH006"),
             (header.replace('\n', "\r"), "LMH006"),
         ] {
@@ -1130,7 +1079,7 @@ mod tests {
     }
 
     #[test]
-    fn only_real_comments_count() {
+    fn only_leading_copyright_comments_count() {
         for literal in [
             "\"\"\"\n# Copyright (C) 2024, Other.\n\"\"\"",
             "'''\n# Copyright (C) 2024, Other.\n'''",
@@ -1140,16 +1089,79 @@ mod tests {
             assert!(inspect(source.as_bytes()).diagnostic.is_none());
         }
         let duplicate = format!("{}\n# Copyright (C) 2024, Other.\n", header("2030"));
-        assert_eq!(
-            inspect(duplicate.as_bytes()).diagnostic.unwrap().code,
-            "LMH006"
-        );
+        assert!(inspect(duplicate.as_bytes()).diagnostic.is_none());
         let example =
             "EXAMPLE = '''\n# Copyright (C) 2030, Example Owner.\n\n# License notice.\n'''\n";
         assert_eq!(
             inspect(example.as_bytes()).diagnostic.unwrap().code,
             "LMH001"
         );
+    }
+
+    #[test]
+    fn first_code_line_ends_header_validation_in_every_language() {
+        for (path, body) in [
+            ("x.py", "value =\n"),
+            ("x.js", "const value =\n"),
+            ("x.tsx", "const value =\n"),
+            ("x.rs", "fn broken( {\n"),
+            ("x.go", "package example\n"),
+            ("x.swift", "let value =\n"),
+            ("x.sh", "value='unterminated\n"),
+            ("x.c", "int value( {\n"),
+            ("x.cpp", "namespace example {\n"),
+            ("x.h", "namespace example {\n"),
+        ] {
+            let language = Language::from_path(std::path::Path::new(path)).unwrap();
+            let header = render_header(
+                "Copyright (C) 2024, Example Owner.\n\nLicense notice.\n\n",
+                language,
+            );
+            let notice = format!("{} Copyright (C) 2024, Other.\n", language.comment());
+            let raw = format!("{header}{body}{notice}");
+            assert_eq!(
+                analyze(raw.as_bytes(), &policy(), path)
+                    .replacement
+                    .unwrap(),
+                raw.replacen("2024", "2024-2030", 1).as_bytes()
+            );
+            let missing = analyze(format!("{body}{header}").as_bytes(), &policy(), path);
+            assert_eq!(missing.diagnostic.unwrap().code, "LMH001", "{path}");
+            assert!(missing.replacement.is_none());
+            let duplicate = analyze(
+                format!("{header}{notice}{body}").as_bytes(),
+                &policy(),
+                path,
+            );
+            assert_eq!(duplicate.diagnostic.unwrap().code, "LMH006", "{path}");
+            assert!(duplicate.replacement.is_none());
+        }
+    }
+
+    #[test]
+    fn leading_block_comments_end_before_code_on_the_same_line() {
+        for path in ["x.js", "x.ts", "x.rs", "x.go", "x.swift", "x.c", "x.cpp"] {
+            let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
+            for comment in ["/* ordinary */", "/* outer /* nested */ ordinary */"] {
+                let raw = format!("{header}{comment} code\n// Copyright (C) 2024, Other.\n");
+                assert_eq!(
+                    analyze(raw.as_bytes(), &policy(), path)
+                        .replacement
+                        .unwrap(),
+                    raw.replacen("2024", "2024-2030", 1).as_bytes(),
+                    "{path}"
+                );
+            }
+            for tail in [
+                "/* Copyright */ code\n",
+                "/* ordinary */ // Copyright (C) 2024, Other.\n",
+                "/* unterminated\n",
+            ] {
+                let result = analyze(format!("{header}{tail}").as_bytes(), &policy(), path);
+                assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{path}: {tail}");
+                assert!(result.replacement.is_none());
+            }
+        }
     }
 
     #[test]
@@ -1220,7 +1232,7 @@ mod tests {
         let source = format!("value = 0\n# coding: utf-8\n\n{}", header("2030"));
         assert_eq!(
             inspect(source.as_bytes()).diagnostic.unwrap().code,
-            "LMH006"
+            "LMH001"
         );
     }
 
@@ -1240,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn incomplete_token_scans_never_hide_a_later_copyright() {
+    fn body_syntax_and_later_copyright_notices_are_ignored() {
         for body in ["x = 0xZZ\n", "x = ) )\n", "x = f\"{\n 1 + 1\n}\"\n"] {
             let source = format!("{}{body}", header("2024"));
             // Malformed bodies alone do not prevent an unambiguous year-only repair.
@@ -1250,27 +1262,29 @@ mod tests {
                 "example = '# Copyright (C) 2024, Other Owner.'\n",
             ] {
                 let result = inspect(format!("{source}{tail}").as_bytes());
-                let diagnostic = result.diagnostic.unwrap();
-                assert_eq!(diagnostic.code, "LMH006", "{body}{tail}");
-                assert_eq!(diagnostic.line, 1);
-                assert!(!diagnostic.fixable);
-                assert!(result.replacement.is_none());
+                assert_eq!(
+                    result.replacement.unwrap(),
+                    format!("{source}{tail}")
+                        .replacen("2024", "2024-2030", 1)
+                        .as_bytes()
+                );
             }
         }
     }
 
     #[test]
-    fn expression_comments_inside_formatted_or_template_strings_are_ambiguous() {
+    fn formatted_or_template_string_bodies_are_ignored() {
         for prefix in ["f", "F", "rf", "fr", "t", "T", "tr", "rt", "tR", "RT"] {
             let source = format!(
                 "{}\nx = {prefix}'''{{\n# Copyright (C) 2024, Other Owner.\n1\n}}'''\n",
                 header("2024")
             );
             let result = inspect(source.as_bytes());
-            let diagnostic = result.diagnostic.unwrap();
-            assert_eq!(diagnostic.code, "LMH006", "{prefix}");
-            assert!(!diagnostic.fixable);
-            assert!(result.replacement.is_none());
+            assert_eq!(
+                result.replacement.unwrap(),
+                source.replacen("2024", "2024-2030", 1).as_bytes(),
+                "{prefix}"
+            );
         }
         let literal = format!(
             "{}\nx = '''{{\n# Copyright (C) 2024, Other Owner.\n1\n}}'''\n",
@@ -1288,13 +1302,6 @@ mod tests {
         ] {
             let source = format!("{}\nx = f'''{value}'''\n", header("2024"));
             assert!(inspect(source.as_bytes()).replacement.is_some(), "{value}");
-        }
-        for value in [
-            "{{{\n# Copyright (C) 2024, Other.\n1\n}}}",
-            "{'}}'\n# Copyright (C) 2024, Other.\n}",
-            "{\n# closing } brace in comment\n# Copyright (C) 2024, Other.\n1\n}",
-        ] {
-            assert!(expression_may_contain_copyright(value), "{value}");
         }
         let source = include_str!("../.github/smoke_distribution.py");
         let mut fixture_policy = policy();
