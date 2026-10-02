@@ -34,8 +34,10 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 
 The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
-familiar to Material for MkDocs users. The site uses Zensical's classic foundation
-with custom header, navigation, and footer templates in `overrides/`. The visual
+familiar to Material for MkDocs users. The site uses Zensical's `modern` variant
+with custom header, navigation, and footer templates in `overrides/`. Native
+modern component shapes and spacing are retained for navigation, buttons, tabs,
+and callouts. The visual
 system in `docs/stylesheets/extra.css` pairs Manrope headings with IBM Plex Sans
 text and IBM Plex Mono code. Teal ambient colors shape navigation, code surfaces,
 and guide icons; copper accents highlight links, actions, and the repaired year.

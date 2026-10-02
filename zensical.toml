@@ -15,7 +15,7 @@ nav = [
 ]
 
 [project.theme]
-variant = "classic"
+variant = "modern"
 custom_dir = "overrides"
 favicon = "assets/favicon.svg"
 language = "en"

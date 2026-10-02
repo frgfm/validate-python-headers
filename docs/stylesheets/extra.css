@@ -126,8 +126,8 @@
 .md-nav--primary > .md-nav__title { display: none; }
 .lmh-nav__label { display: block; font-family: var(--md-code-font-family); font-size: 0.5rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.09em; color: var(--lmh-muted); margin: 0.6rem 0.65rem 0.8rem; }
 .md-nav--primary > .md-nav__list > .md-nav__item { padding: 0; }
-.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link { border-radius: 0.3rem; margin: 0.2rem 0; padding: 0.55rem 0.65rem; color: var(--lmh-muted); }
-.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link--active { background: var(--lmh-ambient-soft); color: var(--lmh-ambient); box-shadow: inset 2px 0 var(--lmh-accent); font-weight: 600; }
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link { color: var(--lmh-muted); }
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link--active { background: var(--lmh-ambient-soft); color: var(--lmh-ambient); font-weight: 600; }
 .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link:hover { color: var(--md-accent-fg-color); background: var(--lmh-surface); }
 .lmh-nav__note { border-top: 1px solid var(--lmh-border); margin: 1.6rem 0.65rem 0; padding-top: 0.8rem; }
 .lmh-nav__note .lmh-nav__label { margin: 0 0 0.65rem; }
@@ -150,12 +150,10 @@
 .md-typeset h1, .md-typeset h2, .md-typeset h3, .md-typeset h4 { font-family: var(--lmh-heading-font); }
 .md-typeset code { font-family: var(--md-code-font-family); font-size: 0.84em; }
 .md-typeset pre > code { font-size: 0.65rem; line-height: 1.7; }
-.md-typeset details, .md-typeset .admonition { border-color: var(--lmh-border); border-left: 3px solid var(--lmh-ambient); background: var(--lmh-paper); }
-.md-typeset details > summary, .md-typeset .admonition > .admonition-title { background: var(--lmh-surface); font-weight: 500; }
-.md-typeset details > summary::before, .md-typeset details > summary::after, .md-typeset .admonition > .admonition-title::before { background-color: var(--lmh-ambient); }
-.md-typeset details.note { border-color: var(--lmh-border); border-left-color: var(--lmh-ambient); }
-.md-typeset details.note > summary { background: var(--lmh-surface); }
-.md-typeset details.note > summary::before, .md-typeset details.note > summary::after { background-color: var(--lmh-ambient); }
+/* Keep modern component shapes and spacing; only brand the note colors. */
+.md-typeset details.note, .md-typeset .admonition.note { background: var(--lmh-ambient-soft); }
+.md-typeset .note > summary::before, .md-typeset .note > .admonition-title::before { background-color: var(--lmh-ambient); }
+.md-typeset .note > summary::after, .md-typeset .note > .admonition-title::after { color: var(--lmh-ambient); }
 
 .md-typeset h1 {
   color: var(--md-default-fg-color);
@@ -187,12 +185,9 @@
   font-weight: 700;
 }
 .md-typeset table:not([class]) tbody tr:hover { background: var(--lmh-surface); }
-.md-typeset .tabbed-labels { background: var(--lmh-surface); border-radius: 0.35rem 0.35rem 0 0; }
 .md-typeset .tabbed-set { margin-inline: 0; }
 .md-typeset .tabbed-set > .tabbed-labels { width: 100%; max-width: 100%; margin-inline: 0; }
 .md-typeset .md-typeset__scrollwrap { margin-inline: 0; }
-.md-typeset .tabbed-labels > label { font-size: 0.7rem; }
-.md-typeset details, .md-typeset .admonition { border-radius: 0.35rem; box-shadow: none; }
 
 .md-typeset .lmh-hero {
   display: grid;
@@ -221,16 +216,13 @@
 }
 .md-typeset .lmh-hero__copy > p:not(.lmh-hero__lead) { color: var(--lmh-muted); max-width: 27rem; }
 .md-typeset .lmh-hero .md-button {
-  border-radius: 0.3rem;
-  border-color: var(--lmh-border);
   color: var(--md-default-fg-color);
   font-size: 0.7rem;
   padding: 0.65em 1.25em;
   margin: 0.4rem 0.4rem 0 0;
 }
-.md-typeset .lmh-hero .md-button--primary { color: var(--lmh-accent-contrast); background: var(--lmh-accent); border-color: var(--lmh-accent); }
+.md-typeset .lmh-hero .md-button--primary { color: var(--lmh-accent-contrast); background: var(--lmh-accent); }
 .md-typeset .lmh-hero .md-button:hover {
-  border-color: var(--md-accent-fg-color);
   background: var(--lmh-accent-soft);
   color: var(--md-default-fg-color);
 }
@@ -311,6 +303,7 @@
 .md-typeset .lmh-guides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
 .md-typeset .lmh-guide {
   display: block;
+  text-decoration: none;
   padding: 1.1rem;
   border: 1px solid var(--lmh-border);
   border-radius: 0.45rem;
