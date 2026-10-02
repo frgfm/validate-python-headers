@@ -40,10 +40,12 @@ CSS changes font families: `docs/stylesheets/fonts.css` applies Manrope to
 headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
 sheet limited to font definitions and families. Fonts are self-hosted in the
 generated site. `make docs` and `make docs-serve` download the pinned Fontsource
-files from jsDelivr using `.github/prepare_docs_fonts.sh`, verify SHA-256 hashes,
-and reuse valid local copies. A fresh build needs network access; cached copies
-allow subsequent builds offline. Font binaries are ignored by Git; source
-versions and original OFL notices remain in `docs/assets/fonts/`.
+5.3.0 files and their original OFL notices from jsDelivr using
+`.github/prepare_docs_fonts.sh`, verify SHA-256 hashes, and reuse valid local
+copies. A fresh build needs network access; cached copies allow subsequent
+builds offline. The entire `docs/assets/fonts/` directory is generated and ignored
+by Git. Keep source versions and checksums in the Bash helper; include the
+matching upstream licence and copyright notices in the generated site.
 `docs/assets/images/logo.svg` is the project's header monogram: two
 comment slashes joined into an H beneath a header bar, drawn in warm copper
 (`#BA5B3B`). Its two filled shapes read at small sizes and use the same color in
@@ -72,8 +74,8 @@ template rather than duplicating it across documentation pages.
 Keep review screenshots outside Git history. Upload captures through the GitHub
 pull request editor and embed the returned GitHub asset URLs in the PR description.
 `.github/docs-preview/` is ignored for local captures. Keep the site's SVG logo,
-font styles, source pins, and license notices versioned; font binaries are build
-inputs downloaded separately.
+font styles and source pins versioned; font binaries and their upstream licence
+notices are build inputs downloaded separately.
 
 ### Hosting decision: Cloudflare Workers static assets
 

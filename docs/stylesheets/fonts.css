@@ -1,4 +1,4 @@
-/* Self-hosted fonts: sources and OFL notices are in assets/fonts/. */
+/* Self-hosted fonts and OFL notices are fetched by the documentation build. */
 @font-face {
   font-family: "Manrope";
   src: url("../assets/fonts/manrope-latin-wght-normal.woff2") format("woff2");
