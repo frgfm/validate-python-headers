@@ -4,9 +4,7 @@ description: Configure explicit ownership and license policies, select languages
 
 # Configuration
 
-!!! info "Source checkout features"
-    This reference describes `main`. The published 0.6.0 wheel supports Python
-    with `[tool.lint-my-headers]` in `pyproject.toml`.
+<p class="lmh-page-lead">One explicit policy for your source files. Choose the languages, paths, and notice that belong to your project.</p>
 
 ## Configuration files
 
@@ -98,15 +96,36 @@ Use the [example header](getting-started.md#check-existing-headers) with the
 appropriate comment marker and blank lines. A custom `license-notice` file can
 contain plain text; existing Python-commented notice files remain accepted.
 
-| Language | Preserved prefixes and layout requirements |
-| --- | --- |
-| Python | UTF-8 BOM, shebang, and PEP 263 cookie. Verified encodings: UTF-8, ASCII, Latin-1, Windows-1252. Other codecs and ambiguous newer string syntax fail closed. |
-| JavaScript / TypeScript | UTF-8 BOM, shebang, CRLF, and body. A shebang needs a blank separator before the header. Bare CR headers are refused. |
-| Rust | UTF-8 BOM, shebang, and newline style. Ordinary `//` headers; crate attributes follow the header. Shebangs need a blank separator; ambiguous comment-prefixed `#!` forms are refused. |
-| Go | UTF-8 BOM and CRLF. Leading `//go:build` and `// +build` directives need a blank separator; constraints after the header are also accepted. |
-| Swift | UTF-8 BOM, CRLF, and shebang. A leading `// swift-tools-version:` stays first, with a blank separator before the header. |
-| Bash / shell | UTF-8 BOM, CRLF, shebang, and executable permissions. A shebang needs a blank separator; other shell dialects are skipped. |
-| C / C++ | UTF-8 BOM, CRLF, and body. Put include guards and `#pragma once` after the header. All preprocessor branches are scanned without evaluating them. |
+??? note "Python"
+    UTF-8 BOM, shebang, and PEP 263 cookie are preserved. Verified encodings:
+    UTF-8, ASCII, Latin-1, and Windows-1252. Other codecs and ambiguous newer
+    string syntax fail closed.
+
+??? note "JavaScript / TypeScript"
+    UTF-8 BOM, shebang, CRLF, and body are preserved. A shebang needs a blank
+    separator before the header. Bare CR headers are refused.
+
+??? note "Rust"
+    UTF-8 BOM, shebang, and newline style are preserved. Use ordinary `//`
+    headers; crate attributes follow the header. Shebangs need a blank separator;
+    ambiguous comment-prefixed `#!` forms are refused.
+
+??? note "Go"
+    UTF-8 BOM and CRLF are preserved. Leading `//go:build` and `// +build`
+    directives need a blank separator; constraints after the header are also accepted.
+
+??? note "Swift"
+    UTF-8 BOM, CRLF, and shebang are preserved. A leading
+    `// swift-tools-version:` stays first, with a blank separator before the header.
+
+??? note "Bash / shell"
+    UTF-8 BOM, CRLF, shebang, and executable permissions are preserved.
+    A shebang needs a blank separator; other shell dialects are skipped.
+
+??? note "C / C++"
+    UTF-8 BOM, CRLF, and body are preserved. Put include guards and
+    `#pragma once` after the header. All preprocessor branches are scanned
+    without evaluating them.
 
 The non-Python parsers distinguish actual comments from strings and other
 language syntax. Parse errors and copyright-bearing block/doc comments refuse

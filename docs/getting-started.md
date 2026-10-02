@@ -4,6 +4,8 @@ description: Install Lint My Headers, declare a header policy, and run your firs
 
 # Getting started
 
+<p class="lmh-page-lead">Install the CLI, declare your policy, and run your first read-only check.</p>
+
 ## Install
 
 Choose the published Python release or build the current multilingual CLI.

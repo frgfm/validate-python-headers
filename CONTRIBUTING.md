@@ -34,8 +34,10 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 
 The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
-familiar to Material for MkDocs users; this site uses Zensical's default modern
-theme. The pinned `docs` dependency group is separate from runtime dependencies.
+familiar to Material for MkDocs users. The site uses Zensical's classic theme,
+with a dark header, cyan accents, and a small stylesheet in
+`docs/stylesheets/extra.css`. `overrides/main.html` supplies the shared development
+notice. The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:
 
 ```shell

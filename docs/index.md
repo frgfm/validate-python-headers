@@ -1,64 +1,76 @@
 ---
 description: A Rust CLI for checking source copyright and license headers and safely refreshing recognized stale years.
+hide:
+  - navigation
+  - toc
 ---
 
-# Lint My Headers
+<section class="lmh-hero" aria-labelledby="lint-my-headers">
+  <div class="lmh-hero__copy">
+    <span class="lmh-eyebrow">Copyright &amp; license header checks</span>
+    <h1 id="lint-my-headers">Lint My Headers</h1>
+    <p class="lmh-hero__lead">Consistent headers.<br>Conservative repairs.</p>
+    <p>Check source headers across nine languages. Declare your policy, find issues, and refresh recognized stale years while preserving everything else.</p>
+    <p class="lmh-hero__actions"><a href="getting-started/" class="md-button md-button--primary">Get started</a><a href="https://github.com/frgfm/lint-my-headers" class="md-button">View on GitHub</a></p>
+  </div>
+  <figure class="lmh-example" aria-label="A recognized year repair preserves the creation year and owner">
+    <figcaption><span>One year. One small diff.</span><code>src/example.py</code></figcaption>
+    <div class="lmh-example__body">
+      <div class="lmh-example__label">Before · <code>LMH004</code></div>
+      <pre><code># Copyright (C) 2024-<span class="lmh-year--before">2025</span>, Example Organization.</code></pre>
+      <div class="lmh-example__command"><span aria-hidden="true">$</span> <code>lmh fix</code></div>
+      <div class="lmh-example__label">After · a recognized repair in 2026</div>
+      <pre><code># Copyright (C) 2024-<span class="lmh-year--after">2026</span>, Example Organization.</code></pre>
+      <p>The creation year, owner, and every other byte stay intact.</p>
+    </div>
+  </figure>
+</section>
 
-**Check source headers. Refresh stale years. Keep every other byte.**
+<div class="lmh-facts">
+  <div><p><strong>Nine languages</strong></p><p>Python, JavaScript, TypeScript, Rust, Go, Swift, Bash, C, and C++ in the source CLI.</p></div>
+  <div><p><strong>Read-only checks</strong></p><p><code>lmh check</code> reports what needs attention without writing source files.</p></div>
+  <div><p><strong>Year-only repairs</strong></p><p><code>lmh fix</code> updates one recognized stale year for your configured owner.</p></div>
+</div>
 
-Lint My Headers is a Rust command-line tool for Python, JavaScript, TypeScript,
-Rust, Go, Swift, Bash/shell, C, and C++. Declare your header policy, run a read-only
-check, and review any safe year updates before committing them.
+## From policy to pull request
 
-```shell
-lmh check   # Report findings without writing
-lmh fix     # Refresh recognized stale years only
-```
+<div class="lmh-workflow">
+  <div><span class="lmh-step">1</span><h3>Declare your policy</h3><p>Set the owner, earliest creation year, license notice, and source paths.</p></div>
+  <div><span class="lmh-step">2</span><h3>Run a check</h3><p>Use <code>lmh check</code> locally, in CI, or from a coding agent. Review each finding.</p></div>
+  <div><span class="lmh-step">3</span><h3>Review the diff</h3><p>Run <code>lmh fix</code> for eligible stale years, recheck, and inspect the changes.</p></div>
+</div>
 
-Both `lmh` and `lint-my-headers` expose the same commands. The installed native
-CLI needs no language toolchain or Node.js runtime.
+## Choose your next step
 
-!!! info "Documentation follows main"
-    The published **0.6.0** wheel supports Python with policy in `pyproject.toml`.
-    Multilingual support and the additional configuration containers documented
-    here require a source checkout until a release includes them. See
-    [Getting started](getting-started.md) for both installation paths.
-
-## A small, explicit workflow
-
-1. Declare the owner, earliest creation year, license notice, and source paths.
-2. Run `lmh check` locally, in CI, or from an agent task.
-3. Review findings. Use `lmh fix` only for recognized, eligible stale years.
-
-For example, a stale header produces a diagnostic with a location and repair
-eligibility:
-
-```text
-src/example.py:1:1: LMH004 copyright year ends at 2025; expected 2026 [fixable]
-```
-
-The process exits **0** when clean, **1** with unresolved findings, and **2** on
-an invocation, configuration, or I/O error. [JSON output](diagnostics.md#json-output)
-provides the same information for automation.
-
-## Start here
-
-| Page | What you will find |
-| --- | --- |
-| [Getting started](getting-started.md) | Installation, a first policy, and a check/fix walkthrough. |
-| [Configuration](configuration.md) | Discovery, options, supported languages, and header layouts. |
-| [Integrations](integrations.md) | pre-commit, prek, the GitHub Action, and annual refreshes. |
-| [Diagnostics & agents](diagnostics.md) | Diagnostic codes, JSON output, and agent instructions. |
+<div class="lmh-guides">
+  <a href="getting-started/" class="lmh-guide">
+    <span class="lmh-guide__title"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19h8M4 17l6-6-6-6"/></svg><strong>Getting started</strong><span aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span>
+    <span class="lmh-guide__description">Install the CLI, declare a first policy, and check your existing headers.</span>
+  </a>
+  <a href="configuration/" class="lmh-guide">
+    <span class="lmh-guide__title"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M14 17H5M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><strong>Configuration</strong><span aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span>
+    <span class="lmh-guide__description">Find the right configuration file, language selectors, and header layouts.</span>
+  </a>
+  <a href="integrations/" class="lmh-guide">
+    <span class="lmh-guide__title"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></svg><strong>Integrations</strong><span aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span>
+    <span class="lmh-guide__description">Add pre-commit, prek, the GitHub Action, or an annual review workflow.</span>
+  </a>
+  <a href="diagnostics/" class="lmh-guide">
+    <span class="lmh-guide__title"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg><strong>Diagnostics &amp; agents</strong><span aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span>
+    <span class="lmh-guide__description">Interpret findings, consume JSON, and give coding agents an explicit contract.</span>
+  </a>
+</div>
 
 ## Repair boundaries
 
-`check` never writes. `fix` preserves the creation year, body bytes, and file mode;
-it changes only one recognized stale year for the configured owner. It refuses
-ambiguous layouts, unsafe links, and concurrently changed targets.
+Repairs preserve the creation year, body bytes, and file mode. Ambiguous layouts,
+unsafe links, and concurrently changed targets are refused. Missing headers,
+wrong owners, malformed notices, and future years require manual review.
 
-Missing headers, wrong owners, malformed notices, and future years need manual
-review. Lint My Headers never chooses ownership or licensing, inserts missing
-headers, or establishes legal, SPDX, or REUSE compliance.
+Ownership and licensing always come from your declared policy. Lint My Headers
+does not insert missing headers or establish legal, SPDX, or REUSE compliance.
+Both `lmh` and `lint-my-headers` expose the same commands, with no language
+toolchain or Node.js runtime needed by the installed native CLI.
 
 The project is licensed under
 [Apache-2.0](https://github.com/frgfm/lint-my-headers/blob/main/LICENSE).

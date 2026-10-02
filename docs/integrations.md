@@ -4,6 +4,8 @@ description: Run Lint My Headers with pre-commit, prek, the GitHub Action, and a
 
 # Integrations
 
+<p class="lmh-page-lead">Use the same header policy in your editor workflow, pull-request checks, and scheduled review PRs.</p>
+
 ## pre-commit and prek
 
 For the published 0.6.0 wheel, use an isolated Python 3.11+ hook with policy in

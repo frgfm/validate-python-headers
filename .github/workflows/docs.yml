@@ -3,7 +3,7 @@ name: documentation
 on:
   push:
     branches: [main]
-    paths: &paths [docs/**, zensical.toml, pyproject.toml, uv.lock, Makefile, .github/workflows/docs.yml]
+    paths: &paths [docs/**, overrides/**, zensical.toml, pyproject.toml, uv.lock, Makefile, .github/workflows/docs.yml]
   pull_request:
     branches: [main]
     paths: *paths

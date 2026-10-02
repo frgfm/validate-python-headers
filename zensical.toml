@@ -5,6 +5,7 @@ site_url = "https://frgfm.github.io/lint-my-headers/"
 repo_url = "https://github.com/frgfm/lint-my-headers"
 repo_name = "frgfm/lint-my-headers"
 edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
 nav = [
   { "Overview" = "index.md" },
   { "Getting started" = "getting-started.md" },
@@ -14,6 +15,8 @@ nav = [
 ]
 
 [project.theme]
+variant = "classic"
+custom_dir = "overrides"
 language = "en"
 font = false
 features = [
@@ -21,6 +24,8 @@ features = [
   "content.code.copy",
   "content.tabs.link",
   "navigation.footer",
+  "navigation.tabs",
+  "navigation.tabs.sticky",
   "navigation.top",
   "search.highlight",
 ]
@@ -31,16 +36,16 @@ logo = "lucide/file-check-2"
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
 scheme = "default"
-primary = "indigo"
-accent = "indigo"
+primary = "black"
+accent = "cyan"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
-primary = "indigo"
-accent = "indigo"
+primary = "black"
+accent = "cyan"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to light mode"
 
