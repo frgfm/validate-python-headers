@@ -135,7 +135,11 @@ def chart(rows: list[dict], name: str, output: Path) -> None:
         highs = [max(row["median_ms"] for row in selected if row["files"] == count) / 1000 for count in counts]
         axes.fill_between(counts, lows, highs, color="#e6e9f2", label="LMH · range across nine languages")
         axes.vlines(counts, lows, highs, color="#c2c8da", linewidth=5, alpha=0.5)
-        for tool, color, label in [("lmh", "#6554df", "LMH · mixed"), ("hawkeye", "#078b79", "HawkEye · mixed")]:
+        for tool, color, label in [
+            ("before", "#7c899d", "LMH before · mixed"),
+            ("lmh", "#6554df", "LMH · mixed"),
+            ("hawkeye", "#078b79", "HawkEye · mixed"),
+        ]:
             series = sorted(
                 [
                     row
@@ -158,7 +162,7 @@ def chart(rows: list[dict], name: str, output: Path) -> None:
                 axes.annotate(
                     duration(last["median_ms"]),
                     (last["files"], last["median_ms"] / 1000),
-                    xytext=(-8, 12),
+                    xytext=(-8, {"before": 12, "lmh": 30, "hawkeye": 10}[tool]),
                     textcoords="offset points",
                     ha="right",
                     color=color,
@@ -180,7 +184,7 @@ def chart(rows: list[dict], name: str, output: Path) -> None:
             FuncFormatter(lambda value, _: f"{value * scale:g} {'s' if scale == 1 else 'ms'}")
         )
         caption = "Measured medians · straight lines connect measured sizes; no extrapolation"
-    axes.legend(loc="lower left", bbox_to_anchor=(0, 1.03), ncols=3, frameon=False, fontsize=10, borderaxespad=0)
+    axes.legend(loc="lower left", bbox_to_anchor=(0, 1.03), ncols=2, frameon=False, fontsize=10, borderaxespad=0)
     figure.text(0.08, 0.035, caption, fontsize=10, color="#657086")
     figure.savefig(output, metadata={"Date": None})
     figure.savefig(output.with_suffix(".png"), dpi=150)
@@ -193,6 +197,7 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=5, help="measured repetitions after one warmup (minimum 3)")
     parser.add_argument("--binary", type=Path, help="benchmark an existing native lmh instead of building")
     parser.add_argument("--compare", type=Path, help="also benchmark a HawkEye 7.2.0 binary on mixed-language trees")
+    parser.add_argument("--baseline", type=Path, help="also benchmark a previous native lmh on mixed-language trees")
     parser.add_argument("--output", type=Path, default=ROOT / "target/bench", help="artifact directory")
     args = parser.parse_args()
     if sys.platform not in {"linux", "darwin"}:
@@ -214,6 +219,8 @@ def main() -> None:
         tools = {"lmh": binary}
         if language == "mixed" and args.compare:
             tools["hawkeye"] = args.compare.resolve()
+        if language == "mixed" and args.baseline:
+            tools["before"] = args.baseline.resolve()
         contents = {
             tool: {
                 lang: (
@@ -340,6 +347,11 @@ def write_results(args: argparse.Namespace, binary: Path, samples: list[dict], r
     comparison = (
         "Optional comparison: cargo install hawkeye --version 7.2.0 --locked, then pass --compare /path/to/hawkeye."
     )
+    if args.baseline:
+        baseline = args.baseline.resolve()
+        metadata.append(
+            f"Baseline: {run_tool(str(baseline), '--version').strip()} · SHA-256: {hashlib.sha256(baseline.read_bytes()).hexdigest()}"
+        )
     if args.compare:
         competitor = args.compare.resolve()
         metadata.append(
