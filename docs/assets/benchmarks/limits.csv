@@ -1,0 +1,19 @@
+scope,tool,workload,files,bytes_per_file,median_ms,range_ms,peak_rss_mib
+"single CPU, tmpfs, 10000 files",before,clean,10000,1024,116.264,7.305,6.832
+"single CPU, tmpfs, 10000 files",lmh,clean,10000,1024,55.217,2.565,9.305
+"single CPU, tmpfs, 10000 files",hawkeye,clean,10000,1024,75.358,3.784,8.477
+"single CPU, tmpfs, 10000 files",before,findings,10000,1024,129.478,5.124,8.488
+"single CPU, tmpfs, 10000 files",lmh,findings,10000,1024,111.282,6.485,11.992
+"single CPU, tmpfs, 10000 files",hawkeye,findings,10000,1024,74.932,3.656,12.699
+"single CPU, tmpfs, 10000 files",before,fix,10000,1024,420.149,29.367,32.266
+"single CPU, tmpfs, 10000 files",lmh,fix,10000,1024,289.117,19.187,23.867
+"single CPU, tmpfs, 10000 files",hawkeye,fix,10000,1024,121.931,8.942,12.680
+"workspace overlay, 1000 files",before,clean,1000,1024,20.101,5.568,5.344
+"workspace overlay, 1000 files",lmh,clean,1000,1024,8.628,3.457,5.551
+"workspace overlay, 1000 files",hawkeye,clean,1000,1024,13.586,2.176,6.508
+"workspace overlay, 1000 files",before,findings,1000,1024,21.219,1.395,5.344
+"workspace overlay, 1000 files",lmh,findings,1000,1024,12.639,3.139,5.895
+"workspace overlay, 1000 files",hawkeye,findings,1000,1024,13.574,1.058,7.023
+"workspace overlay, 1000 files",before,fix,1000,1024,406.062,57.258,7.629
+"workspace overlay, 1000 files",lmh,fix,1000,1024,165.448,47.873,7.035
+"workspace overlay, 1000 files",hawkeye,fix,1000,1024,38.634,39.131,7.113

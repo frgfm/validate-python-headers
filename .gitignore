@@ -12,3 +12,5 @@ site/
 .cache/
 .github/docs-preview/
 /docs/assets/fonts/
+/docs/assets/benchmarks/*.png
+/docs/assets/benchmarks/*.svg

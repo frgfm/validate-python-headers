@@ -54,6 +54,8 @@ The creation year, owner, and every other byte stay intact.
   annual review workflow.
 - [Diagnostics & agents](diagnostics.md): findings, JSON output, and coding-agent
   repair boundaries.
+- [Performance](benchmarks.md): check overhead, full-codebase repair time, memory,
+  and a reproducible HawkEye comparison.
 
 ## Repair boundaries
 

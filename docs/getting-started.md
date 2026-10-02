@@ -26,8 +26,7 @@ Choose the published Python release or build the current multilingual CLI.
 
 === "Source checkout"
 
-    Use the pinned Rust 1.93 toolchain and a C compiler for the bundled
-    Tree-sitter grammars:
+    Use the pinned Rust 1.93 toolchain and a native linker:
 
     ```shell
     git clone https://github.com/frgfm/lint-my-headers.git

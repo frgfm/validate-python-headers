@@ -100,6 +100,8 @@ it does not commit or open a PR.
 | `changed` | Files with completed repairs. |
 
 On exit 2, `issues` stays `[]`, while `changed` retains completed repairs.
+An I/O error stops new repairs; already-running repairs finish before results
+are returned.
 
 ## Annual copyright refresh
 

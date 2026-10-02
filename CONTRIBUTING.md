@@ -14,7 +14,7 @@ Follow the [code of conduct](CODE_OF_CONDUCT.md), [runtime contracts](README.md)
 
 ## Local development
 
-Use the Rust toolchain pinned in `rust-toolchain.toml`, a C compiler for Tree-sitter, Python 3.11+, and uv. Work on a feature branch.
+Use the Rust toolchain pinned in `rust-toolchain.toml`, a native linker, Python 3.11+, and uv. Work on a feature branch.
 
 ```shell
 make install-quality
@@ -32,7 +32,7 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 
 ## Documentation
 
-The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
+The pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
 familiar to Material for MkDocs users. The site uses Zensical's default `modern`
 variant, including its colors, layout, controls, and components. The only custom
