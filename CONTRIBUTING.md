@@ -111,21 +111,30 @@ below `/lint-my-headers/`, so it would not control origin-wide crawling.
 
 ### Deployment setup
 
-The `documentation` workflow builds and validates Wrangler without credentials
-on pull requests. It uploads the prefixed asset bundle and deploys that exact
-bundle only on `main` pushes or a manual run on `main`. GitHub permissions remain
-read-only. The deployment job uses the `docs-production` environment.
+The `documentation` GitHub workflow builds and validates Wrangler without
+credentials on documentation-related pull requests and `main` pushes, or a
+manual run. It uploads the prefixed asset bundle for review. GitHub permissions
+remain read-only; production deployment uses Cloudflare's Git integration.
 
 Before the first deployment:
 
 1. Ensure `fgfm.dev` is an active zone in the intended Cloudflare account and
    `docs.fgfm.dev` is available for this Worker Custom Domain.
-2. Configure the `docs-production` GitHub environment with
-   `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Use the
-   [Edit Cloudflare Workers API token template](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/),
-   scoped to the intended account and zone.
-3. Merge and run the `documentation` workflow on `main` if needed. Wrangler
-   provisions the Custom Domain's DNS and TLS during deployment.
+2. In Cloudflare **Workers & Pages**, connect the `lint-my-headers-docs` Worker
+   to `frgfm/lint-my-headers`. Select `main` as the production branch and the
+   repository root as the root directory.
+3. Set the build command to
+   `python -m pip install uv==0.12.5 && make docs-cloudflare` and the deploy
+   command to `npx --yes wrangler@4.147.0 deploy`.
+4. Set the build environment variable `SKIP_DEPENDENCY_INSTALL=1` so the build
+   command installs only the documentation dependencies. Cloudflare's build
+   configuration holds the deployment credentials.
+5. Deploy `main`. Wrangler reads `.docs-site` from `wrangler.toml` and provisions
+   the Custom Domain's DNS and TLS during deployment. Subsequent pushes to
+   `main` trigger Cloudflare builds and deployments.
+
+Refer to [Workers Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)
+for connecting the repository and managing automatic deployments.
 
 The Custom Domain covers the whole `docs.fgfm.dev` hostname; this first project
 serves assets only below `/lint-my-headers/`. Future projects can use more-specific
