@@ -8,21 +8,28 @@ use clap::{CommandFactory, FromArgMatches};
 use config::{Cli, OutputFormat};
 use filesystem::RepairError;
 use model::{CommandResult, Settings};
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").replace("-rc.", "rc")
 }
 
 pub fn display_path(path: &Path, root: &Path) -> String {
-    fn absolute(path: &Path) -> PathBuf {
-        let cwd = std::env::current_dir().unwrap_or_default();
-        let path = path.strip_prefix(&cwd).unwrap_or(path);
+    path_formatter(root)(path)
+}
+
+fn path_formatter(root: &Path) -> impl Fn(&Path) -> String {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let canonical_cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.clone());
+    fn absolute(path: &Path, cwd: &Path, canonical_cwd: &Path) -> PathBuf {
+        let path = path.strip_prefix(cwd).unwrap_or(path);
         let path = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            cwd.canonicalize().unwrap_or(cwd).join(path)
+            canonical_cwd.join(path)
         };
         let mut normal = PathBuf::new();
         for part in path.components() {
@@ -48,95 +55,218 @@ pub fn display_path(path: &Path, root: &Path) -> String {
         }
         normal
     }
-    let path = absolute(path);
-    pathdiff::diff_paths(&path, absolute(root))
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
+    let root = absolute(root, &cwd, &canonical_cwd);
+    move |path| {
+        let path = absolute(path, &cwd, &canonical_cwd);
+        if let Ok(relative) = path.strip_prefix(&root) {
+            return relative.to_string_lossy().replace('\\', "/");
+        }
+        pathdiff::diff_paths(&path, &root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/")
+    }
+}
+
+fn analyze_bytes(
+    raw: &[u8],
+    policy: &model::HeaderPolicy,
+    shown: &str,
+    known_clean: Option<&[u8]>,
+) -> analysis::Inspection {
+    // Reuse validation only for exactly the same bytes, policy and display path.
+    if known_clean == Some(raw) {
+        analysis::Inspection::default()
+    } else {
+        analysis::inspect(raw, policy, shown)
+    }
+}
+
+fn map_files<T: Send, R: Send>(items: &mut [T], action: impl Fn(&mut T) -> R + Sync) -> Vec<R> {
+    let count = items.len();
+    let workers = if count < 256 {
+        1
+    } else {
+        std::thread::available_parallelism().map_or(1, |n| n.get().min(4))
+    };
+    if workers == 1 {
+        return items.iter_mut().map(action).collect();
+    }
+    let size = count.div_ceil(workers);
+    std::thread::scope(|scope| {
+        let handles = items
+            .chunks_mut(size)
+            .map(|chunk| scope.spawn(|| chunk.iter_mut().map(&action).collect::<Vec<_>>()))
+            .collect::<Vec<_>>();
+        let mut output = Vec::with_capacity(count);
+        for handle in handles {
+            output.extend(handle.join().expect("file worker panicked"));
+        }
+        output
+    })
 }
 
 pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResult {
     let mut result = CommandResult::new(command);
-    result.config_path = settings
-        .config_path
-        .as_ref()
-        .map(|p| display_path(p, &settings.project_root));
+    let display = path_formatter(&settings.project_root);
+    result.config_path = settings.config_path.as_ref().map(|p| display(p));
     let outcome: Result<(), (String, Option<String>)> = (|| {
         let policy = analysis::build_policy(settings, current_year).map_err(|e| (e, None))?;
         result.expected_header = Some(analysis::render_header(
             &policy.expected_header,
             settings.languages[0],
         ));
-        let mut paths = filesystem::discover(settings).map_err(|e| (e, None))?;
-        paths.sort_by_key(|p| display_path(p, &settings.project_root));
-        let read = |path: &Path| {
-            let shown = display_path(path, &settings.project_root);
+        let mut paths: Vec<_> = filesystem::discover_unsorted(settings)
+            .map_err(|e| (e, None))?
+            .into_iter()
+            .map(|path| {
+                let shown = display(&path);
+                (path, shown)
+            })
+            .collect();
+        paths.sort_by(|a, b| a.1.cmp(&b.1));
+        let read = |path: &Path, shown: &str| {
             let snapshot = filesystem::read(path, &settings.project_root)
-                .map_err(|e| (e.to_string(), Some(shown.clone())))?;
-            let mut content = analysis::analyze(&snapshot.bytes, &policy, &shown);
+                .map_err(|e| (e.to_string(), Some(shown.to_owned())))?;
+            let mut content = analysis::inspect(&snapshot.bytes, &policy, shown);
             if let Some(diagnostic) = &mut content.diagnostic {
                 diagnostic.fixable &= snapshot.unsafe_reason.is_none();
             }
             Ok::<_, (String, Option<String>)>((snapshot, content))
         };
-        let mut files = Vec::with_capacity(paths.len());
-        for path in &paths {
-            let file = read(path)?;
-            result.diagnostics.extend(file.1.diagnostic.clone());
+        let inspect =
+            |(path, shown): &(PathBuf, String), repair: bool, known_clean: Option<&[u8]>| {
+                if !repair {
+                    let bytes =
+                        std::fs::read(path).map_err(|e| (e.to_string(), Some(shown.clone())))?;
+                    let mut content = analyze_bytes(&bytes, &policy, shown, known_clean);
+                    // Only repairable findings need a guarded snapshot to report fixability.
+                    if content.diagnostic.as_ref().is_some_and(|d| d.fixable) {
+                        let snapshot = filesystem::read(path, &settings.project_root)
+                            .map_err(|e| (e.to_string(), Some(shown.clone())))?;
+                        if snapshot.bytes != bytes {
+                            content = analysis::inspect(&snapshot.bytes, &policy, shown);
+                            content
+                                .diagnostic
+                                .iter_mut()
+                                .for_each(|d| d.fixable = false);
+                        } else {
+                            content.diagnostic.iter_mut().for_each(|d| {
+                                d.fixable &= snapshot.unsafe_reason.is_none();
+                            });
+                        }
+                    }
+                    return Ok((None, content));
+                }
+                read(path, shown).map(|(snapshot, content)| (Some(snapshot), content))
+            };
+        let inspected = map_files(&mut paths, |path| inspect(path, command == "fix", None));
+        let mut files: Vec<(_, (filesystem::Snapshot, analysis::Inspection))> =
+            Vec::with_capacity(if command == "fix" { paths.len() } else { 0 });
+        let mut targets = HashSet::new();
+        for (path, file) in paths.iter().zip(inspected) {
+            let (mut snapshot, mut content) = match file {
+                Ok(file) => file,
+                Err(error) => {
+                    result.diagnostics.extend(
+                        files
+                            .iter()
+                            .filter_map(|(_, file)| file.1.diagnostic.clone()),
+                    );
+                    return Err(error);
+                }
+            };
+            if content.edit.is_some()
+                && let Some(snapshot) = &mut snapshot
+            {
+                snapshot.claim_target(&mut targets);
+                content
+                    .diagnostic
+                    .iter_mut()
+                    .for_each(|d| d.fixable &= snapshot.unsafe_reason.is_none());
+            }
             result.checked += 1;
-            files.push(file);
+            if let Some(snapshot) = snapshot {
+                files.push((path, (snapshot, content)));
+            } else {
+                result.diagnostics.extend(content.diagnostic);
+            }
         }
         if command != "fix" {
             return Ok(());
         }
-        let repaired = paths
-            .iter()
-            .zip(&mut files)
-            .try_for_each(|(path, (snapshot, content))| {
-                let Some(diagnostic) = &mut content.diagnostic else {
-                    return Ok(());
-                };
-                if diagnostic.code != "LMH004" {
-                    return Ok(());
+        let cancelled = AtomicBool::new(false);
+        let repaired = map_files(&mut files, |((path, _), (snapshot, content))| {
+            if cancelled.load(Ordering::Relaxed) {
+                return Ok(None);
+            }
+            let Some(diagnostic) = &mut content.diagnostic else {
+                return Ok(None);
+            };
+            if diagnostic.code != "LMH004" {
+                return Ok(None);
+            }
+            let repair = match (&snapshot.unsafe_reason, &content.edit) {
+                (Some(reason), _) => Err(RepairError::Unsafe(reason.clone())),
+                (None, Some(edit)) => {
+                    let bytes = edit.apply(&snapshot.bytes);
+                    filesystem::replace(path, snapshot, &bytes, &settings.project_root)
+                        .map(|()| snapshot.bytes = bytes)
                 }
-                let repair = match (&snapshot.unsafe_reason, &content.replacement) {
-                    (Some(reason), _) => Err(RepairError::Unsafe(reason.clone())),
-                    (None, Some(bytes)) => {
-                        filesystem::replace(path, snapshot, bytes, &settings.project_root)
-                    }
-                    (None, None) => Err(RepairError::Unsafe(
-                        "copyright bytes cannot be repaired safely".into(),
-                    )),
-                };
-                match repair {
-                    Ok(()) => {
-                        result.changed.push(diagnostic.path.clone());
-                        content.diagnostic = None;
-                    }
-                    Err(RepairError::Unsafe(reason)) => {
-                        diagnostic.code = "LMH008".into();
-                        diagnostic.message = reason;
-                        diagnostic.fixable = false;
-                    }
-                    Err(RepairError::Io(error)) => {
-                        return Err((error.to_string(), Some(diagnostic.path.clone())));
-                    }
+                (None, None) => Err(RepairError::Unsafe(
+                    "copyright bytes cannot be repaired safely".into(),
+                )),
+            };
+            match repair {
+                Ok(()) => {
+                    let changed = diagnostic.path.clone();
+                    content.diagnostic = None;
+                    return Ok(Some(changed));
                 }
-                Ok(())
-            });
+                Err(RepairError::Unsafe(reason)) => {
+                    diagnostic.code = "LMH008".into();
+                    diagnostic.message = reason;
+                    diagnostic.fixable = false;
+                }
+                Err(RepairError::Io(error)) => {
+                    cancelled.store(true, Ordering::Relaxed);
+                    return Err((error.to_string(), Some(diagnostic.path.clone())));
+                }
+            }
+            Ok(None)
+        });
+        let mut error = None;
+        // Join all workers before reporting an error: in-flight writes may have completed.
+        for outcome in repaired {
+            match outcome {
+                Ok(Some(path)) => result.changed.push(path),
+                Err(e) => {
+                    error.get_or_insert(e);
+                }
+                _ => {}
+            }
+        }
         result.diagnostics = files
             .iter()
-            .filter_map(|file| file.1.diagnostic.clone())
+            .filter_map(|(_, file)| file.1.diagnostic.clone())
             .collect();
-        repaired?;
+        if let Some(error) = error {
+            return Err(error);
+        }
         // Keep unsafe findings; otherwise report the files as they stand after repair.
         result.diagnostics.clear();
-        for (path, (_, content)) in paths.iter().zip(files) {
-            let diagnostic = match content.diagnostic {
-                Some(d) if d.code == "LMH008" => Some(d),
-                _ => read(path)?.1.diagnostic,
-            };
-            result.diagnostics.extend(diagnostic);
+        let diagnostics = map_files(&mut files, |(path, (snapshot, content))| {
+            let known_clean = content
+                .diagnostic
+                .is_none()
+                .then_some(snapshot.bytes.as_slice());
+            match &content.diagnostic {
+                Some(d) if d.code == "LMH008" => Ok(Some(d.clone())),
+                _ => inspect(path, false, known_clean).map(|(_, content)| content.diagnostic),
+            }
+        });
+        for diagnostic in diagnostics {
+            result.diagnostics.extend(diagnostic?);
         }
         Ok(())
     })();
@@ -260,4 +390,51 @@ pub fn main_entry() -> i32 {
         return 2;
     }
     result.exit_code()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cached_paths_preserve_relative_absolute_and_parent_components() {
+        let cwd = std::env::current_dir().unwrap();
+        let root = cwd.join("src/nested/..");
+        let display = path_formatter(&root);
+        for path in [PathBuf::from("src/./file.rs"), cwd.join("src/file.rs")] {
+            assert_eq!(display(&path), "file.rs");
+        }
+        assert_eq!(display(&cwd.join("other/../outside.rs")), "../outside.rs");
+    }
+
+    #[test]
+    fn post_write_validation_rechecks_changed_bytes() {
+        let policy = model::HeaderPolicy {
+            owner: "Owner".into(),
+            starting_year: 2024,
+            current_year: 2030,
+            license_notices: vec!["Notice.\n".into()],
+            expected_header: String::new(),
+        };
+        let clean = b"// Copyright (C) 2024-2030, Owner.\n\n// Notice.\n\nfn main() {}\n";
+        for current in [
+            clean.to_vec(),
+            String::from_utf8_lossy(clean)
+                .replace("2030", "2029")
+                .into_bytes(),
+            String::from_utf8_lossy(clean)
+                .replace("Owner", "Other")
+                .into_bytes(),
+            [clean.as_slice(), b"// Copyright (C) 2024, Other.\n"].concat(),
+            [clean.as_slice(), b"\xff"].concat(),
+        ] {
+            let cached = analyze_bytes(&current, &policy, "x.rs", Some(clean));
+            let fresh = analysis::analyze(&current, &policy, "x.rs");
+            assert_eq!(cached.diagnostic, fresh.diagnostic);
+            assert_eq!(
+                cached.edit.as_ref().map(|edit| edit.apply(&current)),
+                fresh.replacement
+            );
+        }
+    }
 }

@@ -1,6 +1,5 @@
 use crate::model::{Language, Settings};
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, Metadata, Permissions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -25,9 +24,17 @@ fn walk(root: &Path, candidates: &mut Vec<PathBuf>, ignored: &[PathBuf]) -> io::
         return Ok(());
     }
     for entry in fs::read_dir(root)? {
-        let path = entry?.path();
+        let entry = entry?;
+        let path = entry.path();
+        #[cfg(windows)]
         let metadata = fs::symlink_metadata(&path)?;
-        if linked(&metadata) {
+        #[cfg(not(windows))]
+        let metadata = entry.file_type()?;
+        #[cfg(windows)]
+        let is_link = linked(&metadata);
+        #[cfg(not(windows))]
+        let is_link = metadata.is_symlink();
+        if is_link {
             continue;
         }
         if metadata.is_dir() {
@@ -47,6 +54,12 @@ fn absolute_key(path: &Path) -> io::Result<PathBuf> {
 }
 
 pub fn discover(settings: &Settings) -> Result<Vec<PathBuf>, String> {
+    let mut paths = discover_unsorted(settings)?;
+    paths.sort_by_cached_key(|path| path.to_string_lossy().replace('\\', "/"));
+    Ok(paths)
+}
+
+pub(crate) fn discover_unsorted(settings: &Settings) -> Result<Vec<PathBuf>, String> {
     if settings.paths.is_empty() {
         return Err("Please specify at least one path to inspect".into());
     }
@@ -91,9 +104,7 @@ pub fn discover(settings: &Settings) -> Result<Vec<PathBuf>, String> {
             paths.entry(key).or_insert(candidate);
         }
     }
-    let mut paths: Vec<_> = paths.into_values().collect();
-    paths.sort_by_cached_key(|path| path.to_string_lossy().replace('\\', "/"));
-    Ok(paths)
+    Ok(paths.into_values().collect())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -127,17 +138,17 @@ fn stamp(metadata: &Metadata) -> io::Result<Stamp> {
 }
 
 #[cfg(unix)]
-fn link_count(file: &File) -> io::Result<u64> {
-    Ok(file.metadata()?.nlink())
+fn link_count(_file: &File, metadata: &Metadata) -> io::Result<u64> {
+    Ok(metadata.nlink())
 }
 
 #[cfg(windows)]
-fn link_count(file: &File) -> io::Result<u64> {
+fn link_count(file: &File, _metadata: &Metadata) -> io::Result<u64> {
     Ok(winapi_util::file::information(file)?.number_of_links())
 }
 
 #[cfg(not(any(unix, windows)))]
-fn link_count(_file: &File) -> io::Result<u64> {
+fn link_count(_file: &File, _metadata: &Metadata) -> io::Result<u64> {
     Ok(0)
 }
 
@@ -170,7 +181,6 @@ fn file_id(file: &File) -> io::Result<FileId> {
 #[derive(Debug)]
 struct Identity {
     stamp: Stamp,
-    digest: [u8; 32],
     links: u64,
     permissions: Permissions,
     #[cfg(windows)]
@@ -185,6 +195,27 @@ pub struct Snapshot {
     pub bytes: Vec<u8>,
     pub unsafe_reason: Option<String>,
     identity: Option<Identity>,
+}
+
+impl Snapshot {
+    pub(crate) fn claim_target(&mut self, targets: &mut HashSet<(u64, u128)>) {
+        #[cfg(unix)]
+        let key = self
+            .identity
+            .as_ref()
+            .map(|id| (id.stamp.unix.0, u128::from(id.stamp.unix.1)));
+        #[cfg(windows)]
+        let key = self
+            .identity
+            .as_ref()
+            .map(|id| (id.file_id.0, u128::from_ne_bytes(id.file_id.1)));
+        #[cfg(not(any(unix, windows)))]
+        let key: Option<(u64, u128)> = None;
+        if key.is_some_and(|key| !targets.insert(key)) {
+            self.unsafe_reason = Some("repair target selected more than once".into());
+            self.identity = None;
+        }
+    }
 }
 
 fn unsafe_path(
@@ -226,9 +257,13 @@ pub fn read(path: &Path, project_root: &Path) -> io::Result<Snapshot> {
     let opened = file.metadata()?;
     #[cfg(windows)]
     let original_id = file_id(&file)?;
-    let links = link_count(&file)?;
+    let links = link_count(&file, &opened)?;
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
+    bytes
+        .try_reserve(opened.len().try_into().unwrap_or(0))
+        .map_err(io::Error::other)?;
+    // Capacity is already reserved; avoid File's extra metadata/seek size hint.
+    (&mut file).take(u64::MAX).read_to_end(&mut bytes)?;
     let read_metadata = file.metadata()?;
     let after = fs::symlink_metadata(path)?;
     let mut unsafe_reason = unsafe_path(path, &after, links, project_root)?;
@@ -237,7 +272,7 @@ pub fn read(path: &Path, project_root: &Path) -> io::Result<Snapshot> {
         && (stamp(&before)? != current_stamp
             || stamp(&opened)? != current_stamp
             || stamp(&read_metadata)? != current_stamp
-            || link_count(&file)? != links)
+            || link_count(&file, &read_metadata)? != links)
     {
         unsafe_reason = Some("repair target changed while it was read".into());
     }
@@ -247,7 +282,6 @@ pub fn read(path: &Path, project_root: &Path) -> io::Result<Snapshot> {
     }
     let identity = unsafe_reason.is_none().then(|| Identity {
         stamp: current_stamp,
-        digest: Sha256::digest(&bytes).into(),
         links,
         permissions: after.permissions(),
         #[cfg(windows)]
@@ -274,17 +308,21 @@ impl From<io::Error> for RepairError {
     }
 }
 
-fn matches(path: &Path, identity: &Identity, project_root: &Path) -> io::Result<bool> {
+fn matches(path: &Path, original: &Snapshot, project_root: &Path) -> io::Result<bool> {
     let current = read(path, project_root)?;
-    Ok(current.identity.is_some_and(|current| {
-        #[cfg(windows)]
-        if current.file_id != identity.file_id {
-            return false;
-        }
-        current.stamp == identity.stamp
-            && current.digest == identity.digest
-            && current.links == identity.links
-    }))
+    Ok(current
+        .identity
+        .as_ref()
+        .zip(original.identity.as_ref())
+        .is_some_and(|(current_id, original_id)| {
+            #[cfg(windows)]
+            if current_id.file_id != original_id.file_id {
+                return false;
+            }
+            current_id.stamp == original_id.stamp
+                && current_id.links == original_id.links
+                && current.bytes == original.bytes
+        }))
 }
 
 pub fn replace(
@@ -301,7 +339,7 @@ pub fn replace(
                 .unwrap_or_else(|| "repair target is unsafe".into()),
         )
     })?;
-    if !matches(path, identity, project_root)? {
+    if !matches(path, original, project_root)? {
         return Err(RepairError::Unsafe(
             "repair target changed before writing".into(),
         ));
@@ -321,7 +359,7 @@ pub fn replace(
         .as_file()
         .set_permissions(identity.permissions.clone())?;
     temporary.as_file().sync_all()?;
-    if !matches(path, identity, project_root)? {
+    if !matches(path, original, project_root)? {
         return Err(RepairError::Unsafe(
             "repair target changed before replacement".into(),
         ));
@@ -443,6 +481,24 @@ mod tests {
         ));
         assert_eq!(fs::read(&path).unwrap(), b"new");
         assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn duplicate_snapshots_refuse_a_second_repair() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.py");
+        fs::write(&path, b"original").unwrap();
+        let mut first = read(&path, root.path()).unwrap();
+        let mut second = read(&path, root.path()).unwrap();
+        let mut targets = HashSet::new();
+        first.claim_target(&mut targets);
+        second.claim_target(&mut targets);
+        assert!(first.unsafe_reason.is_none());
+        assert!(matches!(
+            replace(&path, &second, b"repair", root.path()),
+            Err(RepairError::Unsafe(_))
+        ));
+        assert_eq!(fs::read(path).unwrap(), b"original");
     }
 
     #[test]

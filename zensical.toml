@@ -12,6 +12,7 @@ nav = [
   { "Configuration" = "configuration.md" },
   { "Integrations" = "integrations.md" },
   { "Diagnostics & agents" = "diagnostics.md" },
+  { "Performance" = "benchmarks.md" },
 ]
 
 [project.theme]

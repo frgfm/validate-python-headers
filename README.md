@@ -34,8 +34,8 @@ same explicit policy.
   required to run the installed binary.
 - **Nine languages, one policy.** Python, JavaScript, TypeScript, Rust, Go, Swift, Bash,
   C, and C++ in the current source CLI.
-- **Syntax-aware checks.** Recognizes real comments and keeps header-like text inside
-  strings, templates, and other language syntax out of repairs.
+- **Leading-header checks.** Recognizes the opening comment region and requires notices
+  before code, keeping header-like text in program bodies out of repairs.
 - **Precise, reviewable fixes.** Refreshes recognized stale years while preserving the
   creation year, owner, all other bytes, and file permissions.
 - **Fits your workflow.** First-party pre-commit/prek hook, GitHub Action, and stable JSON
@@ -43,17 +43,22 @@ same explicit policy.
 
 ## Performance
 
-On a synthetic fixture of **1,000 source files across all nine languages** (1.85 MB),
-the release binary measured:
+On **10,000 mixed-language files** (1 KiB/file), the release CLI measured:
 
-| Check | Median time |
-| --- | ---: |
-| All headers current | **249 ms** |
-| 1,000 stale-year findings, with JSON output | **518 ms** |
+| Task | LMH | HawkEye 7.2.0 |
+| --- | ---: | ---: |
+| Routine check | 36 ms | 76 ms |
+| Check stale headers | 62 ms | 76 ms |
+| Repair stale years | 147 ms | 125 ms |
 
-Seven measured runs per case, after one warm-up, on a shared Linux x86_64 runner.
-Each run starts a fresh CLI process with a warm filesystem cache. See
-[BENCHMARKS.md](BENCHMARKS.md) for the fixture, full results, and reproduction command.
+Five timing trials after warmup on the same shared Linux runner. Both tools receive
+the same CPU budget; LMH uses up to four available workers for large trees.
+
+![Native check latency](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-5152bf26fb17/check.png)
+
+See the [performance guide](docs/benchmarks.md) for repair time, peak memory,
+all nine languages, CSVs, methodology and reproduction. These are synthetic,
+warm-cache results; CPU limits and storage affect the comparison.
 
 ## Installation
 
@@ -123,6 +128,13 @@ A 2026 refresh produces a diff like this:
 Only the end year changes. `check` never writes source files. Missing headers and other
 findings stay available for manual review. See the
 [getting-started guide](docs/getting-started.md) for a complete header example.
+
+## Benchmarks
+
+Run `bash scripts/benchmark.sh` to generate CSVs, SVG/PNG charts and an HTML
+report with a workflow-overhead calculator. Add `--compare /path/to/hawkeye` for
+a locally measured comparison or `--baseline /path/to/previous/lmh` to show the
+improvement. See [requirements and reproduction](docs/benchmarks.md#reproduce).
 
 ## Configuration and safety
 
@@ -236,7 +248,8 @@ provide its commit SHA. For an unreleased multilingual revision, pin its reviewe
 and set `version: source` to build that Action checkout using `Cargo.lock`.
 
 Inputs override policy. The `issues` and `changed` outputs are compact JSON path arrays;
-on exit 2, `issues` is empty and `changed` retains completed writes. See the
+on exit 2, `issues` is empty and `changed` retains completed writes. An I/O error stops
+new repairs; already-running repairs finish before results are returned. See the
 [integration guide](docs/integrations.md) and [Action reference](action.yml) for all inputs,
 outputs, and installation behavior.
 

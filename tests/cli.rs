@@ -876,7 +876,7 @@ fn diagnostic_precedence_and_unfixable_sources() {
             "duplicate",
             format!(
                 "{}# Copyright (C) {}, {OWNER}.\n",
-                header(year() - 2),
+                header(year() - 2).split("value =").next().unwrap(),
                 year()
             ),
             "LMH006",
@@ -889,7 +889,7 @@ fn diagnostic_precedence_and_unfixable_sources() {
         (
             "late_cookie",
             format!("value = 0\n# coding: utf-8\n\n{}", header(year())),
-            "LMH006",
+            "LMH001",
         ),
     ];
     for (name, contents, _) in &invalid {
@@ -1232,6 +1232,171 @@ fn hardlinked_targets_are_readable_but_never_fixed() {
     for path in ["src/first.py", "src/second.py"] {
         assert_eq!(fs::read_to_string(root.join(path)).unwrap(), stale);
     }
+}
+
+#[test]
+fn large_trees_keep_ordered_findings_and_safe_year_only_repairs() {
+    let dir = workspace();
+    let root = dir.path();
+    let originals: Vec<_> = (0..300)
+        .map(|i| {
+            let bytes = match i % 4 {
+                0 => header(year()).into_bytes(),
+                1 => header(year() - 2).into_bytes(),
+                2 => source(year(), "Other", NOTICE).into_bytes(),
+                _ => [header(year()).as_bytes(), b"\xff"].concat(),
+            };
+            let path = format!("src/{i:03}.py");
+            write(root, &path, &bytes);
+            (path, bytes)
+        })
+        .collect();
+    fs::hard_link(root.join("src/001.py"), root.join("src/linked.py")).unwrap();
+    let check = json_run(root, &["check"], 1);
+    assert_eq!(check["checked"], 301);
+    assert_eq!(check, json_run(root, &["check"], 1));
+    let diagnostics = check["diagnostics"].as_array().unwrap();
+    assert!(
+        diagnostics
+            .windows(2)
+            .all(|pair| pair[0]["path"].as_str() < pair[1]["path"].as_str())
+    );
+    for (path, bytes) in &originals {
+        assert_eq!(fs::read(root.join(path)).unwrap(), *bytes);
+    }
+    for path in ["src/001.py", "src/linked.py"] {
+        assert!(
+            !diagnostics.iter().find(|d| d["path"] == path).unwrap()["fixable"]
+                .as_bool()
+                .unwrap()
+        );
+    }
+    let fixed = json_run(root, &["fix"], 1);
+    let changed: Vec<_> = originals
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % 4 == 1 && *i != 1)
+        .map(|(_, (path, _))| path)
+        .collect();
+    assert_eq!(fixed["changed"], json!(changed));
+    assert_eq!(
+        fixed["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|d| d["code"] == "LMH008")
+            .count(),
+        2
+    );
+    for (i, (path, bytes)) in originals.iter().enumerate() {
+        let expected = if i % 4 == 1 && i != 1 {
+            header(format!("{}-{}", year() - 2, year())).into_bytes()
+        } else {
+            bytes.clone()
+        };
+        assert_eq!(fs::read(root.join(path)).unwrap(), expected);
+    }
+}
+
+#[test]
+fn parallel_repairs_refuse_duplicate_file_identities() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::create_dir(root.join("src/deep")).unwrap();
+    for i in 0..300 {
+        write(root, &format!("src/{i:03}.py"), header(year() - 2));
+    }
+    // Windows resolves `..` in absolute discovery keys before identity reservation.
+    let windows = cfg!(windows);
+    let result = json_run(
+        root,
+        &["fix", "src", "src/deep/../075.py"],
+        i32::from(!windows),
+    );
+    assert_eq!(result["checked"], if windows { 300 } else { 301 });
+    assert_eq!(result["changed"].as_array().unwrap().len(), 300);
+    assert_eq!(
+        result["diagnostics"].as_array().unwrap().len(),
+        usize::from(!windows)
+    );
+    if !windows {
+        assert_eq!(result["diagnostics"][0]["path"], "src/075.py");
+        assert_eq!(result["diagnostics"][0]["code"], "LMH008");
+        assert_eq!(result["diagnostics"][0]["fixable"], false);
+    }
+    for i in 0..300 {
+        assert_eq!(
+            fs::read(root.join(format!("src/{i:03}.py"))).unwrap(),
+            header(format!("{}-{}", year() - 2, year())).as_bytes()
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn parallel_repair_errors_report_every_completed_write() {
+    use std::os::unix::{
+        fs::{MetadataExt, PermissionsExt},
+        process::CommandExt,
+    };
+    let dir = workspace();
+    let root = dir.path();
+    let stale = header(year() - 2);
+    let clean = header(format!("{}-{}", year() - 2, year()));
+    for i in 0..300 {
+        write(root, &format!("src/{i:03}.py"), &stale);
+    }
+    write(root, "src/000/blocked.py", &stale);
+    let outputs = root.join("outputs");
+    fs::write(&outputs, "").unwrap();
+    for (path, mode) in [
+        (root.to_path_buf(), 0o755),
+        (root.join("src"), 0o777),
+        (root.join("src/000"), 0o555),
+        (outputs.clone(), 0o666),
+    ] {
+        fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+    }
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lmh"));
+    command
+        .current_dir(root)
+        .env("GITHUB_OUTPUT", &outputs)
+        .args(["fix", "--output-format", "json"]);
+    if fs::metadata(root).unwrap().uid() == 0 {
+        command.uid(65534).gid(65534);
+    }
+    let output = command.output().unwrap();
+    fs::set_permissions(root.join("src/000"), fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["checked"], 301);
+    assert_eq!(result["error"]["path"], "src/000/blocked.py");
+    let mut changed = Vec::new();
+    for i in 0..300 {
+        let path = format!("src/{i:03}.py");
+        let bytes = fs::read(root.join(&path)).unwrap();
+        if bytes == clean.as_bytes() {
+            changed.push(path);
+        } else {
+            assert_eq!(bytes, stale.as_bytes());
+        }
+    }
+    assert!(!changed.is_empty());
+    assert_eq!(result["changed"], json!(changed));
+    assert_eq!(
+        fs::read(root.join("src/000/blocked.py")).unwrap(),
+        stale.as_bytes()
+    );
+    let outputs = fs::read_to_string(outputs).unwrap();
+    assert!(outputs.lines().any(|line| line == "issues=[]"));
+    let changed: Value = serde_json::from_str(
+        outputs
+            .lines()
+            .find_map(|line| line.strip_prefix("changed="))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(changed, result["changed"]);
 }
 
 #[cfg(any(unix, windows))]
