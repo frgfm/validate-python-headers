@@ -84,7 +84,7 @@ def main() -> int:
             """owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust", "go"]
+languages = ["python", "javascript", "typescript", "rust", "go", "swift"]
 paths = ["src"]
 ignore-files = []
 ignore-folders = []
@@ -99,6 +99,7 @@ ignore-folders = []
                 ("tsx", "//", "value = 1"),
                 ("rs", "//", "const VALUE: i32 = 1;"),
                 ("go", "//", "package example\nconst value = 1"),
+                ("swift", "//", "let value = 1"),
             ),
             1,
         ):

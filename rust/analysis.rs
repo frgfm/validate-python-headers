@@ -257,7 +257,14 @@ fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
             })
             .count()
     } else {
-        shebang.max(cookie_end)
+        let tools_version = usize::from(
+            language == Language::Swift
+                && lines.first().is_some_and(|line| {
+                    line.strip_prefix("//")
+                        .is_some_and(|tail| tail.trim_start().starts_with("swift-tools-version:"))
+                }),
+        );
+        shebang.max(cookie_end).max(tools_version)
     };
     if end == 0 {
         return (0, true);
@@ -301,6 +308,7 @@ fn copyright_comments(
             Language::Typescript if path.ends_with(".tsx") => tree_sitter_typescript::LANGUAGE_TSX,
             Language::Rust => tree_sitter_rust::LANGUAGE,
             Language::Go => tree_sitter_go::LANGUAGE,
+            Language::Swift => tree_sitter_swift::LANGUAGE,
             _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
         };
         let mut parser = tree_sitter::Parser::new();
@@ -311,10 +319,13 @@ fn copyright_comments(
         let mut cursor = tree.walk();
         loop {
             let node = cursor.node();
-            if matches!(node.kind(), "comment" | "line_comment" | "block_comment") {
+            if matches!(
+                node.kind(),
+                "comment" | "line_comment" | "block_comment" | "multiline_comment"
+            ) {
                 let comment = &source[node.byte_range()];
                 if comment.starts_with("// Copyright")
-                    || (language == Language::Rust
+                    || (matches!(language, Language::Rust | Language::Swift)
                         && comment.starts_with("//")
                         && comment
                             .trim_start_matches('/')
@@ -577,6 +588,77 @@ mod tests {
 
     fn inspect(source: impl AsRef<[u8]>) -> ContentAnalysis {
         analyze(source.as_ref(), &policy(), "x.py")
+    }
+
+    #[test]
+    fn swift_comments_strings_interpolation_and_preambles_are_preserved() {
+        let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
+        for body in [
+            "let value = \"// Copyright (C) 2024, Other.\"\n",
+            "let value = ##\"// Copyright (C) 2024, Other.\"##\n",
+            "let value = \"\"\"\n// Copyright (C) 2024, Other.\n\"\"\"\n",
+            "let value = #\"\"\"\n// Copyright (C) 2024, Other.\n\"\"\"#\n",
+            "let value = \"café \\(1 + 2)\"\n",
+            "let value = #\"café \\#(1 + 2)\"#\n",
+            "let pattern = #/[// Copyright]/#\n",
+            "actor Example { func value() async -> Int { 1 } }\n",
+            "/* outer /* nested */ comment */\nlet value = 1\n",
+            "#if DEBUG\nlet value = 1\n#endif\n",
+        ] {
+            for preamble in [
+                "",
+                "#!/usr/bin/env swift\n\n",
+                "// swift-tools-version: 5.9\n\n",
+            ] {
+                let raw = format!("\u{feff}{preamble}{header}{body}").replace('\n', "\r\n");
+                let fixed = analyze(raw.as_bytes(), &policy(), "x.swift")
+                    .replacement
+                    .unwrap();
+                assert_eq!(
+                    fixed,
+                    raw.replacen("2024", "2024-2030", 1).as_bytes(),
+                    "{body}"
+                );
+                assert!(analyze(&fixed, &policy(), "x.swift").diagnostic.is_none());
+            }
+        }
+        for body in [
+            "// Copyright (C) 2024, Other.\nlet value = 1\n",
+            "/// Copyright (C) 2024, Other.\nlet value = 1\n",
+            "/* outer /* Copyright (C) 2024, Other. */ comment */\nlet value = 1\n",
+            "let value = \"\\(1 /* Copyright (C) 2024, Other. */)\"\n",
+            "let value = #\"unterminated\n",
+        ] {
+            let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.swift");
+            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
+            assert!(result.replacement.is_none());
+        }
+        let no_separator = format!("// swift-tools-version: 5.9\n{header}let value = 1\n");
+        assert_eq!(
+            analyze(no_separator.as_bytes(), &policy(), "Package.swift")
+                .diagnostic
+                .unwrap()
+                .code,
+            "LMH006"
+        );
+        assert_eq!(
+            analyze(b"\xff", &policy(), "x.swift")
+                .diagnostic
+                .unwrap()
+                .code,
+            "LMH007"
+        );
+        assert_eq!(
+            analyze(
+                b"let value = \"// Copyright (C) 2030, Example Owner.\"\n",
+                &policy(),
+                "x.swift"
+            )
+            .diagnostic
+            .unwrap()
+            .code,
+            "LMH001"
+        );
     }
 
     #[test]
