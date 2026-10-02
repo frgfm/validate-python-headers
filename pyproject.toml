@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.9.3,<2.0"]
+requires = ["maturin>=1.15.0,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -52,7 +52,7 @@ ignore-files = ["version.py", "__init__.py", "collect_env.py"]
 ignore-folders = [".agents/skills/lint-my-headers/evals/files"]
 
 [dependency-groups]
-build = ["uv>=0.12.5"]
+build = ["uv>=0.12.20"]
 quality = [
     "ruff==0.16.9",
     "ty==0.0.84",
