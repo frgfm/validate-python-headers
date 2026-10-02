@@ -18,6 +18,7 @@ import html
 import json
 import os
 import platform
+import random
 import shlex
 import shutil
 import statistics
@@ -61,7 +62,8 @@ def source(language: str, size: int, start: int, end: int, canonical: bool = Fal
     marker = "#" if language in {"python", "bash"} else "//"
     header = f"{marker} Copyright (C) {start}-{end}, Benchmark.\n{marker if canonical else ''}\n"
     header += "".join(f"{marker} {line}\n" for line in NOTICE.splitlines()) + "\n"
-    code = header + prefix + statement * ((size - len(header + prefix + suffix)) // len(statement)) + suffix
+    budget = size - len(header + prefix + suffix) - (0 if canonical else len(marker))
+    code = header + prefix + statement * (budget // len(statement)) + suffix
     return code.encode().ljust(size, b"\n")
 
 
@@ -257,17 +259,20 @@ def main() -> None:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     files.append((path, lang))
                 for workload, command in WORKLOADS.items():
-                    for tool, executable in tools.items():
-                        case = {
-                            "tool": tool,
-                            "language": language,
-                            "workload": workload,
-                            "files": count,
-                            "bytes": count * args.bytes,
-                        }
-                        expected = [(path, *contents[tool][lang]) for path, lang in files]
-                        batch = []
-                        for trial in range(args.runs + 1):
+                    batches = {tool: [] for tool in tools}
+                    for trial in range(args.runs + 1):
+                        order = random.Random(trial).sample(list(tools), len(tools))  # ruff: ignore[suspicious-non-cryptographic-random-usage] - reproducible benchmark order
+                        for tool in order:
+                            executable = tools[tool]
+                            case = {
+                                "tool": tool,
+                                "language": language,
+                                "workload": workload,
+                                "files": count,
+                                "bytes": count * args.bytes,
+                            }
+                            expected = [(path, *contents[tool][lang]) for path, lang in files]
+
                             for profile in (None, profiler):
                                 for path, clean, stale in expected:
                                     path.write_bytes(clean if workload == "clean" else stale)
@@ -301,16 +306,19 @@ def main() -> None:
                                         f"Invalid result: {tool}/{language}/{workload}/{count}: {result}"
                                     )
                             if trial:
-                                batch.append(latency)
-                                samples.append({**case, "run": trial, "elapsed_ms": latency, "peak_rss_mib": rss})
-                        median = statistics.median(batch)
+                                sample = {**case, "run": trial, "elapsed_ms": latency, "peak_rss_mib": rss}
+                                batches[tool].append(sample)
+                                samples.append(sample)
+                    for tool, batch in batches.items():
+                        times = [sample["elapsed_ms"] for sample in batch]
+                        median = statistics.median(times)
                         rows.append({
-                            **case,
+                            **{key: batch[0][key] for key in ("tool", "language", "workload", "files", "bytes")},
                             "median_ms": median,
-                            "range_ms": max(batch) - min(batch),
+                            "range_ms": max(times) - min(times),
                             "files_per_s": count * 1000 / median,
                             "mib_per_s": count * args.bytes * 1000 / median / 1024**2,
-                            "peak_rss_mib": max(sample["peak_rss_mib"] for sample in samples[-args.runs :]),
+                            "peak_rss_mib": max(sample["peak_rss_mib"] for sample in batch),
                         })
                         sys.stdout.write(f"{tool:8} {language:12} {workload:8} {count:6} files: {median:9.2f} ms\n")
     write_results(args, binary, samples, rows)
@@ -357,15 +365,15 @@ def write_results(args: argparse.Namespace, binary: Path, samples: list[dict], r
         metadata.append(
             f"Competitor: {run_tool(str(competitor), '--version').strip()} · SHA-256: {hashlib.sha256(competitor.read_bytes()).hexdigest()}"
         )
-        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. LMH validates leading headers, preserves accepted creation years and guards year-only writes; HawkEye validates/formats the leading template. This measures these tasks rather than equivalent tool features."
+        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, identical body statements, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. LMH validates leading headers, preserves accepted creation years and guards year-only writes; HawkEye validates/formats the leading template. This measures these tasks rather than equivalent tool features."
     methodology = (
         f"Deterministic synthetic sources, {args.bytes:,} bytes/file; mixed cycles through all nine languages. "
-        f"{args.runs} timing/RSS pairs per case after one untimed warmup pair. Warm filesystem cache; no LMH result cache. "
+        f"{args.runs} timing/RSS pairs per case after one untimed warmup pair, with deterministic shuffled tool order. Warm filesystem cache; no LMH result cache. "
         "Elapsed time includes launching/waiting for the native CLI, discovery, header analysis, JSON output and (for fix) writes/revalidation. "
         "Generation, fixture restoration and output validation are outside timing. "
         "RSS uses separate GNU time invocations on restored fixtures, excluding profiling overhead from latency and harness/build memory from RSS. "
         "Peak RSS is the maximum across repetitions. Range is slowest minus fastest time. Every run verifies exit status, file count, findings and exact final bytes. "
-        "Findings and fix use stale years in every file. No real-repository or competitor-wide speedup claims. "
+        "Findings and fix use stale years in every file. LMH uses up to four available CPUs for trees of at least 256 files; both tools receive the same CPU budget. No real-repository or competitor-wide speedup claims. "
         + comparison
     )
     scope = "Times measure the CLI in JSON mode. A serial check adds this wait to your workflow; installation, hook orchestration and CI queueing are excluded. Repairs update stale years in every selected source file; missing or conflicting headers still need review. Results depend on your hardware and source sizes."

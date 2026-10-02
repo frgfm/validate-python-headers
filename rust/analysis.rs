@@ -1,7 +1,7 @@
 use crate::model::{Diagnostic, HeaderPolicy, Language, Settings};
 use regex::Regex;
 use serde_json::Value;
-use std::{fs, sync::LazyLock};
+use std::{borrow::Cow, fs, sync::LazyLock};
 
 static COPYRIGHT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -9,6 +9,9 @@ static COPYRIGHT: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("valid copyright expression")
 });
+thread_local! {
+    static COPYRIGHT_CACHE: Regex = COPYRIGHT.clone();
+}
 static CODING: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[ \t\x0c]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)")
         .expect("valid encoding expression")
@@ -132,8 +135,30 @@ pub struct ContentAnalysis {
     pub replacement: Option<Vec<u8>>,
 }
 
-fn problem(path: &str, line: usize, code: &str, message: impl Into<String>) -> ContentAnalysis {
-    ContentAnalysis {
+#[derive(Default)]
+pub(crate) struct Inspection {
+    pub diagnostic: Option<Diagnostic>,
+    pub edit: Option<YearEdit>,
+}
+
+pub(crate) struct YearEdit {
+    range: std::ops::Range<usize>,
+    start: i32,
+    end: i32,
+}
+
+impl YearEdit {
+    pub fn apply(&self, raw: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(raw.len().saturating_add(5));
+        bytes.extend_from_slice(&raw[..self.range.start]);
+        bytes.extend_from_slice(format!("{}-{}", self.start, self.end).as_bytes());
+        bytes.extend_from_slice(&raw[self.range.end..]);
+        bytes
+    }
+}
+
+fn problem(path: &str, line: usize, code: &str, message: impl Into<String>) -> Inspection {
+    Inspection {
         diagnostic: Some(Diagnostic {
             path: path.into(),
             line: line.max(1),
@@ -142,7 +167,7 @@ fn problem(path: &str, line: usize, code: &str, message: impl Into<String>) -> C
             message: message.into(),
             fixable: false,
         }),
-        replacement: None,
+        edit: None,
     }
 }
 
@@ -172,7 +197,7 @@ fn encoding_cookie(line: &[u8]) -> Result<Option<String>, String> {
     }))
 }
 
-fn decode_source(raw: &[u8]) -> Result<String, String> {
+fn decode_source(raw: &[u8]) -> Result<Cow<'_, str>, String> {
     let bom = raw.starts_with(b"\xef\xbb\xbf");
     let raw = if bom { &raw[3..] } else { raw };
     let mut lines = raw.split_inclusive(|byte| *byte == b'\n');
@@ -187,19 +212,25 @@ fn decode_source(raw: &[u8]) -> Result<String, String> {
     }
     match label {
         "utf-8" | "utf8" | "u8" | "utf" | "cp65001" | "utf8-ucs2" | "utf8-ucs4" => {
-            return String::from_utf8(raw.to_vec()).map_err(|e| e.to_string());
+            return std::str::from_utf8(raw)
+                .map(Cow::Borrowed)
+                .map_err(|e| e.to_string());
         }
         "ascii" | "us-ascii" | "646" | "ansi-x3.4-1968" | "ansi-x3.4-1986" | "ansi-x3-4-1968"
         | "cp367" | "csascii" | "ibm367" | "iso646-us" | "iso-646.irv-1991" | "iso-ir-6" | "us" => {
             return if raw.is_ascii() {
-                Ok(String::from_utf8(raw.to_vec()).expect("ASCII is UTF-8"))
+                Ok(Cow::Borrowed(
+                    std::str::from_utf8(raw).expect("ASCII is UTF-8"),
+                ))
             } else {
                 Err("invalid byte in ASCII source".into())
             };
         }
         "latin-1" | "latin1" | "iso8859-1" | "iso-8859-1" | "l1" | "8859" | "cp819" | "ibm819"
         | "csisolatin1" | "iso8859" | "iso-ir-100" | "latin" => {
-            return Ok(raw.iter().map(|byte| char::from(*byte)).collect());
+            return Ok(Cow::Owned(
+                raw.iter().map(|byte| char::from(*byte)).collect(),
+            ));
         }
         "cp1252" | "windows-1252" | "1252" => {}
         _ => return Err(format!("unsupported source encoding: {label}")),
@@ -215,16 +246,17 @@ fn decode_source(raw: &[u8]) -> Result<String, String> {
         '€', '\0', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\0', 'Ž', '\0', '\0',
         '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\0', 'ž', 'Ÿ',
     ];
-    Ok(raw
-        .iter()
-        .map(|&byte| {
-            if (0x80..=0x9f).contains(&byte) {
-                CP1252_EXTENDED[usize::from(byte - 0x80)]
-            } else {
-                char::from(byte)
-            }
-        })
-        .collect())
+    Ok(Cow::Owned(
+        raw.iter()
+            .map(|&byte| {
+                if (0x80..=0x9f).contains(&byte) {
+                    CP1252_EXTENDED[usize::from(byte - 0x80)]
+                } else {
+                    char::from(byte)
+                }
+            })
+            .collect(),
+    ))
 }
 
 fn is_shebang(source: &str, language: Language) -> bool {
@@ -278,7 +310,7 @@ fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
 }
 
 // Inspect only the leading comment region; the first code token ends header validation.
-fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, String)>, bool) {
+fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, &str)>, bool) {
     let mut remaining = source;
     let mut comments = Vec::new();
     let mut line = 0;
@@ -304,7 +336,7 @@ fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, Str
                             .trim_start()
                             .starts_with("Copyright"))
                 {
-                    comments.push((line, tail.strip_prefix(' ').unwrap_or(text).into()));
+                    comments.push((line, tail.strip_prefix(' ').unwrap_or(text)));
                 }
             }
             end
@@ -330,7 +362,7 @@ fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, Str
                 }
             }
             if remaining[..end].contains("Copyright") {
-                comments.push((line, remaining[..end].into()));
+                comments.push((line, &remaining[..end]));
             }
             end
         } else {
@@ -342,13 +374,21 @@ fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, Str
 }
 
 pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> ContentAnalysis {
+    let content = inspect(raw, policy, display_path);
+    ContentAnalysis {
+        replacement: content.edit.as_ref().map(|edit| edit.apply(raw)),
+        diagnostic: content.diagnostic,
+    }
+}
+
+pub(crate) fn inspect(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Inspection {
     let language =
         Language::from_path(std::path::Path::new(display_path)).unwrap_or(Language::Python);
     let source = match if language == Language::Python {
         decode_source(raw)
     } else {
         std::str::from_utf8(raw.strip_prefix(b"\xef\xbb\xbf").unwrap_or(raw))
-            .map(str::to_owned)
+            .map(Cow::Borrowed)
             .map_err(|e| e.to_string())
     } {
         Ok(source) => source,
@@ -371,13 +411,16 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
         source.as_bytes().iter().enumerate().any(|(index, byte)| {
             *byte == b'\r' && source.as_bytes().get(index + 1) != Some(&b'\n')
         });
-    let source = normalize_newlines(source);
+    let source = if source.contains('\r') {
+        Cow::Owned(normalize_newlines(source))
+    } else {
+        Cow::Borrowed(source)
+    };
     let lines: Vec<&str> = source.split_inclusive('\n').collect();
     let (header_index, separator_valid) = preamble(&lines, language);
-    let matches: Vec<_> = comments
-        .iter()
-        .filter(|(_, text)| COPYRIGHT.is_match(text))
-        .collect();
+    let captures = comments
+        .first()
+        .and_then(|(_, text)| COPYRIGHT_CACHE.with(|regex| regex.captures(text)));
     if header_index >= lines.len() || comments.is_empty() {
         return problem(
             display_path,
@@ -390,10 +433,10 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
         || ambiguous_header
         || !separator_valid
         || comments.len() != 1
-        || matches.len() != 1
-        || matches[0].0 != header_index
+        || captures.is_none()
+        || comments[0].0 != header_index
         || lines[header_index].trim_end_matches('\n')
-            != format!("{} {}", language.comment(), matches[0].1)
+            != format!("{} {}", language.comment(), comments[0].1)
     {
         return problem(
             display_path,
@@ -402,10 +445,8 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
             "malformed, misplaced, or ambiguous header",
         );
     }
-    let (line_index, comment) = &matches[0];
-    let captures = COPYRIGHT
-        .captures(comment)
-        .expect("matched copyright comment");
+    let (line_index, _) = &comments[0];
+    let captures = captures.expect("matched copyright comment");
     if captures["owner"] != policy.owner {
         return problem(
             display_path,
@@ -447,15 +488,22 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
             "expected one blank line between copyright and license notice",
         );
     }
-    let notice_source: String = lines[blank_index + 1..]
-        .iter()
-        .map_while(|line| uncomment(line, language.comment()))
-        .collect();
-    if !policy
-        .license_notices
-        .iter()
-        .any(|notice| notice_source.starts_with(notice))
-    {
+    if !policy.license_notices.iter().any(|notice| {
+        let mut expected = notice.as_str();
+        for part in lines[blank_index + 1..]
+            .iter()
+            .map_while(|line| uncomment(line, language.comment()))
+        {
+            if part.starts_with(expected) {
+                return true;
+            }
+            let Some(rest) = expected.strip_prefix(part) else {
+                return false;
+            };
+            expected = rest;
+        }
+        expected.is_empty()
+    }) {
         return problem(
             display_path,
             blank_index + 2,
@@ -465,7 +513,7 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
     }
     let last_year = end_year.unwrap_or(start_year);
     if last_year == policy.current_year {
-        return ContentAnalysis::default();
+        return Inspection::default();
     }
     let mut result = problem(
         display_path,
@@ -503,12 +551,13 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
                 + offsets[0]
                 + language.comment().len()
                 + b" Copyright (C) ".len();
-            let mut repaired = raw[..year_start].to_vec();
-            repaired.extend_from_slice(format!("{start_year}-{}", policy.current_year).as_bytes());
-            repaired.extend_from_slice(&raw[year_start + captures["years"].len()..]);
             // Only digits/a hyphen change inside the single validated line comment.
             // All supported encodings preserve ASCII, so syntax and other header fields stay valid.
-            result.replacement = Some(repaired);
+            result.edit = Some(YearEdit {
+                range: year_start..year_start + captures["years"].len(),
+                start: start_year,
+                end: policy.current_year,
+            });
             result
                 .diagnostic
                 .as_mut()
