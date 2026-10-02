@@ -40,12 +40,13 @@ CSS changes font families: `docs/stylesheets/fonts.css` applies Manrope to
 headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
 sheet limited to font definitions and families. Fonts are self-hosted in
 `docs/assets/fonts/`; source versions and original OFL notices are included
-there. `docs/assets/images/logo.svg` is the project's "checked header" mark:
-code brackets, header lines, and a check, drawn in the theme's default indigo
-accent. Zensical uses the same SVG for the header logo and favicon; keep it simple
-enough to read at 16 pixels. Dark mode is the initial setting regardless of the
-system preference;
-the native theme toggle switches to light and remembers the visitor's choice.
+there. `docs/assets/images/logo.svg` is the project's header monogram: two
+comment slashes joined into an H beneath a header bar, drawn in warm copper
+(`#BA5B3B`). Its two filled shapes read at small sizes and use the same color in
+both themes. Zensical uses the same SVG for the header logo and favicon; keep it
+simple enough to read at 16 pixels. Dark mode is the initial setting regardless of the
+system preference; the native theme toggle switches to light and remembers the
+visitor's choice.
 The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:
 
