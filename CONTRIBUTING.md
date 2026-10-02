@@ -37,7 +37,10 @@ The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 familiar to Material for MkDocs users. The site uses Zensical's classic foundation
 with custom header, navigation, and footer templates in `overrides/`. The visual
 system in `docs/stylesheets/extra.css` pairs Manrope headings with IBM Plex Sans
-text and IBM Plex Mono code, warm paper surfaces, and deep green accents. Fonts
+text and IBM Plex Mono code. Teal ambient colors shape navigation, code surfaces,
+and guide icons; copper accents highlight links, actions, and the repaired year.
+Light mode uses warm paper, while dark mode uses deep teal surfaces. Palette
+roles are defined as CSS variables for both schemes in `extra.css`. Fonts
 are self-hosted in `docs/assets/fonts/`; source versions and original OFL notices
 are included there. The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:
