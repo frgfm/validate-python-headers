@@ -11,3 +11,4 @@ site/
 .wrangler/
 .cache/
 .github/docs-preview/
+/docs/assets/fonts/*.woff2

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths: &paths [docs/**, zensical.toml, wrangler.toml, pyproject.toml, uv.lock, Makefile,
-      .github/prepare_docs_assets.py, .github/workflows/docs.yml]
+      .github/prepare_docs_assets.py, .github/prepare_docs_fonts.py, .github/workflows/docs.yml]
   pull_request:
     branches: [main]
     paths: *paths

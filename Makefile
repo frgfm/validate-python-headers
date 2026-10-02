@@ -1,6 +1,6 @@
 PYPROJECT_FILE = ./pyproject.toml
 
-.PHONY: docs docs-serve docs-cloudflare
+.PHONY: docs docs-serve docs-cloudflare docs-fonts
 
 install-quality: ${PYPROJECT_FILE}
 	uv sync --group quality --no-install-project
@@ -50,10 +50,13 @@ lock: ${PYPROJECT_FILE}
 lock-check: ${PYPROJECT_FILE}
 	uv lock --check
 
-docs:
+docs-fonts:
+	uv run --no-project python .github/prepare_docs_fonts.py
+
+docs: docs-fonts
 	uv run --locked --only-group docs zensical build --strict
 
-docs-serve:
+docs-serve: docs-fonts
 	uv run --locked --only-group docs zensical serve
 
 docs-cloudflare: docs

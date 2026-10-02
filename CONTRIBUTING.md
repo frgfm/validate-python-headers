@@ -38,9 +38,13 @@ familiar to Material for MkDocs users. The site uses Zensical's default `modern`
 variant, including its colors, layout, controls, and components. The only custom
 CSS changes font families: `docs/stylesheets/fonts.css` applies Manrope to
 headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
-sheet limited to font definitions and families. Fonts are self-hosted in
-`docs/assets/fonts/`; source versions and original OFL notices are included
-there. `docs/assets/images/logo.svg` is the project's header monogram: two
+sheet limited to font definitions and families. Fonts are self-hosted in the
+generated site. `make docs` and `make docs-serve` download the pinned Fontsource
+files from jsDelivr using `.github/prepare_docs_fonts.py`, verify SHA-256 hashes,
+and reuse valid local copies. A fresh build needs network access; cached copies
+allow subsequent builds offline. Font binaries are ignored by Git; source
+versions and original OFL notices remain in `docs/assets/fonts/`.
+`docs/assets/images/logo.svg` is the project's header monogram: two
 comment slashes joined into an H beneath a header bar, drawn in warm copper
 (`#BA5B3B`). Its two filled shapes read at small sizes and use the same color in
 both themes. Zensical uses the same SVG for the header logo and favicon; keep it
@@ -63,8 +67,9 @@ template rather than duplicating it across documentation pages.
 
 Keep review screenshots outside Git history. Upload captures through the GitHub
 pull request editor and embed the returned GitHub asset URLs in the PR description.
-`.github/docs-preview/` is ignored for local captures; the site's logo and font
-assets remain normal versioned project files.
+`.github/docs-preview/` is ignored for local captures. Keep the site's SVG logo,
+font styles, source pins, and license notices versioned; font binaries are build
+inputs downloaded separately.
 
 ### Hosting decision: Cloudflare Workers static assets
 
