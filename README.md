@@ -2,7 +2,7 @@
 
 A Rust CLI that checks Python, JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++ copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
-[Documentation](https://frgfm.github.io/lint-my-headers/) · [Getting started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Integrations](docs/integrations.md) · [Diagnostics & agents](docs/diagnostics.md)
+[Documentation](https://docs.fgfm.dev/lint-my-headers/) · [Getting started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Integrations](docs/integrations.md) · [Diagnostics & agents](docs/diagnostics.md)
 
 ## Quick start
 

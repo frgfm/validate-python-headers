@@ -1,6 +1,6 @@
 PYPROJECT_FILE = ./pyproject.toml
 
-.PHONY: docs docs-serve
+.PHONY: docs docs-serve docs-cloudflare
 
 install-quality: ${PYPROJECT_FILE}
 	uv sync --group quality --no-install-project
@@ -55,6 +55,9 @@ docs:
 
 docs-serve:
 	uv run --locked --only-group docs zensical serve
+
+docs-cloudflare: docs
+	python .github/prepare_docs_assets.py
 
 test:
 	cargo test --locked

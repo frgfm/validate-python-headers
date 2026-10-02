@@ -7,4 +7,6 @@ target/
 __pycache__/
 .ruff_cache/
 site/
+.docs-site/
+.wrangler/
 .cache/

@@ -29,7 +29,7 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Documentation = "https://frgfm.github.io/lint-my-headers/"
+Documentation = "https://docs.fgfm.dev/lint-my-headers/"
 Issues = "https://github.com/frgfm/lint-my-headers/issues"
 Changelog = "https://github.com/frgfm/lint-my-headers/releases"
 Repository = "https://github.com/frgfm/lint-my-headers"

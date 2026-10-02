@@ -1,7 +1,7 @@
 [project]
 site_name = "Lint My Headers"
 site_description = "Check source copyright and license headers, safely refresh stale years, and integrate Lint My Headers with CI and coding agents."
-site_url = "https://frgfm.github.io/lint-my-headers/"
+site_url = "https://docs.fgfm.dev/lint-my-headers/"
 repo_url = "https://github.com/frgfm/lint-my-headers"
 repo_name = "frgfm/lint-my-headers"
 edit_uri = "edit/main/docs/"
@@ -38,21 +38,14 @@ features = [
 ]
 
 [[project.theme.palette]]
-media = "(prefers-color-scheme)"
-toggle.icon = "lucide/sun-moon"
+scheme = "slate"
+toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
-media = "(prefers-color-scheme: light)"
 scheme = "default"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
-
-[[project.theme.palette]]
-media = "(prefers-color-scheme: dark)"
-scheme = "slate"
-toggle.icon = "lucide/moon"
-toggle.name = "Switch to system preference"
 
 [project.markdown_extensions]
 admonition = {}
