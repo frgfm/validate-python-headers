@@ -16,13 +16,18 @@ pub fn version() -> String {
 }
 
 pub fn display_path(path: &Path, root: &Path) -> String {
-    fn absolute(path: &Path) -> PathBuf {
-        let cwd = std::env::current_dir().unwrap_or_default();
-        let path = path.strip_prefix(&cwd).unwrap_or(path);
+    path_formatter(root)(path)
+}
+
+fn path_formatter(root: &Path) -> impl Fn(&Path) -> String {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let canonical_cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.clone());
+    fn absolute(path: &Path, cwd: &Path, canonical_cwd: &Path) -> PathBuf {
+        let path = path.strip_prefix(cwd).unwrap_or(path);
         let path = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            cwd.canonicalize().unwrap_or(cwd).join(path)
+            canonical_cwd.join(path)
         };
         let mut normal = PathBuf::new();
         for part in path.components() {
@@ -48,19 +53,34 @@ pub fn display_path(path: &Path, root: &Path) -> String {
         }
         normal
     }
-    let path = absolute(path);
-    pathdiff::diff_paths(&path, absolute(root))
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
+    let root = absolute(root, &cwd, &canonical_cwd);
+    move |path| {
+        let path = absolute(path, &cwd, &canonical_cwd);
+        pathdiff::diff_paths(&path, &root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/")
+    }
+}
+
+fn analyze_bytes(
+    raw: &[u8],
+    policy: &model::HeaderPolicy,
+    shown: &str,
+    known_clean: Option<&[u8]>,
+) -> analysis::ContentAnalysis {
+    // Reuse validation only for exactly the same bytes, policy and display path.
+    if known_clean == Some(raw) {
+        analysis::ContentAnalysis::default()
+    } else {
+        analysis::analyze(raw, policy, shown)
+    }
 }
 
 pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResult {
     let mut result = CommandResult::new(command);
-    result.config_path = settings
-        .config_path
-        .as_ref()
-        .map(|p| display_path(p, &settings.project_root));
+    let display = path_formatter(&settings.project_root);
+    result.config_path = settings.config_path.as_ref().map(|p| display(p));
     let outcome: Result<(), (String, Option<String>)> = (|| {
         let policy = analysis::build_policy(settings, current_year).map_err(|e| (e, None))?;
         result.expected_header = Some(analysis::render_header(
@@ -68,23 +88,25 @@ pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResu
             settings.languages[0],
         ));
         let mut paths = filesystem::discover(settings).map_err(|e| (e, None))?;
-        paths.sort_by_key(|p| display_path(p, &settings.project_root));
-        let read = |path: &Path| {
-            let shown = display_path(path, &settings.project_root);
+        paths.sort_by_cached_key(|p| display(p));
+        let read = |path: &Path, known_clean: Option<&[u8]>| {
+            let shown = display(path);
             let snapshot = filesystem::read(path, &settings.project_root)
                 .map_err(|e| (e.to_string(), Some(shown.clone())))?;
-            let mut content = analysis::analyze(&snapshot.bytes, &policy, &shown);
+            let mut content = analyze_bytes(&snapshot.bytes, &policy, &shown, known_clean);
             if let Some(diagnostic) = &mut content.diagnostic {
                 diagnostic.fixable &= snapshot.unsafe_reason.is_none();
             }
             Ok::<_, (String, Option<String>)>((snapshot, content))
         };
-        let mut files = Vec::with_capacity(paths.len());
+        let mut files = Vec::with_capacity(if command == "fix" { paths.len() } else { 0 });
         for path in &paths {
-            let file = read(path)?;
+            let file = read(path, None)?;
             result.diagnostics.extend(file.1.diagnostic.clone());
             result.checked += 1;
-            files.push(file);
+            if command == "fix" {
+                files.push(file);
+            }
         }
         if command != "fix" {
             return Ok(());
@@ -131,10 +153,14 @@ pub fn run(settings: &Settings, command: &str, current_year: i32) -> CommandResu
         repaired?;
         // Keep unsafe findings; otherwise report the files as they stand after repair.
         result.diagnostics.clear();
-        for (path, (_, content)) in paths.iter().zip(files) {
+        for (path, (snapshot, content)) in paths.iter().zip(files) {
+            let known_clean = content
+                .diagnostic
+                .is_none()
+                .then(|| content.replacement.as_deref().unwrap_or(&snapshot.bytes));
             let diagnostic = match content.diagnostic {
                 Some(d) if d.code == "LMH008" => Some(d),
-                _ => read(path)?.1.diagnostic,
+                _ => read(path, known_clean)?.1.diagnostic,
             };
             result.diagnostics.extend(diagnostic);
         }
@@ -260,4 +286,48 @@ pub fn main_entry() -> i32 {
         return 2;
     }
     result.exit_code()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cached_paths_preserve_relative_absolute_and_parent_components() {
+        let cwd = std::env::current_dir().unwrap();
+        let root = cwd.join("src/nested/..");
+        let display = path_formatter(&root);
+        for path in [PathBuf::from("src/./file.rs"), cwd.join("src/file.rs")] {
+            assert_eq!(display(&path), "file.rs");
+        }
+        assert_eq!(display(&cwd.join("other/../outside.rs")), "../outside.rs");
+    }
+
+    #[test]
+    fn post_write_validation_rechecks_changed_bytes() {
+        let policy = model::HeaderPolicy {
+            owner: "Owner".into(),
+            starting_year: 2024,
+            current_year: 2030,
+            license_notices: vec!["Notice.\n".into()],
+            expected_header: String::new(),
+        };
+        let clean = b"// Copyright (C) 2024-2030, Owner.\n\n// Notice.\n\nfn main() {}\n";
+        for current in [
+            clean.to_vec(),
+            String::from_utf8_lossy(clean)
+                .replace("2030", "2029")
+                .into_bytes(),
+            String::from_utf8_lossy(clean)
+                .replace("Owner", "Other")
+                .into_bytes(),
+            [clean.as_slice(), b"// Copyright (C) 2024, Other.\n"].concat(),
+            [clean.as_slice(), b"\xff"].concat(),
+        ] {
+            let cached = analyze_bytes(&current, &policy, "x.rs", Some(clean));
+            let fresh = analysis::analyze(&current, &policy, "x.rs");
+            assert_eq!(cached.diagnostic, fresh.diagnostic);
+            assert_eq!(cached.replacement, fresh.replacement);
+        }
+    }
 }
