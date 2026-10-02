@@ -172,6 +172,140 @@ fn shell_selection_aliases_and_year_only_repairs_work_without_a_shell_runtime() 
 }
 
 #[test]
+fn c_and_cpp_selection_includes_shared_headers_and_all_supported_extensions() {
+    let dir = workspace();
+    let root = dir.path();
+    fs::remove_file(root.join("pyproject.toml")).unwrap();
+    let config = CONFIG.strip_prefix("[tool.lint-my-headers]\n").unwrap();
+    write(
+        root,
+        ".lmh.toml",
+        format!("{config}languages = ['c', 'cpp']\n"),
+    );
+    let original = header(year() - 2)
+        .replace("# ", "// ")
+        .replace("value = 'café'", "const char *value = \"café\";");
+    let cpp = original.replace(
+        "const char *value = \"café\";",
+        "template <typename T> T value(T x) { return x; }",
+    );
+    let cpp_extensions = [
+        "cc", "cpp", "cxx", "c++", "C", "hh", "hpp", "hxx", "h++", "H", "ipp", "tpp", "inl",
+    ];
+    for extension in ["c", "h"] {
+        write(root, &format!("src/example.{extension}"), &original);
+    }
+    write(root, "src/cpp.h", &cpp);
+    // Use a distinct basename so .C/.H never overwrite the C fixtures on case-insensitive filesystems.
+    for extension in cpp_extensions {
+        write(root, &format!("src/cpp_example.{extension}"), &cpp);
+    }
+    write(root, "src/example.py", header(year()));
+    write(root, "src/unsupported.m", &original);
+    let checked = json_run(root, &["check"], 1);
+    assert_eq!(checked["config_path"], ".lmh.toml");
+    assert_eq!(checked["checked"], cpp_extensions.len() + 3);
+    assert!(
+        checked["expected_header"]
+            .as_str()
+            .unwrap()
+            .starts_with("// Copyright")
+    );
+    assert!(
+        checked["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["code"] == "LMH004" && d["fixable"] == true)
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("src/example.c")).unwrap(),
+        original
+    );
+    assert_eq!(
+        json_run(root, &["check", "--languages", "c"], 1)["checked"],
+        3
+    );
+    for language in ["cpp", "c++"] {
+        write(
+            root,
+            ".lmh.toml",
+            format!("{config}languages = ['{language}']\n"),
+        );
+        assert_eq!(
+            json_run(root, &["check"], 1)["checked"],
+            cpp_extensions.len() + 2
+        );
+        assert_eq!(
+            json_run(
+                root,
+                &[
+                    "check",
+                    "--languages",
+                    language,
+                    "src/example.h",
+                    "src/cpp.h"
+                ],
+                1
+            )["checked"],
+            2
+        );
+    }
+    let fixed = json_run(root, &["fix", "--languages", "c,cpp"], 0);
+    assert_eq!(
+        fixed["changed"].as_array().unwrap().len(),
+        cpp_extensions.len() + 3
+    );
+    for extension in ["c", "h"] {
+        assert_eq!(
+            fs::read_to_string(root.join(format!("src/example.{extension}"))).unwrap(),
+            original.replacen(
+                &(year() - 2).to_string(),
+                &format!("{}-{}", year() - 2, year()),
+                1,
+            )
+        );
+    }
+    for extension in cpp_extensions {
+        assert_eq!(
+            fs::read_to_string(root.join(format!("src/cpp_example.{extension}"))).unwrap(),
+            cpp.replacen(
+                &(year() - 2).to_string(),
+                &format!("{}-{}", year() - 2, year()),
+                1,
+            )
+        );
+    }
+    assert_eq!(
+        json_run(root, &["fix", "--languages", "c,c++"], 0)["changed"],
+        json!([])
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &[
+                "check",
+                "--languages",
+                "python",
+                "src/example.c",
+                "src/cpp_example.cpp",
+                "src/example.h"
+            ],
+            0
+        )["checked"],
+        0
+    );
+    assert_eq!(
+        json_run(
+            root,
+            &["check", "--ignore-files", "example.h", "src/example.h"],
+            0
+        )["checked"],
+        0
+    );
+}
+
+#[test]
 fn swift_sources_tests_and_package_manifest_use_standalone_policy() {
     let dir = workspace();
     let root = dir.path();

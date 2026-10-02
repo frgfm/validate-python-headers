@@ -11,6 +11,9 @@ pub enum Language {
     Swift,
     #[value(alias = "shell")]
     Bash,
+    C,
+    #[value(alias = "c++")]
+    Cpp,
 }
 
 impl Language {
@@ -24,14 +27,34 @@ impl Language {
             "go" => Some(Self::Go),
             "swift" => Some(Self::Swift),
             "sh" | "bash" => Some(Self::Bash),
+            "c" | "h" => Some(Self::C),
+            "cc" | "cpp" | "cxx" | "c++" | "C" | "hh" | "hpp" | "hxx" | "h++" | "H" | "ipp"
+            | "tpp" | "inl" => Some(Self::Cpp),
             _ => None,
         }
+    }
+
+    pub fn is_shared_header(path: &std::path::Path) -> bool {
+        path.extension().is_some_and(|extension| extension == "h")
+    }
+
+    pub fn enabled_for_path(path: &std::path::Path, languages: &[Self]) -> bool {
+        Self::from_path(path).is_some_and(|language| {
+            languages.contains(&language)
+                || (Self::is_shared_header(path) && languages.contains(&Self::Cpp))
+        })
     }
 
     pub fn comment(self) -> &'static str {
         match self {
             Self::Python | Self::Bash => "#",
-            Self::Javascript | Self::Typescript | Self::Rust | Self::Go | Self::Swift => "//",
+            Self::Javascript
+            | Self::Typescript
+            | Self::Rust
+            | Self::Go
+            | Self::Swift
+            | Self::C
+            | Self::Cpp => "//",
         }
     }
 }

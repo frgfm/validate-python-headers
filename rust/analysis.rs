@@ -310,13 +310,25 @@ fn copyright_comments(
             Language::Go => tree_sitter_go::LANGUAGE,
             Language::Swift => tree_sitter_swift::LANGUAGE,
             Language::Bash => tree_sitter_bash::LANGUAGE,
+            Language::C => tree_sitter_c::LANGUAGE,
+            Language::Cpp => tree_sitter_cpp::LANGUAGE,
             _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
         };
         let mut parser = tree_sitter::Parser::new();
         parser
             .set_language(&grammar.into())
             .expect("bundled grammar");
-        let tree = parser.parse(source, None).expect("uncancelled parse");
+        let mut tree = parser.parse(source, None).expect("uncancelled parse");
+        // .h is shared by C and C++; accept C++ syntax when the C grammar cannot parse it.
+        if language == Language::C
+            && Language::is_shared_header(std::path::Path::new(path))
+            && tree.root_node().has_error()
+        {
+            parser
+                .set_language(&tree_sitter_cpp::LANGUAGE.into())
+                .expect("bundled grammar");
+            tree = parser.parse(source, None).expect("uncancelled parse");
+        }
         let mut cursor = tree.walk();
         loop {
             let node = cursor.node();
@@ -328,8 +340,10 @@ fn copyright_comments(
                 if comment
                     .strip_prefix(language.comment())
                     .is_some_and(|tail| tail.starts_with(" Copyright"))
-                    || (matches!(language, Language::Rust | Language::Swift)
-                        && comment.starts_with("//")
+                    || (matches!(
+                        language,
+                        Language::Rust | Language::Swift | Language::C | Language::Cpp
+                    ) && comment.starts_with("//")
                         && comment
                             .trim_start_matches('/')
                             .trim_start_matches('!')
@@ -658,6 +672,109 @@ mod tests {
             analyze(b"\xff", &policy(), "x.sh").diagnostic.unwrap().code,
             "LMH007"
         );
+    }
+
+    #[test]
+    fn c_and_cpp_comments_literals_and_preprocessor_directives_are_preserved() {
+        let header = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\n";
+        for (path, body) in [
+            (
+                "x.c",
+                "const char *value = \"// Copyright (C) 2024, Other.\";\n",
+            ),
+            (
+                "x.c",
+                "const char *value = \"/* Copyright (C) 2024, Other. */\";\n",
+            ),
+            ("x.c", "char value = '\\''; /* ordinary comment */\n"),
+            (
+                "x.c",
+                "#include <stdio.h>\n#define VALUE 1\n#if VALUE\nint value = 1;\n#else\nint value = 2;\n#endif\n",
+            ),
+            (
+                "x.c",
+                "#define MESSAGE \"// Copyright (C) 2024, Other.\"\n#define SUM(a, b) \\\n ((a) + (b))\n",
+            ),
+            (
+                "x.h",
+                "#ifndef EXAMPLE_H\n#define EXAMPLE_H\nint value(void);\n#endif\n",
+            ),
+            (
+                "x.h",
+                "#define VALUE(x) _Generic((x), int: 1, default: 0)\n",
+            ),
+            (
+                "x.cpp",
+                "const auto value = u8\"// Copyright (C) 2024, Other.\";\n",
+            ),
+            (
+                "x.cpp",
+                "const auto value = R\"tag(\n// Copyright (C) 2024, Other.\n/* Copyright */\n)tag\";\n",
+            ),
+            (
+                "x.cpp",
+                "namespace example { template <typename T> T value(T x) { return x; } }\n",
+            ),
+            (
+                "x.h",
+                "#pragma once\nnamespace example { template <typename T> T value(T x) { return x; } }\n",
+            ),
+            (
+                "x.h",
+                "const auto value = R\"tag(\n// Copyright (C) 2024, Other.\n)tag\";\n",
+            ),
+        ] {
+            for newline in ["\n", "\r\n"] {
+                let raw = format!("\u{feff}{header}{body}").replace('\n', newline);
+                let result = analyze(raw.as_bytes(), &policy(), path);
+                assert!(
+                    result.replacement.is_some(),
+                    "{path}: {body}: {:?}",
+                    result.diagnostic
+                );
+                let fixed = result.replacement.unwrap();
+                assert_eq!(fixed, raw.replacen("2024", "2024-2030", 1).as_bytes());
+                assert!(analyze(&fixed, &policy(), path).diagnostic.is_none());
+            }
+        }
+        for path in ["x.c", "x.cpp", "x.h"] {
+            for body in [
+                "// Copyright (C) 2024, Other.\nint value = 1;\n",
+                "/// Copyright (C) 2024, Other.\nint value = 1;\n",
+                "/*! Copyright (C) 2024, Other. */\nint value = 1;\n",
+                "#if 0\n// Copyright (C) 2024, Other.\n#endif\n",
+                "const char *value = \"unterminated;\n",
+                "/* unterminated\n",
+                "int value( {\n",
+            ] {
+                let result = analyze(format!("{header}{body}").as_bytes(), &policy(), path);
+                assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{path}: {body}");
+                assert!(result.replacement.is_none());
+            }
+            for (source, code) in [
+                (header.replace("Example Owner", "Other"), "LMH002"),
+                (header.replace("2024", "2031"), "LMH003"),
+                (header.replace("License notice.", "Wrong."), "LMH005"),
+                (format!("#pragma once\n\n{header}"), "LMH006"),
+                (header.replace('\n', "\r"), "LMH006"),
+                (
+                    "/* Copyright (C) 2024, Example Owner. */\n\n// License notice.\n".into(),
+                    "LMH006",
+                ),
+                (
+                    "const char *value = \"// Copyright (C) 2030, Example Owner.\";\n".into(),
+                    "LMH001",
+                ),
+            ] {
+                let result = analyze(source.as_bytes(), &policy(), path);
+                assert_eq!(result.diagnostic.unwrap().code, code, "{path}: {source}");
+                assert!(result.replacement.is_none());
+            }
+            assert_eq!(
+                analyze(b"\xff", &policy(), path).diagnostic.unwrap().code,
+                "LMH007"
+            );
+        }
     }
 
     #[test]

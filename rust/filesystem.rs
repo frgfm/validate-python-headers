@@ -75,9 +75,7 @@ pub fn discover(settings: &Settings) -> Result<Vec<PathBuf>, String> {
             return Err(format!("Invalid path: {}", path.display()));
         }
         for candidate in candidates {
-            if Language::from_path(&candidate)
-                .is_none_or(|language| !settings.languages.contains(&language))
-            {
+            if !Language::enabled_for_path(&candidate, &settings.languages) {
                 continue;
             }
             let key = absolute_key(&candidate).map_err(|error| error.to_string())?;

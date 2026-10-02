@@ -84,7 +84,7 @@ def main() -> int:
             """owner = "Example Owner"
 starting-year = 2022
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust", "go", "swift", "bash"]
+languages = ["python", "javascript", "typescript", "rust", "go", "swift", "bash", "c", "cpp"]
 paths = ["src"]
 ignore-files = []
 ignore-folders = []
@@ -102,6 +102,10 @@ ignore-folders = []
                 ("swift", "//", "let value = 1"),
                 ("sh", "#", "value=1"),
                 ("bash", "#", "values=(one two)"),
+                ("c", "//", "int value = 1;"),
+                ("cpp", "//", "template <typename T> T value(T x) { return x; }"),
+                ("h", "//", "#pragma once\nint value(void);"),
+                ("hpp", "//", "#pragma once\ntemplate <typename T> T value(T x) { return x; }"),
             ),
             1,
         ):
