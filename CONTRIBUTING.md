@@ -34,17 +34,13 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 
 The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
-familiar to Material for MkDocs users. The site uses Zensical's `modern` variant
-with custom header, navigation, and footer templates in `overrides/`. Native
-modern component shapes and spacing are retained for navigation, buttons, tabs,
-and callouts. The visual
-system in `docs/stylesheets/extra.css` pairs Manrope headings with IBM Plex Sans
-text and IBM Plex Mono code. Teal ambient colors shape navigation, code surfaces,
-and guide icons; copper accents highlight links, actions, and the repaired year.
-Light mode uses warm paper, while dark mode uses deep teal surfaces. Palette
-roles are defined as CSS variables for both schemes in `extra.css`. Fonts
-are self-hosted in `docs/assets/fonts/`; source versions and original OFL notices
-are included there. The pinned `docs` dependency group is separate from runtime dependencies.
+familiar to Material for MkDocs users. The site uses Zensical's default `modern`
+variant, including its colors, layout, icons, and components. The only visual
+customization is the font family: `docs/stylesheets/fonts.css` applies Manrope to
+headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
+sheet limited to font definitions and families. Fonts are self-hosted in
+`docs/assets/fonts/`; source versions and original OFL notices are included
+there. The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:
 
 ```shell

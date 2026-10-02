@@ -1,18 +1,16 @@
 ---
-section: Reference
-order: "04"
 description: Interpret Lint My Headers diagnostics and exit codes, consume JSON schema version 1, and use the CLI safely in coding-agent tasks.
 ---
 
 # Diagnostics & agents
 
-<p class="lmh-page-lead">Understand each finding, consume a stable JSON contract, and keep agent repairs within your declared policy.</p>
+Understand each finding, consume a stable JSON contract, and keep agent repairs within your declared policy.
 
-<div class="lmh-exits" aria-label="Process exit codes">
-  <div><code>0</code><span>No unresolved findings</span></div>
-  <div><code>1</code><span>Findings need review</span></div>
-  <div><code>2</code><span>Invocation, configuration, or I/O failure</span></div>
-</div>
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No unresolved findings. |
+| `1` | Findings need review. |
+| `2` | Invocation, configuration, or I/O failure. |
 
 ## Diagnostic codes
 
@@ -30,7 +28,7 @@ Paths use `/`, including `..` for explicitly selected external files.
 | `LMH001` | Missing header. | Add a reviewed header manually. |
 | `LMH002` | Owner mismatch. | Verify the declared ownership manually. |
 | `LMH003` | Invalid, reversed, future, or out-of-policy year. | Review the year policy and source. |
-| <code class="lmh-code--repair">LMH004</code> | Recognized stale year. | Use `fix` only when `fixable` is true and writes are authorized. |
+| `LMH004` | Recognized stale year. | Use `fix` only when `fixable` is true and writes are authorized. |
 | `LMH005` | Missing or mismatched license notice. | Review the configured notice and source. |
 | `LMH006` | Malformed, misplaced, duplicated, or ambiguous layout. | Resolve the layout manually. |
 | `LMH007` | Unsupported encoding or invalid bytes. | Review the file's encoding. |

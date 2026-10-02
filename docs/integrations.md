@@ -1,12 +1,10 @@
 ---
-section: Workflow
-order: "03"
 description: Run Lint My Headers with pre-commit, prek, the GitHub Action, and an annual copyright refresh workflow.
 ---
 
 # Integrations
 
-<p class="lmh-page-lead">Use the same header policy in your editor workflow, pull-request checks, and scheduled review PRs.</p>
+Use the same header policy in your editor workflow, pull-request checks, and scheduled review PRs.
 
 ## pre-commit and prek
 

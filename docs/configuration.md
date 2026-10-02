@@ -1,12 +1,10 @@
 ---
-section: Reference
-order: "02"
 description: Configure explicit ownership and license policies, select languages and paths, and understand supported header layouts.
 ---
 
 # Configuration
 
-<p class="lmh-page-lead">One explicit policy for your source files. Choose the languages, paths, and notice that belong to your project.</p>
+One explicit policy for your source files. Choose the languages, paths, and notice that belong to your project.
 
 ## Configuration files
 
