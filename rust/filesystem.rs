@@ -484,6 +484,24 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_snapshots_refuse_a_second_repair() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.py");
+        fs::write(&path, b"original").unwrap();
+        let mut first = read(&path, root.path()).unwrap();
+        let mut second = read(&path, root.path()).unwrap();
+        let mut targets = HashSet::new();
+        first.claim_target(&mut targets);
+        second.claim_target(&mut targets);
+        assert!(first.unsafe_reason.is_none());
+        assert!(matches!(
+            replace(&path, &second, b"repair", root.path()),
+            Err(RepairError::Unsafe(_))
+        ));
+        assert_eq!(fs::read(path).unwrap(), b"original");
+    }
+
+    #[test]
     fn hard_links_are_readable_but_never_repaired() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("source.py");

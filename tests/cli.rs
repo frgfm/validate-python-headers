@@ -1306,13 +1306,24 @@ fn parallel_repairs_refuse_duplicate_file_identities() {
     for i in 0..300 {
         write(root, &format!("src/{i:03}.py"), header(year() - 2));
     }
-    let result = json_run(root, &["fix", "src", "src/deep/../075.py"], 1);
-    assert_eq!(result["checked"], 301);
+    // Windows resolves `..` in absolute discovery keys before identity reservation.
+    let windows = cfg!(windows);
+    let result = json_run(
+        root,
+        &["fix", "src", "src/deep/../075.py"],
+        i32::from(!windows),
+    );
+    assert_eq!(result["checked"], if windows { 300 } else { 301 });
     assert_eq!(result["changed"].as_array().unwrap().len(), 300);
-    assert_eq!(result["diagnostics"].as_array().unwrap().len(), 1);
-    assert_eq!(result["diagnostics"][0]["path"], "src/075.py");
-    assert_eq!(result["diagnostics"][0]["code"], "LMH008");
-    assert_eq!(result["diagnostics"][0]["fixable"], false);
+    assert_eq!(
+        result["diagnostics"].as_array().unwrap().len(),
+        usize::from(!windows)
+    );
+    if !windows {
+        assert_eq!(result["diagnostics"][0]["path"], "src/075.py");
+        assert_eq!(result["diagnostics"][0]["code"], "LMH008");
+        assert_eq!(result["diagnostics"][0]["fixable"], false);
+    }
     for i in 0..300 {
         assert_eq!(
             fs::read(root.join(format!("src/{i:03}.py"))).unwrap(),
