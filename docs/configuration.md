@@ -98,12 +98,12 @@ contain plain text; existing Python-commented notice files remain accepted.
 
 ??? note "Python"
     UTF-8 BOM, shebang, and PEP 263 cookie are preserved. Verified encodings:
-    UTF-8, ASCII, Latin-1, and Windows-1252. Other codecs and ambiguous newer
-    string syntax fail closed.
+    UTF-8, ASCII, Latin-1, and Windows-1252. Other codecs fail without repair.
 
 ??? note "JavaScript / TypeScript"
     UTF-8 BOM, shebang, CRLF, and body are preserved. A shebang needs a blank
-    separator before the header. Bare CR headers are refused.
+    separator before the header. Bare CR headers and Unicode line separators
+    are refused.
 
 ??? note "Rust"
     UTF-8 BOM, shebang, and newline style are preserved. Use ordinary `//`
@@ -124,12 +124,13 @@ contain plain text; existing Python-commented notice files remain accepted.
 
 ??? note "C / C++"
     UTF-8 BOM, CRLF, and body are preserved. Put include guards and
-    `#pragma once` after the header. All preprocessor branches are scanned
-    without evaluating them.
+    `#pragma once` after the header.
 
-The non-Python parsers distinguish actual comments from strings and other
-language syntax. Parse errors and copyright-bearing block/doc comments refuse
-repair. Directory discovery skips symlinks and reparse points. Explicit linked
+Validation stops at the first code line after allowed preambles and leading
+comments/blank lines. Later copyright notices and body syntax errors are ignored;
+the entire file must still decode successfully. Duplicate notices and
+copyright-bearing block/doc comments in the leading region refuse repair.
+Directory discovery skips symlinks and reparse points. Explicit linked
 files may be checked, but repairs refuse linked files/parents, multiple hard
 links, and concurrently changed targets.
 

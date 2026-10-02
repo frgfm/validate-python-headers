@@ -1,0 +1,69 @@
+{
+  "recorded_utc": "2026-10-02T22:22:36Z",
+  "source_commits": {
+    "lmh": "59c4782cae2a35c40bcd3b75a7500f3317e0b9f5",
+    "before": "8d72bf1b81167a1e43e0e54e350e4e2351306bde"
+  },
+  "versions": {
+    "lmh": "lmh 0.6.0",
+    "before": "lmh 0.6.0",
+    "hawkeye": "hawkeye 7.2.0"
+  },
+  "binary_sha256": {
+    "lmh": "f1eb3b11374c5844058f602513870b02a142cf4da52048fb3d68f8dd56651bea",
+    "before": "fa725a8126d109e2092c40237b195967a39bc9c4f92f32ff93d7aca59e0248a9",
+    "hawkeye": "c9b9c3ef880df811fade7f9b856c99689489144ba6e29ffce27087e85f24585e"
+  },
+  "compiler": "rustc 1.93.0 (254b59607 2026-01-19)",
+  "release_profiles": {
+    "lmh": "locked release, thin LTO, stripped",
+    "before": "locked release, thin LTO, stripped",
+    "hawkeye": "locked upstream release defaults"
+  },
+  "host": "Linux 6.18.44 x86_64",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "logical_cpus": 5,
+  "available_cpu_affinity": 5,
+  "lmh_worker_limit": 4,
+  "fixture_storage": "none               9220068 58688   9161380       1% /tmp",
+  "parameters": {
+    "files": [
+      1,
+      100,
+      1000,
+      10000
+    ],
+    "bytes_per_file": 1024,
+    "warmups": 1,
+    "timing_runs": 5,
+    "separate_rss_runs": 5,
+    "output": "json",
+    "owner": "Benchmark",
+    "license": "Apache-2.0",
+    "starting_year": 2024,
+    "current_year": 2026,
+    "stale_year": 2025
+  },
+  "summary_rows": 135,
+  "timing_samples": 675,
+  "rss_samples": 675,
+  "limits_audit": {
+    "timing_runs": 5,
+    "rss_runs": 3,
+    "same_binary_hashes": true,
+    "controls": [
+      "inherited single-CPU affinity",
+      "workspace overlay; backing hardware unspecified"
+    ],
+    "clock": "Earlier Python perf_counter; same native binaries"
+  },
+  "harness_commit": "000b3e2a25a23c625ff325ada63cc1e309d2c6a4",
+  "harness_dirty": true,
+  "clock": "Bash builtin time; millisecond precision",
+  "bytes_per_file": 1024,
+  "runs": 5,
+  "lmh_version": "lmh 0.6.0",
+  "harness_source": "working-tree Bash driver (uncommitted during measurement)",
+  "fixture_filesystem": "tmpfs",
+  "published_driver_sha256": "65276e28208fad6f23da1a57d1038115affc384f4a63a36e699d780cac7bb675"
+}

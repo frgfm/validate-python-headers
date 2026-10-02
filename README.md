@@ -43,17 +43,22 @@ same explicit policy.
 
 ## Performance
 
-On a synthetic fixture of **1,000 source files across all nine languages** (1.85 MB),
-the release binary measured:
+On **10,000 mixed-language files** (1 KiB/file), the release CLI measured:
 
-| Check | Median time |
-| --- | ---: |
-| All headers current | **249 ms** |
-| 1,000 stale-year findings, with JSON output | **518 ms** |
+| Task | LMH | HawkEye 7.2.0 |
+| --- | ---: | ---: |
+| Routine check | 36 ms | 76 ms |
+| Check stale headers | 62 ms | 76 ms |
+| Repair stale years | 147 ms | 125 ms |
 
-Seven measured runs per case, after one warm-up, on a shared Linux x86_64 runner.
-Each run starts a fresh CLI process with a warm filesystem cache. See
-[BENCHMARKS.md](BENCHMARKS.md) for the fixture, full results, and reproduction command.
+Five timing trials after warmup on the same shared Linux runner. Both tools receive
+the same CPU budget; LMH uses up to four available workers for large trees.
+
+![Native check latency](https://github.com/frgfm/lint-my-headers/releases/download/benchmark-900ebffe5e4e/check.png)
+
+See the [performance guide](docs/benchmarks.md) for repair time, peak memory,
+all nine languages, CSVs, methodology and reproduction. These are synthetic,
+warm-cache results; CPU limits and storage affect the comparison.
 
 ## Installation
 
@@ -126,13 +131,10 @@ findings stay available for manual review. See the
 
 ## Benchmarks
 
-Run `uv run scripts/benchmark.py` from a checkout on Linux or macOS (Windows: WSL), with uv, Python 3.11+, Git, the pinned Rust toolchain, a C compiler and GNU time (`apt install time` / `brew install gnu-time`). uv installs the pinned plotting dependency automatically. The script builds the locked release binary and checks nine languages plus a mixed tree at 1, 100, 1,000 and 10,000 files. Each case measures clean checks, checks with stale-year findings, and stale-year repairs five times after a warmup; fixtures are restored and results verified outside timing.
-
-`target/bench/` contains summary/raw CSVs, SVG/PNG charts and reports answering **how much waiting a check adds** and **how long a codebase-wide stale-year repair takes** at each measured size. Open the standalone `report.html` in a browser; enter your existing workflow duration to see the percentage added by a serial check. `report.md` references companion PNGs. Files/s, MiB/s, timing range and peak RSS remain in the CSVs. Measurements use JSON output, warm filesystem caches and synthetic 1 KiB sources; they exclude installation, hook orchestration and CI queueing. Repairs cover stale years; missing/conflicting headers need review. Separate invocations measure timing and RSS. Mixed cases below nine files are skipped.
-
-For a scoped comparison, install [HawkEye](https://github.com/fast/hawkeye/tree/v7.2.0) with `cargo install hawkeye --version 7.2.0 --locked --root target/hawkeye`, then run `uv run scripts/benchmark.py --compare target/hawkeye/bin/hawkeye`. Both tools check and repair mixed trees with identical body statements, equal file counts/sizes, owner, license and years, using their accepted canonical comment formats. Tool order is shuffled deterministically between trials. LMH uses up to four available CPUs for trees of at least 256 files; both tools receive the same CPU budget. HawkEye uses a fixed template without Git attributes; validation and safety policies differ. Every invocation verifies counts, findings and exact final bytes. This compares those tasks, not all tool features. [addlicense](https://github.com/google/addlicense) leaves existing headers unchanged; [REUSE](https://github.com/fsfe/reuse-tool) checks SPDX compliance, so neither is a stale-year repair baseline.
-
-Use `--files 1 100 --runs 3` for a quick run, `--bytes 16384` for larger bodies, or `--binary /path/to/lmh --output target/other` to measure another native build. Add `--baseline /path/to/previous/lmh` to chart its mixed-tree results alongside current LMH and HawkEye. Reports identify fixture storage: `/tmp` may be RAM-backed. Set `TMPDIR` to an existing directory on your codebase's filesystem to measure its write costs. `--help` lists options. The manual [benchmark workflow](.github/workflows/benchmark.yml) includes the HawkEye comparison and uploads a GitHub Actions artifact; its optional `release` tag checks out that tag and attaches the bundle as public release assets. For a local run, use `gh release upload TAG target/bench/*`. Keep the Markdown and PNGs together when copying them into documentation.
+Run `bash scripts/benchmark.sh` to generate CSVs, SVG/PNG charts and an HTML
+report with a workflow-overhead calculator. Add `--compare /path/to/hawkeye` for
+a locally measured comparison or `--baseline /path/to/previous/lmh` to show the
+improvement. See [requirements and reproduction](docs/benchmarks.md#reproduce).
 
 ## Configuration and safety
 
