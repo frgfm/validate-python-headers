@@ -227,17 +227,19 @@ fn decode_source(raw: &[u8]) -> Result<String, String> {
         .collect())
 }
 
+fn is_shebang(source: &str, language: Language) -> bool {
+    !matches!(language, Language::C | Language::Cpp | Language::Go)
+        && source.strip_prefix("#!").is_some_and(|tail| {
+            // Crate attributes and comment-prefixed Rust #! forms are not shebangs.
+            language != Language::Rust
+                || !["[", "//", "/*"]
+                    .iter()
+                    .any(|p| tail.trim_start().starts_with(p))
+        })
+}
+
 fn preamble(lines: &[&str], language: Language) -> (usize, bool) {
-    let shebang = usize::from(lines.first().is_some_and(|line| {
-        let Some(tail) = line.strip_prefix("#!") else {
-            return false;
-        };
-        // Crate attributes and comment-prefixed Rust #! forms are not shebangs.
-        language != Language::Rust
-            || !["[", "//", "/*"]
-                .iter()
-                .any(|prefix| tail.trim_start().starts_with(prefix))
-    }));
+    let shebang = usize::from(lines.first().is_some_and(|line| is_shebang(line, language)));
     let cookie_end = if language != Language::Python {
         0
     } else if lines.first().is_some_and(|line| CODING.is_match(line)) {
@@ -288,13 +290,7 @@ fn leading_comments(source: &str, language: Language) -> (usize, Vec<(usize, Str
             .count();
         remaining = trimmed;
         let offset = source.len() - remaining.len();
-        let shebang = offset == 0
-            && remaining.strip_prefix("#!").is_some_and(|tail| {
-                language != Language::Rust
-                    || !["[", "//", "/*"]
-                        .iter()
-                        .any(|p| tail.trim_start().starts_with(p))
-            });
+        let shebang = offset == 0 && is_shebang(remaining, language);
         let end = if shebang || remaining.starts_with(language.comment()) {
             let end = remaining.find('\n').map_or(remaining.len(), |i| i + 1);
             let text = remaining[..end].trim_end_matches(['\r', '\n']);
@@ -367,6 +363,9 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
     };
     let (end, comments, ambiguous_header) = leading_comments(&source, language);
     let source = &source[..end];
+    let ambiguous_header = ambiguous_header
+        || (matches!(language, Language::Javascript | Language::Typescript)
+            && source.contains(['\u{2028}', '\u{2029}']));
     // Normalizing bare CR could turn an ambiguous header into an authorized repair.
     let bare_cr =
         source.as_bytes().iter().enumerate().any(|(index, byte)| {
@@ -1161,6 +1160,39 @@ mod tests {
                 assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{path}: {tail}");
                 assert!(result.replacement.is_none());
             }
+        }
+    }
+
+    #[test]
+    fn non_script_languages_do_not_skip_hashbang_code() {
+        for path in ["x.c", "x.cpp", "x.h", "x.go"] {
+            let raw = "#!/bin/sh\n\n// Copyright (C) 2024, Example Owner.\n\n// License notice.\n";
+            let result = analyze(raw.as_bytes(), &policy(), path);
+            assert_eq!(result.diagnostic.unwrap().code, "LMH001", "{path}");
+            assert!(result.replacement.is_none());
+        }
+    }
+
+    #[test]
+    fn javascript_unicode_line_separators_cannot_authorize_a_repair() {
+        for path in ["x.js", "x.ts", "x.jsx", "x.tsx"] {
+            for separator in ['\u{2028}', '\u{2029}'] {
+                let mut policy = policy();
+                policy.owner = format!("Example{separator}Owner");
+                let raw = format!(
+                    "// Copyright (C) 2024, {}.\n\n// License notice.\n\nconst value = 1;\n",
+                    policy.owner
+                );
+                let result = analyze(raw.as_bytes(), &policy, path);
+                assert_eq!(result.diagnostic.unwrap().code, "LMH006");
+                assert!(result.replacement.is_none());
+            }
+            let raw = "// Copyright (C) 2024, Example Owner.\n\n// License notice.\n\nconst value = '\u{2028}\u{2029}';\n";
+            assert!(
+                analyze(raw.as_bytes(), &policy(), path)
+                    .replacement
+                    .is_some()
+            );
         }
     }
 
