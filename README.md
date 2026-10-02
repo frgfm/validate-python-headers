@@ -1,193 +1,196 @@
-# Lint My Headers
+<p align="center">
+  <a href="https://docs.fgfm.dev/lint-my-headers/">
+    <img src="https://raw.githubusercontent.com/frgfm/lint-my-headers/74325965b1920514787d2a92b43789235a75ec12/docs/assets/images/logo.svg" alt="Lint My Headers" width="80" height="80">
+  </a>
+</p>
 
-A Rust CLI that checks Python, JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++ copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
+<h1 align="center">Lint My Headers</h1>
+
+<p align="center">
+  <strong>Fast copyright and license header checks, powered by Rust.</strong><br>
+  One policy for your codebase. Clear findings. Small, reviewable repairs.
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/lint-my-headers/"><img src="https://img.shields.io/pypi/v/lint-my-headers?color=ba5b3b" alt="PyPI version"></a>
+  <a href="https://github.com/frgfm/lint-my-headers/actions/workflows/tests.yml"><img src="https://github.com/frgfm/lint-my-headers/actions/workflows/tests.yml/badge.svg?branch=main" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-ba5b3b" alt="Apache-2.0 license"></a>
+</p>
+
+<p align="center">
+  <a href="https://docs.fgfm.dev/lint-my-headers/"><strong>Documentation</strong></a> ·
+  <a href="#quick-start"><strong>Quick start</strong></a> ·
+  <a href="#integrations"><strong>Integrations</strong></a> ·
+  <a href="https://github.com/frgfm/lint-my-headers/releases"><strong>Releases</strong></a>
+</p>
+
+Keep copyright and license notices consistent across your codebase, and turn an annual
+refresh into a small diff. Run `lmh` locally, in CI, or from a coding agent using the
+same explicit policy.
+
+## Highlights
+
+- **Native Rust execution.** A compiled CLI with no Python, Node.js, or language toolchain
+  required to run the installed binary.
+- **Nine languages, one policy.** Python, JavaScript, TypeScript, Rust, Go, Swift, Bash,
+  C, and C++ in the current source CLI.
+- **Syntax-aware checks.** Recognizes real comments and keeps header-like text inside
+  strings, templates, and other language syntax out of repairs.
+- **Precise, reviewable fixes.** Refreshes recognized stale years while preserving the
+  creation year, owner, all other bytes, and file permissions.
+- **Fits your workflow.** First-party pre-commit/prek hook, GitHub Action, and stable JSON
+  diagnostics for scripts and coding agents.
+
+## Performance
+
+On a synthetic fixture of **1,000 source files across all nine languages** (1.85 MB),
+the release binary measured:
+
+| Check | Median time |
+| --- | ---: |
+| All headers current | **249 ms** |
+| 1,000 stale-year findings, with JSON output | **518 ms** |
+
+Seven measured runs per case, after one warm-up, on a shared Linux x86_64 runner.
+Each run starts a fresh CLI process with a warm filesystem cache. See
+[BENCHMARKS.md](BENCHMARKS.md) for the fixture, full results, and reproduction command.
+
+## Installation
+
+Install the published release with [uv](https://docs.astral.sh/uv/):
+
+```shell
+uv tool install lint-my-headers==0.6.0
+```
+
+Or install with pip: `python -m pip install lint-my-headers==0.6.0`.
+
+> **Release status:** the published **0.6.0** wheel supports Python and policy in
+> `pyproject.toml`. The current source supports all nine languages and additional
+> configuration files. The quick start below works with both.
+
+For the current multilingual CLI, build from source with Rust 1.93 and a C compiler:
+
+```shell
+cargo install --git https://github.com/frgfm/lint-my-headers --locked
+```
+
+PyPI tooling requires Python 3.11+. Wheels ship native `lmh` and `lint-my-headers`
+executables; building a source distribution also requires Rust and a C compiler.
+See the [installation guide](docs/getting-started.md#install) for source checkout
+instructions and launcher details.
 
 ## Quick start
 
-Install a published release, or build this checkout with Rust 1.93 and a C compiler. Multilingual support requires this checkout until a release includes it:
-
-```shell
-uv tool install lint-my-headers
-# From source:
-cargo build --release --locked
-```
-
-PyPI wheels contain native `lmh` and `lint-my-headers` executables; source distributions require Rust and a C compiler for the bundled Tree-sitter grammars. Python 3.11+ is needed only for PyPI tooling and the optional launchers. `python -m lint_my_headers` replaces Python with the native process on Unix; Windows starts a child process. The callable `main(argv)` always returns the child's exit code. No Node.js runtime is needed.
-
-Declare the policy in `.lmh.toml`:
+Declare your project's actual owner and license in `pyproject.toml`, keep the matching
+`LICENSE` at the project root, and select the source folders that exist in your project:
 
 ```toml
+[tool.lint-my-headers]
 owner = "Example Organization"
 starting-year = 2024
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust", "go", "swift", "bash", "c", "cpp"]
 paths = ["src", "tests"]
-ignore-files = ["version.py"]
-ignore-folders = ["src/generated"]
 ```
+
+Check existing headers:
 
 ```shell
-lmh check                              # Read-only; configured paths
-lmh check src/package tests/test_api.py # Explicit paths
-lmh fix                                # Safe stale-year repairs only
-lmh check --languages typescript       # Override the configured language list
-lmh --version
-lmh check --help
+lmh check
 ```
 
-A valid header in 2026:
-
-```python
-# Copyright (C) 2024-2026, Example Organization.
-
-# This program is licensed under the Apache License 2.0.
-# See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
-```
-
-JavaScript, TypeScript, Rust, Go, Swift, C, and C++ use the exact same text and blank lines with `//` in place of `#`. Bash/shell uses `#` like Python. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
-
-Diagnostics name the location, reason, and repair eligibility:
+Findings tell you exactly where to look and whether a repair is available:
 
 ```text
 src/example.py:1:1: LMH004 copyright year ends at 2025; expected 2026 [fixable]
 ```
 
-Exit codes: **0** clean, **1** unresolved findings, **2** invocation/configuration/I/O error. `fix` preserves the creation year and changes no other bytes. Unknown, missing, malformed, duplicate, wrong-owner, or future-dated headers require manual review.
+Refresh recognized stale years and review the result:
+
+```shell
+lmh fix
+lmh check
+git diff
+```
+
+A 2026 refresh produces a diff like this:
+
+```diff
+-# Copyright (C) 2024-2025, Example Organization.
++# Copyright (C) 2024-2026, Example Organization.
+```
+
+Only the end year changes. `check` never writes source files. Missing headers and other
+findings stay available for manual review. See the
+[getting-started guide](docs/getting-started.md) for a complete header example.
 
 ## Configuration and safety
 
-CLI policy options override configuration; `--config` selects an exact file. Otherwise discovery searches upward from the invocation directory, choosing the nearest applicable configuration. In each directory, priority is `.lmh.toml`, `pyproject.toml`, `Cargo.toml`, then `package.json`. Manifests without LMH settings are skipped. Invalid configurations fail; configurations are never merged.
+Keep the policy in the file your project already uses:
 
-Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.toml`, `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]` in `Cargo.toml` (package settings take precedence), or a `"lint-my-headers"` object in `package.json`. Other explicit TOML filenames use the `[tool.lint-my-headers]` form. The same keys and explicit policy apply in every container. Configured paths are relative to that file; explicit CLI paths are relative to the invocation directory.
-
-| Key / CLI option | Meaning and default |
+| File | Configuration |
 | --- | --- |
-| `owner` / `--owner` | Required exact single-line copyright owner. |
-| `starting-year` / `--starting-year` | Required earliest accepted file creation year. |
-| `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
-| `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
-| `paths` / positional paths | Selected files or directories; default `.`. |
-| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`, `go`, `swift`, `bash` (alias `shell`), `c`, `cpp` (alias `c++`); default `["python"]`. CLI values are comma-separated and replace the configured list. |
-| `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
-| `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
+| `.lmh.toml` | Top-level keys. |
+| `pyproject.toml` | `[tool.lint-my-headers]`. |
+| `Cargo.toml` | `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]`. |
+| `package.json` | A `"lint-my-headers"` object. |
 
-CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
+The current source discovers the nearest policy by searching upward, with priority in
+that order; Cargo package metadata takes precedence over workspace metadata. Manifests
+without LMH settings are skipped. Invalid policies fail and configurations are never
+merged. `--config` selects an exact file; CLI options override file settings.
 
-Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`; Go `.go`, including `_test.go` and platform-specific files; Swift `.swift`, including `Package.swift`; Bash/shell `.sh`, `.bash`; C `.c`; C++ `.cc`, `.cpp`, `.cxx`, `.c++`, `.C`, `.hh`, `.hpp`, `.hxx`, `.h++`, `.H`, `.ipp`, `.tpp`, `.inl`; shared C/C++ headers `.h`. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, `vendor`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
-
-Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
-
-JavaScript/TypeScript support UTF-8 and `//` headers, preserving BOMs, shebangs, CRLF, and the body. Tree-sitter distinguishes real comments from strings, templates, regex literals, and JSX. Parse errors and copyright-bearing block comments fail closed. A shebang must be followed by a blank line before the header; bare CR headers are refused.
-
-Rust uses the same UTF-8, BOM, newline, and year-only repair rules. Its grammar distinguishes comments from raw/byte strings, character literals, lifetimes, macros, and nested block comments. Use ordinary `//` headers; copyright-bearing block/doc comments and parse errors refuse repair. Crate attributes such as `#![allow(...)]` belong after the header. Shebangs require a blank separator; ambiguous comment-prefixed `#!` forms are refused.
-
-For a Rust package, put the policy in `Cargo.toml`:
+For multilingual projects, select the languages used by your codebase:
 
 ```toml
-[package.metadata.lint-my-headers]
-owner = "Example Organization"
-starting-year = 2024
-license = "Apache-2.0"
-languages = ["rust"]
-paths = ["src", "tests"]
-ignore-folders = ["target"]
+languages = ["python", "typescript", "rust"]
 ```
 
-For a virtual workspace, use `[workspace.metadata.lint-my-headers]` instead, with paths relative to the workspace manifest. Run `lmh check` or `lmh fix`; `--config Cargo.toml` selects that policy explicitly when a higher-priority configuration is present. Package metadata takes precedence over workspace metadata in the same manifest; policy is never inferred from Cargo's package author/license fields.
+The default is Python. Configured paths are relative to the policy file; explicit CLI
+paths are relative to the invocation directory. Unsupported extensions are skipped.
+Exclude generated, dependency, and build folders with `ignore-folders`; LMH does not
+infer exclusions from `.gitignore`.
 
-Go shares UTF-8, BOM/CRLF preservation, `//` header rendering, and year-only repairs. Its grammar distinguishes actual comments from interpreted/raw strings and rune literals. Leading `//go:build` and legacy `// +build` directives are preserved before the header when followed by a blank separator; constraints after the legal header are also accepted. Files are checked regardless of their build tags or platform suffixes. Parse errors and copyright-bearing block comments refuse repair.
+Repairs require one recognized stale year for the configured owner. Ambiguous layouts,
+wrong owners, future years, unsupported encodings, symlinks/reparse points, multiple hard
+links, and concurrently changed targets are refused. Ownership and licensing always
+come from your policy; LMH does not insert missing headers or establish legal, SPDX, or
+REUSE compliance.
 
-For a Go module, keep `go.mod` for module metadata and put header policy in `.lmh.toml`:
-
-```toml
-owner = "Example Organization"
-starting-year = 2024
-license = "Apache-2.0"
-languages = ["go"]
-paths = ["."]
-ignore-folders = [".git", "vendor"]
-```
-
-Run `lmh check`, `lmh fix`, or `lmh check --languages go`. Policy is explicit; it is not read from `go.mod` or `go.work`, and no Go toolchain is needed to run the installed CLI.
-
-Swift shares UTF-8, BOM/CRLF preservation, `//` rendering, and year-only repairs. Its grammar distinguishes comments from ordinary/raw/multiline strings and parses string interpolation and nested block comments. Copyright-bearing block/doc comments and parse errors refuse repair. Shebangs and a leading `// swift-tools-version:` directive are preserved before the legal header, with a blank separator; this keeps `Package.swift`'s tools-version line first.
-
-For SwiftPM or Xcode projects, put header policy in `.lmh.toml`:
-
-```toml
-owner = "Example Organization"
-starting-year = 2024
-license = "Apache-2.0"
-languages = ["swift"]
-paths = ["Sources", "Tests", "Package.swift"]
-ignore-folders = [".build"]
-```
-
-Set paths to the source folders that exist in your project. Run `lmh check`, `lmh fix`, or `lmh check --languages swift`. `Package.swift` is checked as source; it is not executed to obtain header policy. The installed CLI requires no Swift toolchain.
-
-Bash/shell supports UTF-8 and `#` headers in `.sh` and `.bash` files, preserving BOMs, CRLF, shebangs, and executable permissions. Select `languages = ["bash"]` in `.lmh.toml` or use `--languages bash`; `shell` is an alias in both configuration and the CLI. Tree-sitter distinguishes comments from quoted strings, heredoc contents, and literal `#` characters in words, while scanning real comments in command substitutions. Parse errors refuse repair. Shebangs require a blank separator before the header. Extensionless scripts and other shell dialects are skipped; no shell runtime is required or invoked.
-
-C and C++ support UTF-8 and ordinary `//` headers, preserving BOMs, CRLF, include guards, preprocessor directives, and all body bytes. Select `languages = ["c", "cpp"]` in `.lmh.toml` or use `--languages c,cpp`; `c++` is an alias for `cpp`. Shared `.h` headers are checked with either selector: the C grammar runs first, with a C++ fallback when needed. Tree-sitter distinguishes comments from strings, character literals, macros, and C++ raw strings, and scans all preprocessor branches without evaluating them. Copyright-bearing block/doc comments and parse errors refuse repair. Put include guards and `#pragma once` after the legal header. Installed binaries require no C/C++ toolchain.
-
-Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
-
-The bundled SPDX snapshot is v3.28.0. All previously accepted v3.17 names/URLs remain valid, including the legacy `KiCad-libraries-exception`. Compound SPDX expressions and new exception semantics are unsupported.
+See the [configuration guide](docs/configuration.md) for all options, language aliases,
+supported extensions, notice formats, and byte-preservation rules.
 
 ## Agents and JSON
 
-Use `lmh check --output-format json`. Successfully parsed JSON-mode commands write only JSON to stdout; malformed CLI syntax remains a stderr usage error.
+Use the same CLI from scripts and coding agents:
 
-The schema remains version 1. `expected_header` uses the first enabled language's comment marker; its text and blank lines are shared across all languages.
-
-```json
-{
-  "schema_version": 1,
-  "tool_version": "0.6.0",
-  "command": "check",
-  "config_path": "pyproject.toml",
-  "checked": 1,
-  "changed": [],
-  "diagnostics": [
-    {
-      "path": "src/example.py",
-      "line": 1,
-      "column": 1,
-      "code": "LMH004",
-      "message": "copyright year ends at 2025; expected 2026",
-      "fixable": true
-    }
-  ],
-  "expected_header": "# Copyright (C) <FILE_CREATION_YEAR>-2026, Example Organization.\n...",
-  "error": null
-}
+```shell
+lmh check --output-format json
 ```
 
-| Code | Meaning |
+JSON schema version **1** includes the checked count, completed changes, and diagnostics
+with path, line, column, code, message, and repair eligibility. Parsed JSON-mode commands
+write only JSON to stdout; malformed CLI syntax remains a stderr usage error.
+
+| Exit | Meaning |
 | --- | --- |
-| `LMH001` | Missing header |
-| `LMH002` | Owner mismatch |
-| `LMH003` | Invalid, reversed, future, or out-of-policy year |
-| `LMH004` | Recognized stale year; repairable only when `fixable` is true |
-| `LMH005` | Missing/mismatched license notice |
-| `LMH006` | Malformed, misplaced, duplicated, or ambiguous layout |
-| `LMH007` | Unsupported encoding or invalid bytes |
-| `LMH008` | Unsafe or concurrently changed repair target |
-| `LMH900` | Command/configuration/I/O error, in `error` rather than `diagnostics` |
+| `0` | No unresolved findings. |
+| `1` | Findings need review. |
+| `2` | Invocation, configuration, or I/O failure. |
 
-Copy this instruction into an agent task:
+An agent should read the declared policy, run `check`, repair only when source changes
+are authorized, then recheck and inspect the diff. A failed repair may follow earlier
+completed changes; review `changed` and the working tree before retrying.
 
-```text
-Read the declared owner, starting year, license, and paths; ask if any are missing.
-Run lmh check --output-format json. Exit 1 means findings; exit 2 means stop.
-Only run lmh fix when source changes are authorized, then recheck and inspect the
-targeted diff. Never infer legal facts or install, commit, or push without permission.
-```
-
-The optional [agent skill](.agents/skills/lint-my-headers/SKILL.md) uses this same contract. Its retained model-evaluation results are historical Python-era evidence, not Rust evaluations.
+Use the [first-party agent skill](.agents/skills/lint-my-headers/SKILL.md) and the
+[diagnostics guide](docs/diagnostics.md) for the full contract. Retained agent evaluations
+are historical Python-era results, not measurements of the Rust CLI.
 
 ## Integrations
 
-For pre-commit or [prek](https://github.com/j178/prek), the published 0.6.0 wheel supports Python and policy in `pyproject.toml`. Install it in the hook's isolated Python 3.11+ environment; `--only-binary` prevents an unexpected Rust build. Use the source hook below for multilingual support until a release includes it:
+### pre-commit and prek
+
+Use the published Python wheel in an isolated Python 3.11+ hook environment:
 
 ```yaml
 repos:
@@ -203,7 +206,7 @@ repos:
           - lint-my-headers==0.6.0
 ```
 
-To test an unreleased checkout instead, the first-party source hook remains available:
+For the current multilingual CLI, use the first-party source hook at a reviewed revision:
 
 ```yaml
 repos:
@@ -213,9 +216,12 @@ repos:
       - id: lmh
 ```
 
-The source hook compiles Rust on first installation with the pinned toolchain. Pre-commit's Rust installer does not pass `--locked`; the Action's source mode does.
+The source hook compiles Rust on first installation with the pinned toolchain.
+pre-commit's Rust installer does not pass `--locked`. Both hooks run read-only checks.
 
-Pull-request CI can run the same hook or the [GitHub Action](action.yml):
+### GitHub Action
+
+Add the published Python release to your existing workflow:
 
 ```yaml
 steps:
@@ -223,11 +229,23 @@ steps:
   - uses: frgfm/lint-my-headers@v0.6.0
 ```
 
-The Action reads repository policy; its documented inputs override it. By default it uses uv to install the exact PyPI version declared by the Action ref, with source builds disabled. `version: '0.6.0'` can select an exact published version; `version: source` explicitly builds the checked-out Action code using `Cargo.lock`. Floating versions, missing releases, and unavailable wheels fail rather than falling back to a compiler. Prefer immutable release SHAs; the v0.6.0 release notes provide its commit SHA. Use source mode for local/unreleased refs.
+The Action reads repository policy and uses uv to install the exact PyPI version with
+source builds disabled. Prefer immutable release SHAs; the
+[v0.6.0 release notes](https://github.com/frgfm/lint-my-headers/releases/tag/v0.6.0)
+provide its commit SHA. For an unreleased multilingual revision, pin its reviewed SHA
+and set `version: source` to build that Action checkout using `Cargo.lock`.
 
-Action outputs are compact JSON arrays: `issues` contains unresolved paths; `changed` contains completed writes. On exit 2, `issues` stays `[]`, while `changed` retains any completed repairs.
+Inputs override policy. The `issues` and `changed` outputs are compact JSON path arrays;
+on exit 2, `issues` is empty and `changed` retains completed writes. See the
+[integration guide](docs/integrations.md) and [Action reference](action.yml) for all inputs,
+outputs, and installation behavior.
 
 ### Annual copyright refresh
+
+Create a review PR each January using the maintained workflow below.
+
+<details>
+<summary>Annual workflow template, setup, and recovery</summary>
 
 Schedule a review PR for January 1 at **00:01 Europe/Paris**. The scheduler and job use the same timezone so the repair year is January 1's year even while UTC is still December 31. GitHub schedules run from the default branch and can be delayed or dropped under high load; the scheduled minute is not an execution-time guarantee.
 
@@ -335,6 +353,15 @@ See GitHub's [schedule behavior](https://docs.github.com/en/actions/reference/wo
 
 For a failed scheduled run, fix the cause and use **Actions → Re-run failed jobs** within [30 days of the original run](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs). If no run was created or that window has expired, re-enable a disabled schedule for future runs, then run `make headers-fix` on a fresh branch from the default branch, inspect the diff, and open a manual PR. The workflow has no manual dispatch trigger.
 
-## Maintenance
+</details>
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for checks and [RELEASE_NOTES.md](RELEASE_NOTES.md) for the breaking rename and publication gates. Runtime logic is Rust; the Python package contains only launchers and source data. Licensed under [Apache-2.0](LICENSE).
+## Contributing
+
+Lint My Headers is open source under [Apache-2.0](LICENSE). Contributions, bug reports,
+and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local development
+and checks, [AGENTS.md](AGENTS.md) for runtime contracts, and
+[RELEASE_NOTES.md](RELEASE_NOTES.md) for release and migration notes.
+
+[Report a bug](https://github.com/frgfm/lint-my-headers/issues) ·
+[Read the docs](https://docs.fgfm.dev/lint-my-headers/) ·
+[View releases](https://github.com/frgfm/lint-my-headers/releases)

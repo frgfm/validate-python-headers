@@ -6,3 +6,9 @@ dist/
 target/
 __pycache__/
 .ruff_cache/
+site/
+.docs-site/
+.wrangler/
+.cache/
+.github/docs-preview/
+/docs/assets/fonts/

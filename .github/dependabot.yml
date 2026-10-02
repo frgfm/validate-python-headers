@@ -23,6 +23,7 @@ updates:
       - dependency-name: "prek"
       - dependency-name: "uv"
       - dependency-name: "maturin"
+      - dependency-name: "zensical"
     groups:
       quality:
         patterns:
@@ -33,6 +34,9 @@ updates:
         patterns:
           - "uv"
           - "maturin"
+      docs:
+        patterns:
+          - "zensical"
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
