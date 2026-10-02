@@ -173,7 +173,9 @@ fn config_table(path: &Path) -> Result<Option<Table>, String> {
                                 .is_err()
                         })
                     {
-                        Some("expected python, javascript, typescript, rust, go, or swift")
+                        Some(
+                            "expected python, javascript, typescript, rust, go, swift, or bash (alias shell)",
+                        )
                     } else {
                         None
                     }

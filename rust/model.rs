@@ -9,6 +9,8 @@ pub enum Language {
     Rust,
     Go,
     Swift,
+    #[value(alias = "shell")]
+    Bash,
 }
 
 impl Language {
@@ -21,13 +23,14 @@ impl Language {
             "rs" => Some(Self::Rust),
             "go" => Some(Self::Go),
             "swift" => Some(Self::Swift),
+            "sh" | "bash" => Some(Self::Bash),
             _ => None,
         }
     }
 
     pub fn comment(self) -> &'static str {
         match self {
-            Self::Python => "#",
+            Self::Python | Self::Bash => "#",
             Self::Javascript | Self::Typescript | Self::Rust | Self::Go | Self::Swift => "//",
         }
     }

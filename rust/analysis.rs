@@ -309,6 +309,7 @@ fn copyright_comments(
             Language::Rust => tree_sitter_rust::LANGUAGE,
             Language::Go => tree_sitter_go::LANGUAGE,
             Language::Swift => tree_sitter_swift::LANGUAGE,
+            Language::Bash => tree_sitter_bash::LANGUAGE,
             _ => tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
         };
         let mut parser = tree_sitter::Parser::new();
@@ -324,7 +325,9 @@ fn copyright_comments(
                 "comment" | "line_comment" | "block_comment" | "multiline_comment"
             ) {
                 let comment = &source[node.byte_range()];
-                if comment.starts_with("// Copyright")
+                if comment
+                    .strip_prefix(language.comment())
+                    .is_some_and(|tail| tail.starts_with(" Copyright"))
                     || (matches!(language, Language::Rust | Language::Swift)
                         && comment.starts_with("//")
                         && comment
@@ -336,7 +339,11 @@ fn copyright_comments(
                 {
                     comments.push((
                         node.start_position().row,
-                        comment.strip_prefix("// ").unwrap_or(comment).into(),
+                        comment
+                            .strip_prefix(language.comment())
+                            .and_then(|tail| tail.strip_prefix(' '))
+                            .unwrap_or(comment)
+                            .into(),
                     ));
                 }
             }
@@ -588,6 +595,69 @@ mod tests {
 
     fn inspect(source: impl AsRef<[u8]>) -> ContentAnalysis {
         analyze(source.as_ref(), &policy(), "x.py")
+    }
+
+    #[test]
+    fn shell_comments_quotes_heredocs_and_preambles_are_preserved() {
+        let header = "# Copyright (C) 2024, Example Owner.\n\n# License notice.\n\n";
+        for body in [
+            "value='# Copyright (C) 2024, Other.'\n",
+            "value=\"# Copyright (C) 2024, Other.\"\n",
+            "value=$'# Copyright (C) 2024, Other.'\n",
+            "value='\n# Copyright (C) 2024, Other.\n'\n",
+            "cat <<'EOF'\n# Copyright (C) 2024, Other.\nEOF\n",
+            "cat <<EOF\n# Copyright (C) 2024, Other.\nEOF\n",
+            "cat <<-EOF\n\t# Copyright (C) 2024, Other.\n\tEOF\n",
+            "printf '%s\\n' word#Copyright \\#Copyright\n",
+            "value=\"$(printf '%s' 'café')\"\n",
+            "value=${name:-default}\nif [ -n \"$value\" ]; then printf '%s' \"$value\"; fi\n",
+            "values=(one two); for value in \"${values[@]}\"; do echo \"$value\"; done\n",
+        ] {
+            for preamble in ["", "#!/bin/sh\n\n", "#!/usr/bin/env bash\n\n"] {
+                for newline in ["\n", "\r\n"] {
+                    let raw = format!("\u{feff}{preamble}{header}{body}").replace('\n', newline);
+                    let result = analyze(raw.as_bytes(), &policy(), "x.sh");
+                    assert!(
+                        result.replacement.is_some(),
+                        "{body}: {:?}",
+                        result.diagnostic
+                    );
+                    let fixed = result.replacement.unwrap();
+                    assert_eq!(fixed, raw.replacen("2024", "2024-2030", 1).as_bytes());
+                    assert!(analyze(&fixed, &policy(), "x.sh").diagnostic.is_none());
+                }
+            }
+        }
+        for body in [
+            "# Copyright (C) 2024, Other.\necho ok\n",
+            "value=$(\n# Copyright (C) 2024, Other.\nprintf ok\n)\n",
+            "value=`\n# Copyright (C) 2024, Other.\nprintf ok\n`\n",
+            "value='unterminated\n",
+            "if true; then echo ok\n",
+        ] {
+            let result = analyze(format!("{header}{body}").as_bytes(), &policy(), "x.bash");
+            assert_eq!(result.diagnostic.unwrap().code, "LMH006", "{body}");
+            assert!(result.replacement.is_none());
+        }
+        for (source, code) in [
+            (header.replace("Example Owner", "Other"), "LMH002"),
+            (header.replace("2024", "2031"), "LMH003"),
+            (header.replace("License notice.", "Wrong."), "LMH005"),
+            (format!("#!/bin/sh\n{header}echo ok\n"), "LMH006"),
+            (header.replace('\n', "\r"), "LMH006"),
+            (
+                "echo '# Copyright (C) 2030, Example Owner.'\n".into(),
+                "LMH001",
+            ),
+        ] {
+            let result = analyze(source.as_bytes(), &policy(), "x.sh");
+            assert_eq!(result.diagnostic.unwrap().code, code);
+            assert!(result.replacement.is_none());
+        }
+        assert_eq!(
+            analyze(b"\xff", &policy(), "x.sh").diagnostic.unwrap().code,
+            "LMH007"
+        );
     }
 
     #[test]
