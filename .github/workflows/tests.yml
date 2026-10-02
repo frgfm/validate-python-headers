@@ -3,8 +3,12 @@ name: tests
 on:
   push:
     branches: main
+    paths: &paths [rust/**, src/**, tests/**, scripts/**, Cargo.*, rust-toolchain.toml, pyproject.toml, uv.lock, Makefile,
+      action.yml, .pre-commit*, .github/*.py, .github/workflows/tests.yml, .github/workflows/update-copyright-years.yml,
+      README.md, LICENSE, .git*]
   pull_request:
     branches: main
+    paths: *paths
 
 env:
   PYTHONOPTIMIZE: "1"
