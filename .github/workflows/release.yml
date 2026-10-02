@@ -3,6 +3,9 @@ name: distributions
 on:
   pull_request:
     branches: main
+    paths: [rust/**, src/**, tests/**, Cargo.*, rust-toolchain.toml, pyproject.toml, uv.lock, Makefile,
+      .github/pypi_release.py, .github/smoke_distribution.py, .github/verify_deps_sync.py, .github/workflows/release.yml,
+      .github/workflows/update-copyright-years.yml, README.md, LICENSE, .git*]
   release:
     types: [published]
 
@@ -41,6 +44,7 @@ jobs:
             exit 1
           fi
           python .github/pypi_release.py versions
+          make deps-check
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Run optimized-mode unit tests
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87

@@ -2,9 +2,7 @@ name: pr-edited
 
 on:
   pull_request_target:
-    types: [opened, reopened, edited, synchronize]
-  pull_request:
-    types: [opened, reopened, edited, synchronize]
+    types: [opened, reopened, edited]
 
 jobs:
   lint-pr-title:

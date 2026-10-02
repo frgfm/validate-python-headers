@@ -3,8 +3,11 @@ name: style
 on:
   push:
     branches: main
+    paths: &paths [rust/**, src/**, tests/**, scripts/**, Cargo.*, rust-toolchain.toml, pyproject.toml, uv.lock, Makefile,
+      .pre-commit*, .github/*.py, .github/workflows/style.yml]
   pull_request:
     branches: main
+    paths: *paths
 
 env:
   PYTHON_VERSION: "3.11"
@@ -30,6 +33,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
+      - {if: matrix.target == 'lint-check', run: make deps-check}
       - if: matrix.target == 'prek'
         run: git checkout -b temp
       - run: make "${{ matrix.target }}"
