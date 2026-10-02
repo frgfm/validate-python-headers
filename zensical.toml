@@ -18,6 +18,8 @@ nav = [
 variant = "modern"
 language = "en"
 font = false
+logo = "assets/images/logo.svg"
+favicon = "assets/images/logo.svg"
 features = [
   "announce.dismiss",
   "content.code.annotate",

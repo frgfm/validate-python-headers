@@ -35,12 +35,16 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 The five pages in `docs/` use [Zensical](https://zensical.org/), configured in
 `zensical.toml`. Markdown, admonitions, code tabs, and theme settings should feel
 familiar to Material for MkDocs users. The site uses Zensical's default `modern`
-variant, including its colors, layout, icons, and components. The only visual
-customization is the font family: `docs/stylesheets/fonts.css` applies Manrope to
+variant, including its colors, layout, controls, and components. The only custom
+CSS changes font families: `docs/stylesheets/fonts.css` applies Manrope to
 headings, IBM Plex Sans to body text, and IBM Plex Mono to code. Keep that style
 sheet limited to font definitions and families. Fonts are self-hosted in
 `docs/assets/fonts/`; source versions and original OFL notices are included
-there. Dark mode is the initial setting regardless of the system preference;
+there. `docs/assets/images/logo.svg` is the project's "checked header" mark:
+code brackets, header lines, and a check, drawn in the theme's default indigo
+accent. Zensical uses the same SVG for the header logo and favicon; keep it simple
+enough to read at 16 pixels. Dark mode is the initial setting regardless of the
+system preference;
 the native theme toggle switches to light and remembers the visitor's choice.
 The pinned `docs` dependency group is separate from runtime dependencies.
 Previewing or building the site does not compile or install this Rust project:

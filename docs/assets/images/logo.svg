@@ -1,0 +1,7 @@
+<!-- Copyright (C) 2026, François-Guillaume Fernandez. Licensed under Apache-2.0; see LICENSE. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#526cfe" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="title">
+  <title id="title">Lint My Headers</title>
+  <path d="M7 3H3v18h4M17 3h4v6"/>
+  <path d="M7.5 6.5h9M7.5 10.5h5"/>
+  <path d="m9 16 4 4 8-8" stroke-width="2.5"/>
+</svg>
