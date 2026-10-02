@@ -1,6 +1,6 @@
 # Lint My Headers
 
-A Rust CLI that checks Python, JavaScript, TypeScript, Rust, Go, Swift, and Bash/shell copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
+A Rust CLI that checks Python, JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++ copyright/license headers and safely refreshes recognized stale years. It never chooses ownership or licensing, inserts missing headers, or claims legal/SPDX/REUSE compliance.
 
 ## Quick start
 
@@ -20,7 +20,7 @@ Declare the policy in `.lmh.toml`:
 owner = "Example Organization"
 starting-year = 2024
 license = "Apache-2.0"
-languages = ["python", "javascript", "typescript", "rust", "go", "swift", "bash"]
+languages = ["python", "javascript", "typescript", "rust", "go", "swift", "bash", "c", "cpp"]
 paths = ["src", "tests"]
 ignore-files = ["version.py"]
 ignore-folders = ["src/generated"]
@@ -44,7 +44,7 @@ A valid header in 2026:
 # See LICENSE or go to <https://www.apache.org/licenses/LICENSE-2.0> for full license details.
 ```
 
-JavaScript, TypeScript, Rust, Go, and Swift use the exact same text and blank lines with `//` in place of `#`. Bash/shell uses `#` like Python. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
+JavaScript, TypeScript, Rust, Go, Swift, C, and C++ use the exact same text and blank lines with `//` in place of `#`. Bash/shell uses `#` like Python. Custom `license-notice` files may contain plain text; existing Python-commented notices remain accepted. Missing headers are never inserted.
 
 Diagnostics name the location, reason, and repair eligibility:
 
@@ -67,13 +67,13 @@ Use top-level settings in `.lmh.toml`, `[tool.lint-my-headers]` in `pyproject.to
 | `license` / `--license` | SPDX identifier selecting a prose notice; requires local `LICENSE`. |
 | `license-notice` / `--license-notice` | Custom notice file; configure exactly one license source. |
 | `paths` / positional paths | Selected files or directories; default `.`. |
-| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`, `go`, `swift`, `bash` (alias `shell`); default `["python"]`. CLI values are comma-separated and replace the configured list. |
+| `languages` / `--languages` | Non-empty allowlist: `python`, `javascript`, `typescript`, `rust`, `go`, `swift`, `bash` (alias `shell`), `c`, `cpp` (alias `c++`); default `["python"]`. CLI values are comma-separated and replace the configured list. |
 | `ignore-files` / `--ignore-files` | Exact basenames; default `__init__.py`. |
 | `ignore-folders` / `--ignore-folders` | Excluded subtrees; default `.github`. |
 
 CLI ignore lists are comma-separated; configuration lists are TOML arrays. Exclusions also apply to explicit inputs. Diagnostics use sorted, project-relative `/` paths, including `..` for explicitly selected external files.
 
-Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`; Go `.go`, including `_test.go` and platform-specific files; Swift `.swift`, including `Package.swift`; Bash/shell `.sh`, `.bash`. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, `vendor`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
+Only enabled, supported extensions are checked, including explicit files: Python `.py`; JavaScript `.js`, `.jsx`, `.mjs`, `.cjs`; TypeScript `.ts`, `.tsx`, `.mts`, `.cts`, including declaration variants; Rust `.rs`; Go `.go`, including `_test.go` and platform-specific files; Swift `.swift`, including `Package.swift`; Bash/shell `.sh`, `.bash`; C `.c`; C++ `.cc`, `.cpp`, `.cxx`, `.c++`, `.C`, `.hh`, `.hpp`, `.hxx`, `.h++`, `.H`, `.ipp`, `.tpp`, `.inl`; shared C/C++ headers `.h`. This changes earlier explicit-file behavior: other extensions and extensionless shebang scripts are skipped. Limit `paths` or exclude dependency/build directories such as `node_modules`, `target`, `vendor`, and `.build`; ignored subtrees are not traversed. Unknown language names and empty language lists fail.
 
 Python shebangs, UTF-8 BOMs, and PEP 263 cookies are preserved. Verified encodings are UTF-8, ASCII, Latin-1, and Windows-1252; other codecs fail without repair. Ambiguous newer Python string syntax also fails closed.
 
@@ -126,6 +126,8 @@ ignore-folders = [".build"]
 Set paths to the source folders that exist in your project. Run `lmh check`, `lmh fix`, or `lmh check --languages swift`. `Package.swift` is checked as source; it is not executed to obtain header policy. The installed CLI requires no Swift toolchain.
 
 Bash/shell supports UTF-8 and `#` headers in `.sh` and `.bash` files, preserving BOMs, CRLF, shebangs, and executable permissions. Select `languages = ["bash"]` in `.lmh.toml` or use `--languages bash`; `shell` is an alias in both configuration and the CLI. Tree-sitter distinguishes comments from quoted strings, heredoc contents, and literal `#` characters in words, while scanning real comments in command substitutions. Parse errors refuse repair. Shebangs require a blank separator before the header. Extensionless scripts and other shell dialects are skipped; no shell runtime is required or invoked.
+
+C and C++ support UTF-8 and ordinary `//` headers, preserving BOMs, CRLF, include guards, preprocessor directives, and all body bytes. Select `languages = ["c", "cpp"]` in `.lmh.toml` or use `--languages c,cpp`; `c++` is an alias for `cpp`. Shared `.h` headers are checked with either selector: the C grammar runs first, with a C++ fallback when needed. Tree-sitter distinguishes comments from strings, character literals, macros, and C++ raw strings, and scans all preprocessor branches without evaluating them. Copyright-bearing block/doc comments and parse errors refuse repair. Put include guards and `#pragma once` after the legal header. Installed binaries require no C/C++ toolchain.
 
 Directory discovery skips symlinks/reparse points. Explicit linked files may be checked, but repairs refuse symlinks, linked parents, reparse points, and multiple hard links. Before atomic replacement, file identity and contents are revalidated; the repaired bytes must pass the same parser.
 
