@@ -876,7 +876,7 @@ fn diagnostic_precedence_and_unfixable_sources() {
             "duplicate",
             format!(
                 "{}# Copyright (C) {}, {OWNER}.\n",
-                header(year() - 2),
+                header(year() - 2).split("value =").next().unwrap(),
                 year()
             ),
             "LMH006",
@@ -889,7 +889,7 @@ fn diagnostic_precedence_and_unfixable_sources() {
         (
             "late_cookie",
             format!("value = 0\n# coding: utf-8\n\n{}", header(year())),
-            "LMH006",
+            "LMH001",
         ),
     ];
     for (name, contents, _) in &invalid {
