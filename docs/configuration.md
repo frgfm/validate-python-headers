@@ -95,6 +95,10 @@ skipped. Files are checked regardless of build tags or platform suffixes.
 Use the [example header](getting-started.md#check-existing-headers) with the
 appropriate comment marker and blank lines. A custom `license-notice` file can
 contain plain text; existing Python-commented notice files remain accepted.
+Custom notices must contain non-whitespace text after removing Python comment
+markers. Blank notices fail with exit 2 before source files are checked or repaired.
+Notice lines must match in full, including the final line when the notice file has
+no trailing newline.
 
 ??? note "Python"
     UTF-8 BOM, shebang, and PEP 263 cookie are preserved. Verified encodings:
