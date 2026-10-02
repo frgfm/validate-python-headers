@@ -56,7 +56,7 @@ build = ["uv>=0.12.20"]
 quality = [
     "ruff==0.16.9",
     "ty==0.0.84",
-    "prek==0.5.3",
+    "prek==0.5.4",
 ]
 
 [tool.ruff]
