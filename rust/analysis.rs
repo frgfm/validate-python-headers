@@ -127,6 +127,7 @@ pub fn build_policy(settings: &Settings, current_year: i32) -> Result<HeaderPoli
     })
 }
 
+#[derive(Default)]
 pub struct ContentAnalysis {
     pub diagnostic: Option<Diagnostic>,
     pub replacement: Option<Vec<u8>>,
@@ -329,13 +330,24 @@ fn copyright_comments(
                 .expect("bundled grammar");
             tree = parser.parse(source, None).expect("uncancelled parse");
         }
+        // Parse all syntax, but visit only subtrees that can contain a copyright comment.
+        let offsets: Vec<_> = source
+            .match_indices("Copyright")
+            .map(|(index, _)| index)
+            .collect();
         let mut cursor = tree.walk();
         loop {
             let node = cursor.node();
-            if matches!(
-                node.kind(),
-                "comment" | "line_comment" | "block_comment" | "multiline_comment"
-            ) {
+            let start = node.start_byte();
+            let relevant = offsets
+                .get(offsets.partition_point(|&offset| offset < start))
+                .is_some_and(|&offset| offset < node.end_byte());
+            if relevant
+                && matches!(
+                    node.kind(),
+                    "comment" | "line_comment" | "block_comment" | "multiline_comment"
+                )
+            {
                 let comment = &source[node.byte_range()];
                 if comment
                     .strip_prefix(language.comment())
@@ -361,7 +373,7 @@ fn copyright_comments(
                     ));
                 }
             }
-            if cursor.goto_first_child() {
+            if relevant && cursor.goto_first_child() {
                 continue;
             }
             while !cursor.goto_next_sibling() {
@@ -535,10 +547,7 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
     }
     let last_year = end_year.unwrap_or(start_year);
     if last_year == policy.current_year {
-        return ContentAnalysis {
-            diagnostic: None,
-            replacement: None,
-        };
+        return ContentAnalysis::default();
     }
     let mut result = problem(
         display_path,
@@ -562,7 +571,10 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
             .enumerate()
             .filter_map(|(index, bytes)| (bytes == needle.as_bytes()).then_some(index))
             .collect();
-        if offsets.len() == 1 {
+        if offsets.len() == 1
+            && (1000..=9999).contains(&start_year)
+            && (1000..=9999).contains(&policy.current_year)
+        {
             let year_start = raw_lines[..*line_index]
                 .iter()
                 .map(|line| line.len())
@@ -573,17 +585,14 @@ pub fn analyze(raw: &[u8], policy: &HeaderPolicy, display_path: &str) -> Content
             let mut repaired = raw[..year_start].to_vec();
             repaired.extend_from_slice(format!("{start_year}-{}", policy.current_year).as_bytes());
             repaired.extend_from_slice(&raw[year_start + captures["years"].len()..]);
-            if analyze(&repaired, policy, display_path)
+            // Only digits/a hyphen change inside the single validated line comment.
+            // All supported encodings preserve ASCII, so syntax and other header fields stay valid.
+            result.replacement = Some(repaired);
+            result
                 .diagnostic
-                .is_none()
-            {
-                result.replacement = Some(repaired);
-                result
-                    .diagnostic
-                    .as_mut()
-                    .expect("stale diagnostic")
-                    .fixable = true;
-            }
+                .as_mut()
+                .expect("stale diagnostic")
+                .fixable = true;
         }
     }
     result
@@ -1177,6 +1186,19 @@ mod tests {
             decode_source(b"# coding: latin-1\n\n# \x80\n").unwrap(),
             "# coding: latin-1\n\n# \u{80}\n"
         );
+    }
+
+    #[test]
+    fn repair_requires_four_digit_years_even_with_unchecked_policy() {
+        for (first, current) in [(0, 2030), (24, 2030), (2024, 10000)] {
+            let mut policy = policy();
+            policy.starting_year = first;
+            policy.current_year = current;
+            let result = analyze(header(&format!("{first:04}")).as_bytes(), &policy, "x.py");
+            assert_eq!(result.diagnostic.as_ref().unwrap().code, "LMH004");
+            assert!(!result.diagnostic.unwrap().fixable);
+            assert!(result.replacement.is_none());
+        }
     }
 
     #[test]
