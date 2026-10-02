@@ -334,6 +334,7 @@ def write_results(args: argparse.Namespace, binary: Path, samples: list[dict], r
         f"Binary: {run_tool(str(binary), '--version').strip()} · SHA-256: {hashlib.sha256(binary.read_bytes()).hexdigest()}",
         f"Compiler: {run_tool('rustc', '--version').strip() if args.binary is None else 'external binary; see its build metadata'}",
         f"Host: {platform.platform()} · CPU: {cpu} · logical CPUs: {os.cpu_count()} · Python: {platform.python_version()} · Fixtures: {tempfile.gettempdir()}\n",
+        f"Fixture storage: {run_tool('df', *(['-T'] if sys.platform == 'linux' else []), tempfile.gettempdir()).splitlines()[-1]}",
         f"Reproduce: `uv run scripts/benchmark.py {shlex.join(sys.argv[1:])}`\n",
     ]
     comparison = (
@@ -344,7 +345,7 @@ def write_results(args: argparse.Namespace, binary: Path, samples: list[dict], r
         metadata.append(
             f"Competitor: {run_tool(str(competitor), '--version').strip()} · SHA-256: {hashlib.sha256(competitor.read_bytes()).hexdigest()}"
         )
-        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. Validation and safety policies differ, so this measures these tasks rather than equivalent tool features."
+        comparison = "HawkEye 7.2.0 compares check/check and fix/format on mixed trees. Both use JSON output, equal file counts/sizes, owner, license and years. Each gets its accepted canonical comment format; HawkEye uses a fixed header template and disabled Git attributes. LMH scans whole-source comments, preserves accepted creation years and guards year-only writes; HawkEye validates/formats the leading template. This measures these tasks rather than equivalent tool features."
     methodology = (
         f"Deterministic synthetic sources, {args.bytes:,} bytes/file; mixed cycles through all nine languages. "
         f"{args.runs} timing/RSS pairs per case after one untimed warmup pair. Warm filesystem cache; no LMH result cache. "
