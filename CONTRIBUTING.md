@@ -37,8 +37,9 @@ Keep regressions covered at the layer that owns the behavior. Preserve read-only
 `lmh` tests the source hook. The wheel-hook smoke tests use the artifacts from
 `make package-check` with fresh caches and compiler guards. They check Python
 and mixed-language repositories, record cold and warm run times, and reject a
-source-only install. Keep the `lmh-wheel` package pin aligned with the release
-version; run these tests when preparing a release.
+source-only install. Each tested language must report its own stale header, so
+the tests fail if a file filter silently skips that language. Keep the `lmh-wheel`
+package pin aligned with the release version; run these tests when preparing a release.
 
 ## Documentation
 

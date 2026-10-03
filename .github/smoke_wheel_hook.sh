@@ -140,13 +140,17 @@ TOML
         expect_hook 0
         printf '%s %s %s: %s seconds\n' "$engine" "$name" "$phase" "$(cat "$temporary/time.log")"
     done
-    if [[ $name == mixed ]]; then
-        write_source "$fixture/src/clean.ts" '//' 'const value = 1;' "$((year - 1))"
-        cp -- "$fixture/src/clean.ts" "$fixture/expected/clean.ts"
+    # Make each language fail on its own; clean files alone cannot prove coverage.
+    for source in "$fixture"/src/*; do
+        cp -- "$source" "$temporary/clean-before"
+        sed "1s/2024-$year/2024-$((year - 1))/" "$temporary/clean-before" > "$source"
+        cp -- "$source" "$temporary/stale-before"
         expect_hook 1
         output=$(cat "$temporary/hook.log")
-        [[ $output == *LMH004* && $output == *clean.ts* ]] || fail "The hook missed the stale TypeScript header: $output"
-    fi
+        [[ $output == *LMH004* && $output == *"${source##*/}"* ]] || fail "The hook missed the stale header in $source: $output"
+        cmp -s -- "$source" "$temporary/stale-before" || fail "The check hook changed stale source bytes: $source"
+        cp -- "$temporary/clean-before" "$source"
+    done
     for source in "$fixture"/src/*; do
         cmp -s -- "$source" "$fixture/expected/${source##*/}" || fail "The check hook changed source bytes: $source"
     done
@@ -161,4 +165,4 @@ run_hook > "$temporary/hook.log" 2>&1 || status=$?
 output=$(tr '[:upper:]' '[:lower:]' < "$temporary/hook.log")
 [[ $status -ne 0 && $output == *build* && $output == *disabled* ]] || fail "Expected source builds to be rejected: $output"
 [[ ! -e $temporary/compiler-was-invoked ]] || fail 'The wheel hook tried to invoke a Rust compiler.'
-printf '%s\n' "$engine: stale TypeScript reported; source bytes preserved; source builds rejected; no Rust compiler invoked."
+printf '%s\n' "$engine: stale Python, TypeScript, and Rust reported; source bytes preserved; source builds rejected; no Rust compiler invoked."
