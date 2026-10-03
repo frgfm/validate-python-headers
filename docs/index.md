@@ -1,12 +1,15 @@
 ---
-description: A Rust CLI for checking source copyright and license headers and safely refreshing recognized stale years.
+description: Check copyright and license headers across nine languages. Refresh stale years with small, reviewable changes.
 ---
 
 # Lint My Headers
 
-Check source copyright and license headers across nine languages. Declare your
-policy, find issues, and refresh recognized stale years while preserving
-everything else.
+Check copyright and license headers across nine languages. Refresh stale years
+with small, reviewable changes.
+
+For maintainers who already keep headers in their source files. Declare the
+owner, license, and languages in one policy. Run a read-only check, review the
+findings, and update eligible stale years.
 
 ## What it does
 
