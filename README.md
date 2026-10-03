@@ -7,8 +7,8 @@
 <h1 align="center">Lint My Headers</h1>
 
 <p align="center">
-  <strong>Fast copyright and license header checks, powered by Rust.</strong><br>
-  One policy for your codebase. Clear findings. Small, reviewable repairs.
+  <strong>Check copyright and license headers across nine languages.</strong><br>
+  Refresh stale years with small, reviewable changes.
 </p>
 
 <p align="center">
@@ -24,9 +24,9 @@
   <a href="https://github.com/frgfm/lint-my-headers/releases"><strong>Releases</strong></a>
 </p>
 
-Keep copyright and license notices consistent across your codebase, and turn an annual
-refresh into a small diff. Run `lmh` locally, in CI, or from a coding agent using the
-same explicit policy.
+For maintainers who already keep copyright and license headers in their source files.
+Declare the owner, license, and languages in one policy. Run `lmh` locally, in CI,
+or from a coding agent. Review each finding and each proposed year update.
 
 ## Highlights
 

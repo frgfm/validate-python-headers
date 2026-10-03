@@ -1,6 +1,6 @@
 [project]
 site_name = "Lint My Headers"
-site_description = "Check source copyright and license headers, safely refresh stale years, and integrate Lint My Headers with CI and coding agents."
+site_description = "Check copyright and license headers across nine languages. Refresh stale years with small, reviewable changes."
 site_url = "https://docs.fgfm.dev/lint-my-headers/"
 repo_url = "https://github.com/frgfm/lint-my-headers"
 repo_name = "frgfm/lint-my-headers"

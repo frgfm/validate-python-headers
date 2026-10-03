@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "lint-my-headers"
 version = "0.7.0"
-description = "Agent-ready license-header linting for Python, JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++"
+description = "Check copyright and license headers across nine languages. Refresh stale years with small, reviewable changes."
 requires-python = ">=3.11,<4.0"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

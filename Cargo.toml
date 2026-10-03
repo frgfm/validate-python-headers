@@ -4,7 +4,7 @@ version = "0.7.0"
 edition = "2024"
 rust-version = "1.93"
 license = "Apache-2.0"
-description = "Agent-ready license-header linting for Python, JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++"
+description = "Check copyright and license headers across nine languages. Refresh stale years with small, reviewable changes."
 repository = "https://github.com/frgfm/lint-my-headers"
 
 [lib]
