@@ -11,16 +11,16 @@ everything else.
 ## What it does
 
 - **Nine languages:** Python, JavaScript, TypeScript, Rust, Go, Swift, Bash, C,
-  and C++ in the source CLI.
+  and C++.
 - **Read-only checks:** `lmh check` reports what needs attention without writing
   source files.
 - **Year-only repairs:** `lmh fix` updates one recognized stale year for your
   configured owner.
 
-!!! info "Source and published release"
+!!! info "Multilingual release"
 
-    These docs follow `main`. The published 0.6.0 Python wheel supports Python;
-    install from source for all nine languages. See the
+    Version 0.7.0 provides all nine languages through native PyPI wheels. Select
+    `languages` in your policy; the default is Python. See the
     [installation options](getting-started.md#install).
 
 ## One year, one small diff

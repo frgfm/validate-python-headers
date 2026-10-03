@@ -8,21 +8,21 @@ Install the CLI, declare your policy, and run your first read-only check.
 
 ## Install
 
-Choose the published Python release or build the current multilingual CLI.
+Install the published multilingual release or build the CLI from source.
 
 === "Published release"
 
     With [uv](https://docs.astral.sh/uv/), install the native wheel:
 
     ```shell
-    uv tool install lint-my-headers==0.6.0
+    uv tool install lint-my-headers==0.7.0
     lmh --version
     ```
 
     PyPI tooling requires Python 3.11+. Wheels contain native `lmh` and
     `lint-my-headers` executables. Building a source distribution also requires
-    Rust and a C compiler. This release supports Python and configuration in
-    `pyproject.toml`.
+    Rust and a C compiler. Version 0.7.0 supports all nine languages and every
+    [configuration container](configuration.md#configuration-files).
 
 === "Source checkout"
 
@@ -35,10 +35,8 @@ Choose the published Python release or build the current multilingual CLI.
     lmh --version
     ```
 
-    Ensure Cargo's binary directory is on your `PATH`. The source checkout
-    supports all nine languages and every
-    [configuration container](configuration.md#configuration-files). Python is
-    optional when using the native CLI directly.
+    Ensure Cargo's binary directory is on your `PATH`. Python is optional when
+    using the native CLI directly.
 
 ## Declare the policy
 
@@ -46,7 +44,7 @@ Use your project's established ownership and license. These example values are
 placeholders; the tool never infers them. Set paths to directories that exist and
 keep the corresponding `LICENSE` at the project root.
 
-=== "Published release"
+=== "pyproject.toml"
 
     Add this section to `pyproject.toml`:
 
@@ -60,7 +58,7 @@ keep the corresponding `LICENSE` at the project root.
     ignore-folders = ["src/generated"]
     ```
 
-=== "Source checkout"
+=== ".lmh.toml"
 
     Create `.lmh.toml` in your project root:
 
@@ -74,7 +72,8 @@ keep the corresponding `LICENSE` at the project root.
     ignore-folders = ["src/generated"]
     ```
 
-    Select only the languages used by your project. The default is Python.
+Select only the languages used by your project. The default is Python. Both
+configuration examples work with the published release and source checkout.
 
 ## Check existing headers
 

@@ -52,7 +52,7 @@ and `fix`:
 ```json
 {
   "schema_version": 1,
-  "tool_version": "0.6.0",
+  "tool_version": "0.7.0",
   "command": "check",
   "config_path": "pyproject.toml",
   "checked": 1,

@@ -4,6 +4,6 @@ message: "If you use this software in your work, please cite it as below."
 authors:
 - family-names: "Fernandez"
   given-names: "François-Guillaume"
-title: "Python legal-header linter and conservative fixer"
-version: 0.6.0rc1
+title: "Source copyright and license header linter and conservative fixer"
+version: 0.7.0
 url: "https://github.com/frgfm/lint-my-headers"

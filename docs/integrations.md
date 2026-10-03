@@ -8,9 +8,9 @@ Use the same header policy in your editor workflow, pull-request checks, and sch
 
 ## pre-commit and prek
 
-For the published 0.6.0 wheel, use an isolated Python 3.11+ hook with policy in
-`pyproject.toml`. This checks Python files; `--only-binary` prevents an unexpected
-Rust build.
+For the published 0.7.0 native wheel, use an isolated Python 3.11+ hook.
+Configure `languages` in any supported policy file for multilingual checks;
+the default is Python. `--only-binary` prevents an unexpected Rust build.
 
 ```yaml
 repos:
@@ -20,24 +20,24 @@ repos:
         name: Lint My Headers
         entry: lmh check
         language: python
-        types: [python]
+        types: [file]
         additional_dependencies:
           - --only-binary=lint-my-headers
-          - lint-my-headers==0.6.0
+          - lint-my-headers==0.7.0
 ```
 
-For current multilingual support, the first-party source hook builds Rust on its
+Alternatively, the first-party source hook builds Rust on its
 first installation using the pinned toolchain:
 
 ```yaml
 repos:
   - repo: https://github.com/frgfm/lint-my-headers
-    rev: <TAG_OR_IMMUTABLE_SHA>
+    rev: v0.7.0
     hooks:
       - id: lmh
 ```
 
-Replace the placeholder with a reviewed revision that includes your languages.
+Prefer an immutable release SHA for production workflows.
 pre-commit's Rust installer does not pass `--locked`.
 
 Run either tool against all files:
@@ -65,11 +65,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: frgfm/lint-my-headers@v0.6.0
+      - uses: frgfm/lint-my-headers@v0.7.0
 ```
 
 Prefer immutable release SHAs for production workflows. The
-[v0.6.0 release notes](https://github.com/frgfm/lint-my-headers/releases/tag/v0.6.0)
+[v0.7.0 release notes](https://github.com/frgfm/lint-my-headers/releases/tag/v0.7.0)
 provide its commit SHA. The default installer uses uv and the exact PyPI version
 declared by the Action ref, with source builds disabled. Unavailable wheels,
 missing releases, and floating versions fail.
