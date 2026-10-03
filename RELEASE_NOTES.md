@@ -1,3 +1,71 @@
+# Lint My Headers v0.7.0
+
+Version 0.7.0 brings the multilingual CLI to the published native PyPI wheels.
+Check and safely refresh existing copyright and license headers in Python,
+JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++ using one
+explicit policy.
+
+## Install and upgrade
+
+```shell
+uv tool install lint-my-headers==0.7.0
+# Existing uv tool installation:
+uv tool install --force lint-my-headers==0.7.0
+```
+
+For pip, run `python -m pip install --upgrade lint-my-headers==0.7.0`.
+PyPI tooling and the optional launcher require Python 3.11+. Wheels contain
+native executables; source builds require Rust 1.93 and a C compiler.
+
+## Changes since 0.6.0
+
+- Support JavaScript, TypeScript, Rust, Go, Swift, Bash/shell, C, and C++ in
+  addition to Python, including language-specific leading-header handling.
+- Discover policy in `.lmh.toml`, `pyproject.toml`, Cargo package/workspace
+  metadata, or `package.json`. Search upward for the nearest policy without
+  merging configurations.
+- Accelerate large-tree checks and repairs with bounded parallel work and
+  reuse of header-analysis state. The performance guide retains measured
+  results, fixtures, and reproduction instructions.
+- Reject blank custom license notices and require complete notice lines,
+  including a final line without a trailing newline.
+- Provide the documentation site at `https://docs.fgfm.dev/lint-my-headers/`
+  through package metadata and maintained installation/integration examples.
+
+## Migration and integration
+
+The default language remains Python. Existing 0.6.0 Python policies continue
+to work. Add only the languages used by your project:
+
+```toml
+[tool.lint-my-headers]
+owner = "Example Organization"
+starting-year = 2024
+license = "Apache-2.0"
+languages = ["python", "typescript", "rust"]
+paths = ["src", "tests"]
+ignore-folders = ["node_modules", "target"]
+```
+
+Use your established owner, earliest accepted creation year, and license,
+and keep the matching `LICENSE` at the project root. Blank custom notice files
+are rejected; source headers with incomplete notice lines are reported.
+
+For the GitHub Action, update the ref to `frgfm/lint-my-headers@v0.7.0`.
+The Action installs its exact PyPI version with source builds disabled.
+Prefer the immutable release commit SHA, recorded in the GitHub release.
+The README and integration guide provide a wheel-only pre-commit/prek recipe
+for multilingual checks and a tagged source-hook alternative.
+
+Both CLI names, `check`/`fix`, exit codes 0/1/2, JSON schema version 1,
+diagnostic meanings, and Action inputs/outputs are preserved. `check` remains
+read-only. `fix` changes only one recognized stale year for the configured
+owner, preserves other bytes and mode, and refuses ambiguous or unsafe
+targets. Missing headers require manual insertion; this release does not
+claim legal, SPDX, or REUSE compliance.
+
+---
+
 # Lint My Headers v0.6.0
 
 `validate-python-headers` is now **Lint My Headers**. This is an intentional clean break before the first PyPI publication.

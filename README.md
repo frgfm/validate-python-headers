@@ -33,7 +33,7 @@ same explicit policy.
 - **Native Rust execution.** A compiled CLI with no Python, Node.js, or language toolchain
   required to run the installed binary.
 - **Nine languages, one policy.** Python, JavaScript, TypeScript, Rust, Go, Swift, Bash,
-  C, and C++ in the current source CLI.
+  C, and C++.
 - **Leading-header checks.** Recognizes the opening comment region and requires notices
   before code, keeping header-like text in program bodies out of repairs.
 - **Precise, reviewable fixes.** Refreshes recognized stale years while preserving the
@@ -65,16 +65,16 @@ warm-cache results; CPU limits and storage affect the comparison.
 Install the published release with [uv](https://docs.astral.sh/uv/):
 
 ```shell
-uv tool install lint-my-headers==0.6.0
+uv tool install lint-my-headers==0.7.0
 ```
 
-Or install with pip: `python -m pip install lint-my-headers==0.6.0`.
+Or install with pip: `python -m pip install lint-my-headers==0.7.0`.
 
-> **Release status:** the published **0.6.0** wheel supports Python and policy in
-> `pyproject.toml`. The current source supports all nine languages and additional
-> configuration files. The quick start below works with both.
+Version **0.7.0** supports all nine languages and policy in `.lmh.toml`,
+`pyproject.toml`, `Cargo.toml`, or `package.json`. Select your project's languages
+in the policy; the default remains Python.
 
-For the current multilingual CLI, build from source with Rust 1.93 and a C compiler:
+To build from source, use Rust 1.93 and a C compiler:
 
 ```shell
 cargo install --git https://github.com/frgfm/lint-my-headers --locked
@@ -147,7 +147,7 @@ Keep the policy in the file your project already uses:
 | `Cargo.toml` | `[package.metadata.lint-my-headers]` or `[workspace.metadata.lint-my-headers]`. |
 | `package.json` | A `"lint-my-headers"` object. |
 
-The current source discovers the nearest policy by searching upward, with priority in
+The CLI discovers the nearest policy by searching upward, with priority in
 that order; Cargo package metadata takes precedence over workspace metadata. Manifests
 without LMH settings are skipped. Invalid policies fail and configurations are never
 merged. `--config` selects an exact file; CLI options override file settings.
@@ -202,7 +202,8 @@ are historical Python-era results, not measurements of the Rust CLI.
 
 ### pre-commit and prek
 
-Use the published Python wheel in an isolated Python 3.11+ hook environment:
+Use the published native wheel in an isolated Python 3.11+ hook environment.
+Select `languages` in your policy to enable multilingual checks:
 
 ```yaml
 repos:
@@ -212,18 +213,18 @@ repos:
         name: Lint My Headers
         entry: lmh check
         language: python
-        types: [python]
+        types: [file]
         additional_dependencies:
           - --only-binary=lint-my-headers
-          - lint-my-headers==0.6.0
+          - lint-my-headers==0.7.0
 ```
 
-For the current multilingual CLI, use the first-party source hook at a reviewed revision:
+Alternatively, use the first-party source hook at the release tag:
 
 ```yaml
 repos:
   - repo: https://github.com/frgfm/lint-my-headers
-    rev: <TAG_OR_IMMUTABLE_SHA>
+    rev: v0.7.0
     hooks:
       - id: lmh
 ```
@@ -233,17 +234,17 @@ pre-commit's Rust installer does not pass `--locked`. Both hooks run read-only c
 
 ### GitHub Action
 
-Add the published Python release to your existing workflow:
+Add the published release to your existing workflow:
 
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: frgfm/lint-my-headers@v0.6.0
+  - uses: frgfm/lint-my-headers@v0.7.0
 ```
 
 The Action reads repository policy and uses uv to install the exact PyPI version with
 source builds disabled. Prefer immutable release SHAs; the
-[v0.6.0 release notes](https://github.com/frgfm/lint-my-headers/releases/tag/v0.6.0)
+[v0.7.0 release notes](https://github.com/frgfm/lint-my-headers/releases/tag/v0.7.0)
 provide its commit SHA. For an unreleased multilingual revision, pin its reviewed SHA
 and set `version: source` to build that Action checkout using `Cargo.lock`.
 
@@ -266,7 +267,7 @@ First, declare LMH in your project's quality dependencies, then add a `headers-f
 
 ```toml
 [dependency-groups]
-quality = ["lint-my-headers==0.6.0"]
+quality = ["lint-my-headers==0.7.0"]
 ```
 
 Run `uv lock` and commit the updated `uv.lock`, then add:

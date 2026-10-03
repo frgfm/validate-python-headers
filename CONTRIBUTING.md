@@ -66,8 +66,8 @@ The build helpers use Bash, curl, and either `sha256sum` or `shasum` (Linux and
 macOS; on Windows use Git Bash or WSL). Zensical itself still uses Python through
 the pinned `docs` dependency group.
 
-Keep examples aligned with the CLI and distinguish the published 0.6.0 Python
-release from multilingual features on `main`. Check links and preview each page
+Keep examples aligned with the released CLI and distinguish unreleased features
+on `main` from the published version. Check links and preview each page
 at desktop and mobile widths. Use the README for the maintained annual workflow
 template rather than duplicating it across documentation pages.
 
