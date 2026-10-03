@@ -16,6 +16,8 @@ Follow the [code of conduct](CODE_OF_CONDUCT.md), [runtime contracts](README.md)
 
 Use the Rust toolchain pinned in `rust-toolchain.toml`, a native linker, Python 3.11+, and uv. Work on a feature branch.
 
+Prefer Bash for standalone scripts that run commands and manage files. Use Python when its APIs or structured data handling make the task clearer.
+
 ```shell
 make install-quality
 make test
@@ -23,8 +25,8 @@ make quality
 make package-check
 uv run --no-sync --group quality prek run --all-files
 uv run --no-sync --group quality prek try-repo . lmh --all-files
-uv run --script .github/smoke_wheel_hook.py --engine pre-commit --dist dist
-uv run --script .github/smoke_wheel_hook.py --engine prek --dist dist
+bash .github/smoke_wheel_hook.sh --engine pre-commit --dist dist
+bash .github/smoke_wheel_hook.sh --engine prek --dist dist
 git diff --check
 ```
 
