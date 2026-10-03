@@ -16,6 +16,8 @@ Follow the [code of conduct](CODE_OF_CONDUCT.md), [runtime contracts](README.md)
 
 Use the Rust toolchain pinned in `rust-toolchain.toml`, a native linker, Python 3.11+, and uv. Work on a feature branch.
 
+Prefer Bash for standalone scripts that run commands and manage files. Use Python when its APIs or structured data handling make the task clearer.
+
 ```shell
 make install-quality
 make test
@@ -23,12 +25,21 @@ make quality
 make package-check
 uv run --no-sync --group quality prek run --all-files
 uv run --no-sync --group quality prek try-repo . lmh --all-files
+bash .github/smoke_wheel_hook.sh --engine pre-commit --dist dist
+bash .github/smoke_wheel_hook.sh --engine prek --dist dist
 git diff --check
 ```
 
 `make style` applies formatting fixes. Review its diff. `make spdx-check` verifies the exact pinned snapshot and generated legacy compatibility data; use `python scripts/update_spdx_licenses.py --help` for deliberate updates.
 
 Keep regressions covered at the layer that owns the behavior. Preserve read-only checks, year-only repairs, all other bytes/mode, link/race refusal, JSON, exit codes, and Action outputs. Never infer legal ownership or licensing.
+
+`lmh` tests the source hook. The wheel-hook smoke tests use the artifacts from
+`make package-check` with fresh caches and compiler guards. They check Python
+and mixed-language repositories, record cold and warm run times, and reject a
+source-only install. Each tested language must report its own stale header, so
+the tests fail if a file filter silently skips that language. Keep the `lmh-wheel`
+package pin aligned with the release version; run these tests when preparing a release.
 
 ## Documentation
 

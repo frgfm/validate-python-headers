@@ -202,8 +202,25 @@ are historical Python-era results, not measurements of the Rust CLI.
 
 ### pre-commit and prek
 
+The new `lmh-wheel` repository hook uses [uv](https://docs.astral.sh/uv/) to run
+the exact released native wheel. Install uv and put it on `PATH`, then select
+your project's `languages` in its policy:
+
+```yaml
+repos:
+  - repo: https://github.com/frgfm/lint-my-headers
+    rev: <reviewed-commit-with-lmh-wheel>
+    hooks:
+      - id: lmh-wheel
+```
+
+This hook is available on `main` and will ship in the next release. Replace the
+placeholder with a reviewed commit that contains it; `v0.7.0` has only the source
+hook. uv manages Python 3.11+ and caches the installed wheel for later runs.
+Source builds are disabled, so an unavailable wheel fails without compiling Rust.
+
 Use the published native wheel in an isolated Python 3.11+ hook environment.
-Select `languages` in your policy to enable multilingual checks:
+This released recipe also works without uv:
 
 ```yaml
 repos:
@@ -230,7 +247,7 @@ repos:
 ```
 
 The source hook compiles Rust on first installation with the pinned toolchain.
-pre-commit's Rust installer does not pass `--locked`. Both hooks run read-only checks.
+pre-commit's Rust installer does not pass `--locked`. All hooks run read-only checks.
 
 ### GitHub Action
 
