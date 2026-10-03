@@ -23,12 +23,20 @@ make quality
 make package-check
 uv run --no-sync --group quality prek run --all-files
 uv run --no-sync --group quality prek try-repo . lmh --all-files
+uv run --script .github/smoke_wheel_hook.py --engine pre-commit --dist dist
+uv run --script .github/smoke_wheel_hook.py --engine prek --dist dist
 git diff --check
 ```
 
 `make style` applies formatting fixes. Review its diff. `make spdx-check` verifies the exact pinned snapshot and generated legacy compatibility data; use `python scripts/update_spdx_licenses.py --help` for deliberate updates.
 
 Keep regressions covered at the layer that owns the behavior. Preserve read-only checks, year-only repairs, all other bytes/mode, link/race refusal, JSON, exit codes, and Action outputs. Never infer legal ownership or licensing.
+
+`lmh` tests the source hook. The wheel-hook smoke tests use the artifacts from
+`make package-check` with fresh caches and compiler guards. They check Python
+and mixed-language repositories, record cold and warm run times, and reject a
+source-only install. Keep the `lmh-wheel` package pin aligned with the release
+version; run these tests when preparing a release.
 
 ## Documentation
 

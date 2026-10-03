@@ -8,6 +8,30 @@ Use the same header policy in your editor workflow, pull-request checks, and sch
 
 ## pre-commit and prek
 
+### Repository wheel hook
+
+Install [uv](https://docs.astral.sh/uv/) and put it on `PATH`. Use the short
+repository hook to run the exact released native wheel:
+
+```yaml
+repos:
+  - repo: https://github.com/frgfm/lint-my-headers
+    rev: <reviewed-commit-with-lmh-wheel>
+    hooks:
+      - id: lmh-wheel
+```
+
+The `lmh-wheel` hook is available on `main` and will ship in the next release.
+Replace the placeholder with a reviewed commit that contains it. The `v0.7.0`
+tag has only the source hook.
+
+Configure `languages` in your policy; the default is Python. uv manages Python
+3.11+ and caches the wheel environment for later runs. It ignores installed uv
+tools and uv configuration files, and disables source builds. A missing platform
+wheel fails; choose the source hook below if you need a Rust build.
+
+### Released wheel recipe without uv
+
 For the published 0.7.0 native wheel, use an isolated Python 3.11+ hook.
 Configure `languages` in any supported policy file for multilingual checks;
 the default is Python. `--only-binary` prevents an unexpected Rust build.
@@ -26,7 +50,9 @@ repos:
           - lint-my-headers==0.7.0
 ```
 
-Alternatively, the first-party source hook builds Rust on its
+### Source hook
+
+The existing first-party `lmh` hook builds Rust on its
 first installation using the pinned toolchain:
 
 ```yaml
@@ -39,6 +65,8 @@ repos:
 
 Prefer an immutable release SHA for production workflows.
 pre-commit's Rust installer does not pass `--locked`.
+
+### Run a check
 
 Run either tool against all files:
 
