@@ -71,7 +71,9 @@ def main() -> None:
     repository = Path(__file__).resolve().parents[1]
     summary = {"engine": args.engine}
 
-    with TemporaryDirectory(prefix="lmh-wheel-hook-") as temporary:
+    # pre-commit resolves local repo paths relative to the fixture; Windows
+    # requires both paths to be on the same drive.
+    with TemporaryDirectory(prefix="lmh-wheel-hook-", dir=repository.parent) as temporary:
         base = Path(temporary)
         guards = base / "compiler-guards"
         guards.mkdir()
